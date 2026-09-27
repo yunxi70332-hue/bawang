@@ -1,0 +1,86 @@
+{
+  "evidence_type": "static Blutter AOT recovery only",
+  "libapp": {
+    "path": "E:\\霸王茶姬\\decompiled\\raw_apk\\lib\\arm64-v8a\\libapp.so",
+    "sha256": "8b4aa0dd6dc15ec8380e402bfdb251941678c5b7830ee5a9200822857da5edd7"
+  },
+  "source": "E:\\霸王茶姬\\so_analysis\\blutter_out\\asm\\chagee_base_network\\network\\chagee_interceptor.dart",
+  "methods": {
+    "_handleRequestPostBody": {
+      "address": "0xb48518",
+      "size": "0x888",
+      "literals": [
+        "customHeaders",
+        "requestEncryptFields",
+        "sk",
+        "signFields",
+        "secretKey",
+        "sign",
+        "sign failed: "
+      ],
+      "calls": [
+        "[dart:convert] ::base64Decode",
+        "[package:encrypt/encrypt.dart] Encrypted::Encrypted.fromUtf8",
+        "[package:encrypt/encrypt.dart] AES::AES",
+        "[package:chagee_base_network/network/chagee_interceptor.dart] ChageeInterceptor::buildEncryptedDataFromOriginal"
+      ]
+    },
+    "buildEncryptedDataFromOriginal": {
+      "address": "0xb49234",
+      "size": "0x59c",
+      "literals": [],
+      "calls": [
+        "[package:chagee_base_network/network/chagee_interceptor.dart] ChageeInterceptor::buildEncryptedDataFromOriginal",
+        "[package:encrypt/encrypt.dart] Encrypter::encrypt",
+        "[package:encrypt/encrypt.dart] Encrypted::base64"
+      ]
+    },
+    "_decryptResponseIfNeeded": {
+      "address": "0xb21730",
+      "size": "0x404",
+      "literals": [
+        "customHeaders",
+        "responseEncryptFields",
+        "sk"
+      ],
+      "calls": [
+        "[dart:convert] ::base64Decode",
+        "[package:encrypt/encrypt.dart] Encrypted::Encrypted.fromUtf8",
+        "[package:encrypt/encrypt.dart] AES::AES",
+        "[package:chagee_base_network/network/chagee_interceptor.dart] ChageeInterceptor::decryptFieldsInResponse"
+      ]
+    },
+    "decryptFieldsInResponse": {
+      "address": "0xb21ba8",
+      "size": "0x554",
+      "literals": [],
+      "calls": [
+        "[package:chagee_base_network/network/chagee_interceptor.dart] ChageeInterceptor::decryptFieldsInResponse",
+        "[package:encrypt/encrypt.dart] Encrypter::decrypt64"
+      ]
+    },
+    "_handleRequestHeaders": {
+      "address": "0xb49ad4",
+      "size": "0x1b0",
+      "literals": [
+        "customHeaders"
+      ],
+      "calls": [
+        "[package:chagee_global_app/init.dart] NetHeaderService::headers"
+      ]
+    },
+    "_handleCustomBaseUrl": {
+      "address": "0xb49fa8",
+      "size": "0xc4",
+      "literals": [
+        "customBaseUrl"
+      ],
+      "calls": []
+    }
+  },
+  "limits": [
+    "No key, IV, token, identifier or packet payload is collected or emitted.",
+    "Static call markers establish client code paths, not server acceptance rules.",
+    "Runtime claims require a sanitized trace captured from a controlled test device."
+  ]
+}

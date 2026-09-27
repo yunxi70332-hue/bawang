@@ -1,0 +1,16 @@
+{
+  "env": "release",
+  "exported_at": "2026-09-23",
+  "note": "device SP token + wire uuid; token is 608B bare JWT",
+  "base": {
+    "gw": "https://gw.chagee.com",
+    "gj_api": "https://gj-api.bwcj.com",
+    "api_cn": "https://api-cn.chagee.com",
+    "getsk": "https://gj-api.bwcj.com/encrypt-server/enctrypt/api/getsk?code=CHAGEE_C_001"
+  },
+  "token_len": 608,
+  "token": "eyJhbGciOiJSUzI1NiJ9.eyJzdWIiOiIxMTkwMDE4MjUwIiwiaXNzIjoidXNlcl9zZXJ2ZXIiLCJpYXQiOjE3OTAwNzU3MDEsImV4cCI6MTc5MjY2NzcwMSwibG9naW5Db2RlIjoiZTA4NzMyNjIyMTViYzczMzQ4MTkwMGQyN2JkZTJkNzgiLCJzY2VuZSI6ImN1c3RvbWVyIiwibmV3VXNlciI6MCwib3MiOiJhbmRyb2lkIiwiY2hhbm5lbCI6IkFQUCJ9.eahLmthww_WN6Bo2skNm1rj4LuJLrOzZskh9dFsxKVqR7p9J5nBHr36izPXTkwUIQQK0x4BIQhYdEhrSUZHb6IwfuPvTAT6qsF0nj-TElM6FbJHf_ImP-xTQt9e4-rHw28Og3rALjebySlO3Sm6n1t5vFhaxMZ0LnGqJKD3ZBt24rSg9tNlcgTpfNxXulcBJKBHcqOGNTPVL1fabB36VPlZNVFG8H908rLd5wotcy1ySvc7ao074HPZPTXU59fcUoHLz7rW_z5JW35JqkCSuZx6QJSpQ3A1QsYYohij1Mgo-JAFHuQBzzBmtezV1gAXdmDNiBvWrb3sr8PQotGgIAQ",
+  "uuid": "029a1add-a99d-5fc5-a6bc-d046755108d3",
+  "cid": "029a1add-a99d-5fc5-a6bc-d046755108d3",
+  "phone": "15914331290"
+}

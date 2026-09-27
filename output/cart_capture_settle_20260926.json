@@ -1,0 +1,414 @@
+[
+ {
+  "path": "/chagee-navigation-web/api/navigation/goods/sku/calculatePrice",
+  "status": 200,
+  "req": {
+   "skuInfo": {
+    "spuId": "1253292834069934081",
+    "spuType": "stand",
+    "skuId": "1253292834082516992",
+    "num": 1,
+    "salePrice": 20.0,
+    "specList": [
+     {
+      "specId": "653599312273510400",
+      "specOptionId": "653599312273510402"
+     }
+    ],
+    "attributeList": [
+     {
+      "attributeId": "745317722624679942",
+      "attributeOptionId": "745317722624679945"
+     },
+     {
+      "attributeId": "623882672850116609",
+      "attributeOptionId": "623882672850116614"
+     }
+    ]
+   },
+   "saleChannel": "2",
+   "saleType": "1",
+   "storeNo": "CN08121",
+   "storeBusinessType": 1,
+   "storeChannelCode": "android",
+   "userId": "1282813116"
+  },
+  "resp": {
+   "errcode": "0",
+   "errmsg": "处理成功",
+   "data": {
+    "spuId": "1253292834069934081",
+    "spuType": "stand",
+    "skuId": "1253292834082516992",
+    "totalSalePrice": "20.00",
+    "totalTradePrice": "20.00",
+    "totalGoodsItemPrice": "15.00",
+    "totalGoodsItemDiscountAmount": "0.00",
+    "totalGoodsPaymentDiscountAmount": "5.00",
+    "totalDiscountAmount": "5.00",
+    "totalWrappingPrice": "0.00"
+   },
+   "globalTicket": "704b726d99551019d9866877bcc6ca66",
+   "timestamp": 1790431824477
+  }
+ },
+ {
+  "path": "/chagee-navigation-web/api/navigation/goods/sku/calculatePrice",
+  "status": 200,
+  "req": {
+   "skuInfo": {
+    "spuId": "1253292834069934081",
+    "spuType": "stand",
+    "skuId": "1253292834082516992",
+    "num": 1,
+    "salePrice": 20.0,
+    "specList": [
+     {
+      "specId": "653599312273510400",
+      "specOptionId": "653599312273510402"
+     }
+    ],
+    "attributeList": [
+     {
+      "attributeId": "745317722624679942",
+      "attributeOptionId": "745317722624679945"
+     },
+     {
+      "attributeId": "623882672850116609",
+      "attributeOptionId": "623882672850116612"
+     }
+    ],
+    "extraList": [
+     {
+      "spuId": "1253292834069934081",
+      "skuId": "1246792400066088961",
+      "extraId": "1271779784066506753",
+      "num": 1,
+      "salePrice": 0.0,
+      "spuType": "extra"
+     }
+    ]
+   },
+   "saleChannel": "2",
+   "saleType": "1",
+   "storeNo": "CN08121",
+   "storeBusinessType": 1,
+   "storeChannelCode": "android",
+   "userId": "1282813116"
+  },
+  "resp": {
+   "errcode": "0",
+   "errmsg": "处理成功",
+   "data": {
+    "spuId": "1253292834069934081",
+    "spuType": "stand",
+    "skuId": "1253292834082516992",
+    "totalSalePrice": "20.00",
+    "totalTradePrice": "20.00",
+    "totalGoodsItemPrice": "15.00",
+    "totalGoodsItemDiscountAmount": "0.00",
+    "totalGoodsPaymentDiscountAmount": "5.00",
+    "totalDiscountAmount": "5.00",
+    "totalWrappingPrice": "0.00"
+   },
+   "globalTicket": "1df8e604d94b1d8d832d124d2d0a2d09",
+   "timestamp": 1790431829369
+  }
+ },
+ {
+  "path": "/chagee-biz-trade-web/trade-web/order/settlePrice",
+  "status": 200,
+  "req": {
+   "settleBizInfo": {
+    "businessType": 1,
+    "orderType": 0,
+    "storeNo": "CN08121",
+    "userId": "1282813116",
+    "userType": 3,
+    "deliveryType": 1,
+    "packageFeeSelected": null,
+    "recommendCoupon": true
+   },
+   "goodsList": [
+    {
+     "uniqueKey": "a75b2361-e44b-4ace-ae65-1b38a6338403",
+     "currentGoodId": null,
+     "itemId": null,
+     "orderItemNo": null,
+     "buyNum": 1,
+     "salePrice": "15",
+     "realPrice": null,
+     "marketPrice": "20",
+     "totalItemAmount": "20",
+     "totalItemDiscountedAmount": "15",
+     "spuId": "1253292834069934081",
+     "skuId": "1253292834082516992",
+     "skuName": "粉芭乐",
+     "spuType": "stand",
+     "skuImage": "https://images.qmai.cn/s49006/2026/09/14/efc78d54275abbe932.jpg",
+     "clientUniqKey": null,
+     "spuCategory": null,
+     "tagImageUrl": null,
+     "refunded": null,
+     "specList": [
+      {
+       "specId": "653599312273510400",
+       "specOptionId": "653599312273510402",
+       "specOptionName": "大杯"
+      }
+     ],
+     "attributeList": [
+      {
+       "attributeId": "745317722624679942",
+       "attributeName": " 温度",
+       "attributeOptionName": "标准冰",
+       "attributeOptionId": "745317722624679945"
+      },
+      {
+       "attributeId": "623882672850116609",
+       "attributeName": "甜度",
+       "attributeOptionName": "少糖",
+       "attributeOptionId": "623882672850116612"
+      }
+     ],
+     "extraList": [
+      {
+       "uniqueKey": "f517a8e3-767d-4885-a842-207a54c423a2",
+       "spuType": "extra",
+       "spuId": "1246792400057700352",
+       "skuId": "1246792400066088961",
+       "skuName": "无气泡",
+       "skuImage": null,
+       "num": null,
+       "buyNum": 1,
+       "price": null,
+       "extraId": "1271779784066506753",
+       "salePrice": "0.0",
+       "totalItemAmount": null,
+       "totalItemDiscountedAmount": null
+      }
+     ],
+     "comboGroupId": null,
+     "isGift": null,
+     "ruleId": null,
+     "comboGroupType": null,
+     "tagList": null,
+     "comboItemList": null,
+     "discountList": null,
+     "tradeGoodsType": null,
+     "nutritionInfo": {
+      "energyLevel": "C",
+      "energyUnit": "kcal/杯",
+      "energyValue": "192"
+     },
+     "promotionDiscountId": null
+    }
+   ],
+   "discountList": []
+  },
+  "resp": {
+   "errcode": "0",
+   "errmsg": "处理成功",
+   "data": {
+    "confirmOrderKey": "202609261410320010132193116",
+    "totalBuyNum": 1,
+    "orderGroupList": [
+     {
+      "orderId": "100001",
+      "goodsList": [
+       {
+        "spuId": "1253292834069934081",
+        "spuType": "stand",
+        "skuId": "1253292834082516992",
+        "skuName": "粉芭乐",
+        "skuImage": "https://images.qmai.cn/s49006/2026/09/14/efc78d54275abbe932.jpg",
+        "buyNum": 1,
+        "specList": [
+         {
+          "specId": "653599312273510400",
+          "specOptionId": "653599312273510402",
+          "specOptionName": "大杯"
+         }
+        ],
+        "attributeList": [
+         {
+          "attributeId": "745317722624679942",
+          "attributeName": " 温度",
+          "attributeOptionId": "745317722624679945",
+          "attributeOptionName": "标准冰"
+         },
+         {
+          "attributeId": "623882672850116609",
+          "attributeName": "甜度",
+          "attributeOptionId": "623882672850116612",
+          "attributeOptionName": "少糖"
+         }
+        ],
+        "uniqueKey": "a75b2361-e44b-4ace-ae65-1b38a6338403",
+        "salePrice": "20",
+        "tradeGoodsType": 1,
+        "itemId": "200001_0",
+        "totalItemAmount": "20",
+        "totalItemDiscountedAmount": "20",
+        "extraList": [
+         {
+          "uniqueKey": "f517a8e3-767d-4885-a842-207a54c423a2",
+          "spuId": "1246792400057700352",
+          "skuId": "1246792400066088961",
+          "buyNum": 1,
+          "skuName": "无气泡",
+          "salePrice": "0",
+          "extraId": "1271779784066506753",
+          "spuType": "extra"
+         }
+        ],
+        "discountList": [
+         {
+          "discountId": "1310728254785470465",
+          "discountName": "【新人礼】5元无门槛券",
+          "discountSource": 1,
+          "discountType": 1,
+          "scopeType": 2,
+          "discountAmount": "5"
+         }
+        ],
+        "tagList": [],
+        "nutritionInfo": {
+         "energyValue": "192",
+         "energyUnit": "kcal/杯",
+         "energyLevel": "C"
+        }
+       }
+      ],
+      "discountList": [],
+      "tradeFundInfo": {
+       "totalOriginPrice": "20",
+       "totalSalePrice": "20",
+       "totalMarketPrice": "0",
+       "totalTradePrice": "20",
+       "totalGoodsItemPrice": "15",
+       "totalFreightPrice": "0",
+       "totalRealFreightPrice": "0",
+       "totalPackagePrice": "0",
+       "totalRealPackagePrice": "0",
+       "totalExtraGoodsPrice": "0",
+       "buyerRealPrice": "15",
+       "totalDiscountAmount": "5",
+       "totalGoodsItemDiscountAmount": "0",
+       "totalGoodsPaymentDiscountAmount": "5",
+       "totalFreightDiscountAmount": "0",
+       "totalPackageDiscountAmount": "0",
+       "totalCouponDiscountAmount": "",
+       "totalActivityDiscountAmount": ""
+      }
+     }
+    ],
+    "discountList": [
+     {
+      "discountId": "1310728254785470465",
+      "discountName": "【新人礼】5元无门槛券",
+      "discountSource": 1,
+      "discountType": 1,
+      "scopeType": 2,
+      "discountAmount": "5"
+     }
+    ],
+    "availableDiscountList": [],
+    "assetInfo": {
+     "userCouponInfo": {
+      "availableCouponList": [
+       {
+        "couponCode": "1310728254701744128",
+        "templateNo": "1300107212513140736",
+        "templateName": "【新人礼】3元无门槛券",
+        "status": 10,
+        "bizType": 1,
+        "benefitText": "3元",
+        "benefit2Text": "代金",
+        "useStartTime": 1790352000000,
+        "useEndTime": 1791647999000,
+        "thresholdTips": "",
+        "currencyCode": "CNY",
+        "currency": "¥或元",
+        "canDiscount": true,
+        "unavailableReason": "与已参与优惠不能同享",
+        "selected": false
+       },
+       {
+        "couponCode": "1310728254785470465",
+        "templateNo": "1300107561089183745",
+        "templateName": "【新人礼】5元无门槛券",
+        "status": 10,
+        "bizType": 1,
+        "benefitText": "5元",
+        "benefit2Text": "代金",
+        "useStartTime": 1790352000000,
+        "useEndTime": 1791647999000,
+        "thresholdTips": "",
+        "currencyCode": "CNY",
+        "currency": "¥或元",
+        "canDiscount": true,
+        "selected": true
+       }
+      ],
+      "unavailableCouponList": [
+       {
+        "couponCode": "1310728254869356545",
+        "templateNo": "1300108250382204928",
+        "templateName": "【新人礼】4元减配券",
+        "status": 10,
+        "bizType": 21,
+        "benefitText": "减4元",
+        "benefit2Text": "配送费",
+        "useStartTime": 1790352000000,
+        "useEndTime": 1791647999000,
+        "thresholdTips": "",
+        "currencyCode": "CNY",
+        "currency": "¥或元",
+        "canDiscount": false,
+        "unavailableReason": "订单无配送费",
+        "selected": false
+       }
+      ]
+     }
+    },
+    "tradeFundInfo": {
+     "totalOriginPrice": "20",
+     "totalSalePrice": "20",
+     "totalMarketPrice": "0",
+     "totalTradePrice": "20",
+     "totalGoodsItemPrice": "15",
+     "totalFreightPrice": "0",
+     "totalRealFreightPrice": "0",
+     "totalPackagePrice": "0",
+     "totalRealPackagePrice": "0",
+     "totalExtraGoodsPrice": "0",
+     "buyerRealPrice": "15",
+     "totalDiscountAmount": "5",
+     "totalGoodsItemDiscountAmount": "0",
+     "totalGoodsPaymentDiscountAmount": "5",
+     "totalFreightDiscountAmount": "0",
+     "totalPackageDiscountAmount": "0",
+     "totalCouponDiscountAmount": "5",
+     "totalActivityDiscountAmount": "0",
+     "packageFeeInfo": {
+      "packageName": "保温袋",
+      "packageRemark": "保温保冷，锁住新鲜口感",
+      "required": false,
+      "amount": "1"
+     }
+    },
+    "channelMapping": {
+     "tradeChannelCode": "09",
+     "storeChannelCode": "android",
+     "storeBusinessType": 1,
+     "goodsChannelType": 2,
+     "goodsSaleType": 1
+    }
+   },
+   "thirdTraceId": "",
+   "globalTicket": "777b3ab63f40ce3148b0cde6dbc6b97a",
+   "timestamp": 1790431832925
+  }
+ }
+]

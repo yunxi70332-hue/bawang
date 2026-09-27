@@ -1,0 +1,24 @@
+﻿== 设备 ==
+  Android   : 9 (sdk 28)
+  ABI       : x86_64
+  debuggable: 1
+  SELinux   : Permissive
+== 系统证书库（应全为原厂 PEM）==
+  count = 137
+  non PEM (suspicious):
+== 用户证书库（市售设备应为空）==
+total 4
+-rw-r--r-- 1 system system 886 2026-09-10 21:34 87bc3517.0
+== 是否有 CAP 覆盖层在挂载 ==
+NOT_MOUNTED
+== 抓包工具 / 代理指纹 ==
+  capture apps:
+    package:com.reqable.android
+    package:com.guoshi.httpcanary
+  http_proxy = null
+  global_http_proxy_host = null
+  global_http_proxy_port = null
+  global_http_proxy_exclusion_list = null
+  global_proxy_pac_url = null
+
+判定：用户证书库非空、或上面列出任何包名，都是可被识别的中间人指纹。

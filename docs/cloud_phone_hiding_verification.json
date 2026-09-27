@@ -1,0 +1,42 @@
+{
+  "device": "TJF10128022 / 云手机 #8179 (4G TJ 云真机)",
+  "date": "2026-09-21",
+  "purpose": "霸王茶姬 APK 脱壳学习前的云真机环境隐藏验证（App 自身无检测，检测面=易盾风控+极光/支付宝/Sentry/神策 SDK 指纹收集）",
+  "phases": {
+    "baseline": {
+      "android": "13 (sdk 33)",
+      "abi": "arm64-v8a (native)",
+      "model_brand": "K61L-F0 / HONOR / HUAWEI (平台伪装)",
+      "ro.build.tags": "release-keys",
+      "ro.debuggable": "(empty)",
+      "ro.kernel.qemu": "(empty)",
+      "ro.build.type": "user",
+      "command_identity": "uid=2000(shell)",
+      "su_paths": "全部不存在 (KSU 已隐藏)",
+      "data_adb": "存在 (Permission denied) — root 指纹残留",
+      "adb_enabled": "1 (本轮调试开启)",
+      "sensitive_packages": ["com.android.adbkeyboard", "com.android.fileexplorer(+1..4)", "com.tjphone.cloudphonehelper(+1)"],
+      "package_count": 145
+    },
+    "hiding_actions": [
+      {"cmd": "一键清理标记", "result": "执行成功"},
+      {"cmd": "一键清理模块", "result": "执行成功"},
+      {"cmd": "一键仿真（国内）", "result": "执行成功"},
+      {"cmd": "关闭调试", "result": "执行成功"}
+    ],
+    "post_verification": {
+      "adb_enabled": "0 (已确认关闭)",
+      "su_paths": "全部不存在 (不变)",
+      "data_adb": "存在 (不变, 残留风险)",
+      "props": "release-keys / debuggable 空 / qemu 空 (不变)",
+      "sensitive_packages": "与基线一致 (不变)",
+      "command_channel": "关闭调试后 H5 自定义命令通道仍可用 (平台自有通道, 不依赖设备 adb_enabled)"
+    }
+  },
+  "residual_risks": [
+    "/data/adb 目录存在性可被探测 (KSU 数据目录, 移除即失去 root, Phase 5 需要 root, 保留)",
+    "com.tjphone.cloudphonehelper / com.android.adbkeyboard 包名暴露云机身份 (平台功能依赖, 保留)",
+    "结论: 对霸王茶姬 App 本体零影响 (无检测代码); 对易盾风控为低-中风险残留"
+  ],
+  "channel_notes": "输出通道 = /sdcard/*.txt + am start VIEW + 控制窗口截图; 触控注入 = MouseEvent 序列; 指令菜单 = hover+toggle, .menu-item.custom-command"
+}

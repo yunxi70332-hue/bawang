@@ -1,0 +1,1906 @@
+{
+  "meta": {
+    "script": "test_voucher_order_flow.py",
+    "script_version": "1.0.0",
+    "started_at": "2026-09-27 15:50:37",
+    "finished_at": "2026-09-27 15:53:40",
+    "python": "3.12.13",
+    "argv": {
+      "drink": "青青糯山",
+      "random": false,
+      "account_id": 3,
+      "store_no": "CN08121",
+      "cancel_pending": true,
+      "wait_minutes": 15,
+      "archive_dir": null
+    },
+    "account": {
+      "id": 3,
+      "label": "2",
+      "nickname": "Hi，茶友",
+      "phone": "159****1290",
+      "status": "online",
+      "token_fingerprint": "eyJhbGciOiJSUzI1...len=608"
+    },
+    "store": {
+      "store_no": "CN08121",
+      "store_name": "广东佛山顺德龙江沃达百货店"
+    }
+  },
+  "steps": [
+    {
+      "ts": "2026-09-27 15:50:39.229",
+      "name": "前置-账号加载",
+      "request": {
+        "account_id": 3
+      },
+      "response": {
+        "id": 3,
+        "label": "2",
+        "nickname": "Hi，茶友",
+        "phone": "159****1290",
+        "customer_id": "1190018250",
+        "status": "online",
+        "token_fingerprint": "eyJhbGciOiJSUzI1...len=608"
+      }
+    },
+    {
+      "ts": "2026-09-27 15:50:39.612",
+      "name": "前置-待支付检查",
+      "request": {
+        "tabType": "today",
+        "orderType": "1",
+        "channelCode": "android"
+      },
+      "response": {
+        "today_orders": 3,
+        "pending_total": 0,
+        "handled": [],
+        "blocked": []
+      }
+    },
+    {
+      "ts": "2026-09-27 15:50:40.187",
+      "name": "选品-菜单+SPU",
+      "request": {
+        "storeNo": "CN08121",
+        "saleType": "1",
+        "saleChannel": "2"
+      },
+      "response": {
+        "categories": 9,
+        "spu_total": 43,
+        "onsale": 43,
+        "pick": "关键词「青青糯山」命中 1 个，取首个",
+        "spu": {
+          "spuId": "640215811876831233",
+          "name": "青青糯山",
+          "stock": 19998,
+          "saleOut": false
+        }
+      }
+    },
+    {
+      "ts": "2026-09-27 15:50:40.187",
+      "name": "选品-SKU",
+      "request": {
+        "spuId": "640215811876831233",
+        "storeNo": "CN08121"
+      },
+      "response": {
+        "skuId": "655441178728091650",
+        "itemSkuId": "1113574504790253568",
+        "salePrice": "18.00",
+        "stock": 9999,
+        "specOptionInfos": [
+          {
+            "specOptionId": "653599312273510402",
+            "specOptionName": "大杯",
+            "specId": "653599312273510400",
+            "specName": "杯型",
+            "sequence": 1,
+            "globalSequence": 1
+          }
+        ],
+        "attributeList": [
+          {
+            "attributeId": "745317722624679942",
+            "attributeName": " 温度",
+            "attributeOptionId": "745317722624679945",
+            "attributeOptionName": "标准冰"
+          },
+          {
+            "attributeId": "623882672850116609",
+            "attributeName": "甜度",
+            "attributeOptionId": "623882672850116614",
+            "attributeOptionName": "标准糖"
+          }
+        ],
+        "goods_desc": "青青糯山 x1（大杯）"
+      }
+    },
+    {
+      "ts": "2026-09-27 15:50:41.266",
+      "name": "试算-calculatePrice",
+      "request": {
+        "skuInfo": {
+          "spuId": "640215811876831233",
+          "skuId": "655441178728091650",
+          "num": 1,
+          "salePrice": "18.00",
+          "specList": [
+            {
+              "specId": "653599312273510400",
+              "specOptionId": "653599312273510402",
+              "specOptionName": "大杯"
+            }
+          ],
+          "attributeList": [
+            {
+              "attributeId": "745317722624679942",
+              "attributeName": " 温度",
+              "attributeOptionId": "745317722624679945",
+              "attributeOptionName": "标准冰"
+            },
+            {
+              "attributeId": "623882672850116609",
+              "attributeName": "甜度",
+              "attributeOptionId": "623882672850116614",
+              "attributeOptionName": "标准糖"
+            }
+          ]
+        },
+        "storeNo": "CN08121"
+      },
+      "response": {
+        "totalGoodsItemPrice": "8.00",
+        "totalTradePrice": "18.00",
+        "raw_keys": [
+          "skuId",
+          "spuId",
+          "spuType",
+          "totalDiscountAmount",
+          "totalGoodsItemDiscountAmount",
+          "totalGoodsItemPrice",
+          "totalGoodsPaymentDiscountAmount",
+          "totalSalePrice",
+          "totalTradePrice",
+          "totalWrappingPrice"
+        ]
+      }
+    },
+    {
+      "ts": "2026-09-27 15:50:41.266",
+      "name": "试算-settlePrice(无券)",
+      "request": {
+        "goods": {
+          "skuId": "655441178728091650",
+          "quantity": 1
+        },
+        "coupon": null,
+        "recommendCoupon": true
+      },
+      "response": {
+        "totalTradePrice": "18",
+        "buyerRealPrice": "8",
+        "availableCouponCount": 5,
+        "confirmOrderKey": "202609270750410010069008250",
+        "raw": {
+          "confirmOrderKey": "202609270750410010069008250",
+          "totalBuyNum": 1,
+          "orderGroupList": [
+            {
+              "orderId": "100001",
+              "goodsList": [
+                {
+                  "spuId": "640215811876831233",
+                  "spuType": "stand",
+                  "skuId": "655441178728091650",
+                  "skuName": "青青糯山",
+                  "skuImage": "https://images.qmai.cn/s49006/2026/09/15/cb7f608404bc31b507.jpg",
+                  "buyNum": 1,
+                  "specList": [
+                    {
+                      "specId": "653599312273510400",
+                      "specOptionId": "653599312273510402",
+                      "specOptionName": "大杯"
+                    }
+                  ],
+                  "attributeList": [
+                    {
+                      "attributeId": "745317722624679942",
+                      "attributeName": " 温度",
+                      "attributeOptionId": "745317722624679945",
+                      "attributeOptionName": "标准冰"
+                    },
+                    {
+                      "attributeId": "623882672850116609",
+                      "attributeName": "甜度",
+                      "attributeOptionId": "623882672850116614",
+                      "attributeOptionName": "标准糖"
+                    }
+                  ],
+                  "uniqueKey": "4df6f21b-2dae-4353-bb7c-1d0191f07c68",
+                  "salePrice": "18",
+                  "tradeGoodsType": 1,
+                  "itemId": "200001_0",
+                  "totalItemAmount": "18",
+                  "totalItemDiscountedAmount": "18",
+                  "discountList": [
+                    {
+                      "discountId": "1310656331716878336",
+                      "discountName": "霸王茶姬10元代金券-LT",
+                      "discountSource": 1,
+                      "discountType": 1,
+                      "scopeType": 2,
+                      "discountAmount": "10"
+                    }
+                  ],
+                  "tagList": [],
+                  "nutritionInfo": {
+                    "energyValue": "274",
+                    "energyUnit": "kcal/杯",
+                    "energyLevel": "C"
+                  }
+                }
+              ],
+              "discountList": [],
+              "tradeFundInfo": {
+                "totalOriginPrice": "18",
+                "totalSalePrice": "18",
+                "totalMarketPrice": "0",
+                "totalTradePrice": "18",
+                "totalGoodsItemPrice": "8",
+                "totalFreightPrice": "0",
+                "totalRealFreightPrice": "0",
+                "totalPackagePrice": "0",
+                "totalRealPackagePrice": "0",
+                "totalExtraGoodsPrice": "0",
+                "buyerRealPrice": "8",
+                "totalDiscountAmount": "10",
+                "totalGoodsItemDiscountAmount": "0",
+                "totalGoodsPaymentDiscountAmount": "10",
+                "totalFreightDiscountAmount": "0",
+                "totalPackageDiscountAmount": "0",
+                "totalCouponDiscountAmount": "",
+                "totalActivityDiscountAmount": ""
+              }
+            }
+          ],
+          "discountList": [
+            {
+              "discountId": "1310656331716878336",
+              "discountName": "霸王茶姬10元代金券-LT",
+              "discountSource": 1,
+              "discountType": 1,
+              "scopeType": 2,
+              "discountAmount": "10"
+            }
+          ],
+          "availableDiscountList": [],
+          "assetInfo": {
+            "userCouponInfo": {
+              "availableCouponList": [
+                {
+                  "couponCode": "1310656331716878336",
+                  "templateNo": "1248700666894483457",
+                  "templateName": "霸王茶姬10元代金券-LT",
+                  "status": 10,
+                  "bizType": 1,
+                  "benefitText": "10元",
+                  "benefit2Text": "代金",
+                  "useStartTime": 1790352000000,
+                  "useEndTime": 1792943999000,
+                  "thresholdTips": "",
+                  "currencyCode": "CNY",
+                  "currency": "¥或元",
+                  "canDiscount": true,
+                  "selected": true
+                },
+                {
+                  "couponCode": "1310990943181824000",
+                  "templateNo": "1250891502023434240",
+                  "templateName": "霸王茶姬10元代金券-RY",
+                  "status": 10,
+                  "bizType": 1,
+                  "benefitText": "10元",
+                  "benefit2Text": "代金",
+                  "useStartTime": 1790438400000,
+                  "useEndTime": 1793030399000,
+                  "thresholdTips": "满10元可用",
+                  "currencyCode": "CNY",
+                  "currency": "¥或元",
+                  "canDiscount": true,
+                  "unavailableReason": "与已参与优惠不能同享",
+                  "selected": false
+                },
+                {
+                  "couponCode": "1309248687032709120",
+                  "templateNo": "994625568300003329",
+                  "templateName": "霸王茶姬20元代金券-DN",
+                  "status": 10,
+                  "bizType": 1,
+                  "benefitText": "20元",
+                  "benefit2Text": "代金",
+                  "useStartTime": 1790006400000,
+                  "useEndTime": 1797782399000,
+                  "thresholdTips": "",
+                  "currencyCode": "CNY",
+                  "currency": "¥或元",
+                  "canDiscount": true,
+                  "unavailableReason": "与已参与优惠不能同享",
+                  "selected": false
+                },
+                {
+                  "couponCode": "1309274737372479489",
+                  "templateNo": "994625568300003329",
+                  "templateName": "霸王茶姬20元代金券-DN",
+                  "status": 10,
+                  "bizType": 1,
+                  "benefitText": "20元",
+                  "benefit2Text": "代金",
+                  "useStartTime": 1790006400000,
+                  "useEndTime": 1797782399000,
+                  "thresholdTips": "",
+                  "currencyCode": "CNY",
+                  "currency": "¥或元",
+                  "canDiscount": true,
+                  "unavailableReason": "与已参与优惠不能同享",
+                  "selected": false
+                },
+                {
+                  "couponCode": "1309464795643822080",
+                  "templateNo": "994625568300003329",
+                  "templateName": "霸王茶姬20元代金券-DN",
+                  "status": 10,
+                  "bizType": 1,
+                  "benefitText": "20元",
+                  "benefit2Text": "代金",
+                  "useStartTime": 1790092800000,
+                  "useEndTime": 1797868799000,
+                  "thresholdTips": "",
+                  "currencyCode": "CNY",
+                  "currency": "¥或元",
+                  "canDiscount": true,
+                  "unavailableReason": "与已参与优惠不能同享",
+                  "selected": false
+                }
+              ]
+            }
+          },
+          "tradeFundInfo": {
+            "totalOriginPrice": "18",
+            "totalSalePrice": "18",
+            "totalMarketPrice": "0",
+            "totalTradePrice": "18",
+            "totalGoodsItemPrice": "8",
+            "totalFreightPrice": "0",
+            "totalRealFreightPrice": "0",
+            "totalPackagePrice": "0",
+            "totalRealPackagePrice": "0",
+            "totalExtraGoodsPrice": "0",
+            "buyerRealPrice": "8",
+            "totalDiscountAmount": "10",
+            "totalGoodsItemDiscountAmount": "0",
+            "totalGoodsPaymentDiscountAmount": "10",
+            "totalFreightDiscountAmount": "0",
+            "totalPackageDiscountAmount": "0",
+            "totalCouponDiscountAmount": "10",
+            "totalActivityDiscountAmount": "0",
+            "packageFeeInfo": {
+              "packageName": "保温袋",
+              "packageRemark": "保温保冷，锁住新鲜口感",
+              "required": false,
+              "amount": "1"
+            }
+          },
+          "channelMapping": {
+            "tradeChannelCode": "09",
+            "storeChannelCode": "android",
+            "storeBusinessType": 1,
+            "goodsChannelType": 2,
+            "goodsSaleType": 1
+          }
+        }
+      }
+    },
+    {
+      "ts": "2026-09-27 15:50:41.267",
+      "name": "试算-选券",
+      "request": {
+        "available": 5,
+        "strategy": "templateName 含「10元代金券」优先，否则 benefitText 面额最大"
+      },
+      "response": {
+        "chosen": {
+          "couponCode": "1310656331716878336",
+          "templateNo": "1248700666894483457",
+          "templateName": "霸王茶姬10元代金券-LT",
+          "status": 10,
+          "bizType": 1,
+          "benefitText": "10元",
+          "benefit2Text": "代金",
+          "useStartTime": 1790352000000,
+          "useEndTime": 1792943999000,
+          "thresholdTips": "",
+          "currencyCode": "CNY",
+          "currency": "¥或元",
+          "canDiscount": true,
+          "selected": true
+        },
+        "face": "10",
+        "note": "命中「10元代金券」候选 2 张，取 霸王茶姬10元代金券-LT（benefitText=10元）",
+        "available_all": [
+          {
+            "couponCode": "1310656331716878336",
+            "templateNo": "1248700666894483457",
+            "templateName": "霸王茶姬10元代金券-LT",
+            "status": 10,
+            "bizType": 1,
+            "benefitText": "10元",
+            "benefit2Text": "代金",
+            "useStartTime": 1790352000000,
+            "useEndTime": 1792943999000,
+            "thresholdTips": "",
+            "currencyCode": "CNY",
+            "currency": "¥或元",
+            "canDiscount": true,
+            "selected": true
+          },
+          {
+            "couponCode": "1310990943181824000",
+            "templateNo": "1250891502023434240",
+            "templateName": "霸王茶姬10元代金券-RY",
+            "status": 10,
+            "bizType": 1,
+            "benefitText": "10元",
+            "benefit2Text": "代金",
+            "useStartTime": 1790438400000,
+            "useEndTime": 1793030399000,
+            "thresholdTips": "满10元可用",
+            "currencyCode": "CNY",
+            "currency": "¥或元",
+            "canDiscount": true,
+            "unavailableReason": "与已参与优惠不能同享",
+            "selected": false
+          },
+          {
+            "couponCode": "1309248687032709120",
+            "templateNo": "994625568300003329",
+            "templateName": "霸王茶姬20元代金券-DN",
+            "status": 10,
+            "bizType": 1,
+            "benefitText": "20元",
+            "benefit2Text": "代金",
+            "useStartTime": 1790006400000,
+            "useEndTime": 1797782399000,
+            "thresholdTips": "",
+            "currencyCode": "CNY",
+            "currency": "¥或元",
+            "canDiscount": true,
+            "unavailableReason": "与已参与优惠不能同享",
+            "selected": false
+          },
+          {
+            "couponCode": "1309274737372479489",
+            "templateNo": "994625568300003329",
+            "templateName": "霸王茶姬20元代金券-DN",
+            "status": 10,
+            "bizType": 1,
+            "benefitText": "20元",
+            "benefit2Text": "代金",
+            "useStartTime": 1790006400000,
+            "useEndTime": 1797782399000,
+            "thresholdTips": "",
+            "currencyCode": "CNY",
+            "currency": "¥或元",
+            "canDiscount": true,
+            "unavailableReason": "与已参与优惠不能同享",
+            "selected": false
+          },
+          {
+            "couponCode": "1309464795643822080",
+            "templateNo": "994625568300003329",
+            "templateName": "霸王茶姬20元代金券-DN",
+            "status": 10,
+            "bizType": 1,
+            "benefitText": "20元",
+            "benefit2Text": "代金",
+            "useStartTime": 1790092800000,
+            "useEndTime": 1797868799000,
+            "thresholdTips": "",
+            "currencyCode": "CNY",
+            "currency": "¥或元",
+            "canDiscount": true,
+            "unavailableReason": "与已参与优惠不能同享",
+            "selected": false
+          }
+        ]
+      }
+    },
+    {
+      "ts": "2026-09-27 15:50:41.913",
+      "name": "试算-settlePrice(带券)",
+      "request": {
+        "goods": {
+          "skuId": "655441178728091650",
+          "quantity": 1
+        },
+        "coupon": {
+          "couponCode": "1310656331716878336",
+          "templateName": "霸王茶姬10元代金券-LT",
+          "discountAmount": "10"
+        },
+        "recommendCoupon": false
+      },
+      "response": {
+        "totalTradePrice": "18",
+        "buyerRealPrice": "8",
+        "totalDiscountAmount": "10",
+        "discountList": [
+          {
+            "discountId": "1310656331716878336",
+            "discountName": "霸王茶姬10元代金券-LT",
+            "discountSource": 1,
+            "discountType": 1,
+            "scopeType": 2,
+            "discountAmount": "10"
+          }
+        ],
+        "expected_pay": "8",
+        "raw": {
+          "confirmOrderKey": "202609270750410010069028250",
+          "totalBuyNum": 1,
+          "orderGroupList": [
+            {
+              "orderId": "100001",
+              "goodsList": [
+                {
+                  "spuId": "640215811876831233",
+                  "spuType": "stand",
+                  "skuId": "655441178728091650",
+                  "skuName": "青青糯山",
+                  "skuImage": "https://images.qmai.cn/s49006/2026/09/15/cb7f608404bc31b507.jpg",
+                  "buyNum": 1,
+                  "specList": [
+                    {
+                      "specId": "653599312273510400",
+                      "specOptionId": "653599312273510402",
+                      "specOptionName": "大杯"
+                    }
+                  ],
+                  "attributeList": [
+                    {
+                      "attributeId": "745317722624679942",
+                      "attributeName": " 温度",
+                      "attributeOptionId": "745317722624679945",
+                      "attributeOptionName": "标准冰"
+                    },
+                    {
+                      "attributeId": "623882672850116609",
+                      "attributeName": "甜度",
+                      "attributeOptionId": "623882672850116614",
+                      "attributeOptionName": "标准糖"
+                    }
+                  ],
+                  "uniqueKey": "34b969a3-3898-4caa-b04c-0fac27cc1d3f",
+                  "salePrice": "18",
+                  "tradeGoodsType": 1,
+                  "itemId": "200001_0",
+                  "totalItemAmount": "18",
+                  "totalItemDiscountedAmount": "18",
+                  "discountList": [
+                    {
+                      "discountId": "1310656331716878336",
+                      "discountName": "霸王茶姬10元代金券-LT",
+                      "discountSource": 1,
+                      "discountType": 1,
+                      "scopeType": 2,
+                      "discountAmount": "10"
+                    }
+                  ],
+                  "tagList": [],
+                  "nutritionInfo": {
+                    "energyValue": "274",
+                    "energyUnit": "kcal/杯",
+                    "energyLevel": "C"
+                  }
+                }
+              ],
+              "discountList": [],
+              "tradeFundInfo": {
+                "totalOriginPrice": "18",
+                "totalSalePrice": "18",
+                "totalMarketPrice": "0",
+                "totalTradePrice": "18",
+                "totalGoodsItemPrice": "8",
+                "totalFreightPrice": "0",
+                "totalRealFreightPrice": "0",
+                "totalPackagePrice": "0",
+                "totalRealPackagePrice": "0",
+                "totalExtraGoodsPrice": "0",
+                "buyerRealPrice": "8",
+                "totalDiscountAmount": "10",
+                "totalGoodsItemDiscountAmount": "0",
+                "totalGoodsPaymentDiscountAmount": "10",
+                "totalFreightDiscountAmount": "0",
+                "totalPackageDiscountAmount": "0",
+                "totalCouponDiscountAmount": "",
+                "totalActivityDiscountAmount": ""
+              }
+            }
+          ],
+          "discountList": [
+            {
+              "discountId": "1310656331716878336",
+              "discountName": "霸王茶姬10元代金券-LT",
+              "discountSource": 1,
+              "discountType": 1,
+              "scopeType": 2,
+              "discountAmount": "10"
+            }
+          ],
+          "availableDiscountList": [],
+          "assetInfo": {
+            "userCouponInfo": {
+              "availableCouponList": [
+                {
+                  "couponCode": "1310656331716878336",
+                  "templateNo": "1248700666894483457",
+                  "templateName": "霸王茶姬10元代金券-LT",
+                  "status": 10,
+                  "bizType": 1,
+                  "benefitText": "10元",
+                  "benefit2Text": "代金",
+                  "useStartTime": 1790352000000,
+                  "useEndTime": 1792943999000,
+                  "thresholdTips": "",
+                  "currencyCode": "CNY",
+                  "currency": "¥或元",
+                  "canDiscount": true,
+                  "selected": true
+                },
+                {
+                  "couponCode": "1310990943181824000",
+                  "templateNo": "1250891502023434240",
+                  "templateName": "霸王茶姬10元代金券-RY",
+                  "status": 10,
+                  "bizType": 1,
+                  "benefitText": "10元",
+                  "benefit2Text": "代金",
+                  "useStartTime": 1790438400000,
+                  "useEndTime": 1793030399000,
+                  "thresholdTips": "满10元可用",
+                  "currencyCode": "CNY",
+                  "currency": "¥或元",
+                  "canDiscount": true,
+                  "unavailableReason": "与已参与优惠不能同享",
+                  "selected": false
+                },
+                {
+                  "couponCode": "1309248687032709120",
+                  "templateNo": "994625568300003329",
+                  "templateName": "霸王茶姬20元代金券-DN",
+                  "status": 10,
+                  "bizType": 1,
+                  "benefitText": "20元",
+                  "benefit2Text": "代金",
+                  "useStartTime": 1790006400000,
+                  "useEndTime": 1797782399000,
+                  "thresholdTips": "",
+                  "currencyCode": "CNY",
+                  "currency": "¥或元",
+                  "canDiscount": true,
+                  "unavailableReason": "与已参与优惠不能同享",
+                  "selected": false
+                },
+                {
+                  "couponCode": "1309274737372479489",
+                  "templateNo": "994625568300003329",
+                  "templateName": "霸王茶姬20元代金券-DN",
+                  "status": 10,
+                  "bizType": 1,
+                  "benefitText": "20元",
+                  "benefit2Text": "代金",
+                  "useStartTime": 1790006400000,
+                  "useEndTime": 1797782399000,
+                  "thresholdTips": "",
+                  "currencyCode": "CNY",
+                  "currency": "¥或元",
+                  "canDiscount": true,
+                  "unavailableReason": "与已参与优惠不能同享",
+                  "selected": false
+                },
+                {
+                  "couponCode": "1309464795643822080",
+                  "templateNo": "994625568300003329",
+                  "templateName": "霸王茶姬20元代金券-DN",
+                  "status": 10,
+                  "bizType": 1,
+                  "benefitText": "20元",
+                  "benefit2Text": "代金",
+                  "useStartTime": 1790092800000,
+                  "useEndTime": 1797868799000,
+                  "thresholdTips": "",
+                  "currencyCode": "CNY",
+                  "currency": "¥或元",
+                  "canDiscount": true,
+                  "unavailableReason": "与已参与优惠不能同享",
+                  "selected": false
+                }
+              ]
+            }
+          },
+          "tradeFundInfo": {
+            "totalOriginPrice": "18",
+            "totalSalePrice": "18",
+            "totalMarketPrice": "0",
+            "totalTradePrice": "18",
+            "totalGoodsItemPrice": "8",
+            "totalFreightPrice": "0",
+            "totalRealFreightPrice": "0",
+            "totalPackagePrice": "0",
+            "totalRealPackagePrice": "0",
+            "totalExtraGoodsPrice": "0",
+            "buyerRealPrice": "8",
+            "totalDiscountAmount": "10",
+            "totalGoodsItemDiscountAmount": "0",
+            "totalGoodsPaymentDiscountAmount": "10",
+            "totalFreightDiscountAmount": "0",
+            "totalPackageDiscountAmount": "0",
+            "totalCouponDiscountAmount": "10",
+            "totalActivityDiscountAmount": "0",
+            "packageFeeInfo": {
+              "packageName": "保温袋",
+              "packageRemark": "保温保冷，锁住新鲜口感",
+              "required": false,
+              "amount": "1"
+            }
+          },
+          "channelMapping": {
+            "tradeChannelCode": "09",
+            "storeChannelCode": "android",
+            "storeBusinessType": 1,
+            "goodsChannelType": 2,
+            "goodsSaleType": 1
+          }
+        }
+      }
+    },
+    {
+      "ts": "2026-09-27 15:50:42.962",
+      "name": "下单-createOrder",
+      "request": {
+        "storeNo": "CN08121",
+        "storeName": "广东佛山顺德龙江沃达百货店",
+        "paymentInfo": {
+          "payType": 60,
+          "channelCode": "UnionPay",
+          "payAmount": "8"
+        },
+        "discountList": [
+          {
+            "deductionType": null,
+            "discountAmount": "10",
+            "discountId": "1310656331716878336",
+            "currentSelect": true,
+            "discountName": "霸王茶姬10元代金券-LT",
+            "discountSource": 1,
+            "discountType": 1,
+            "ruleId": null,
+            "scopeType": null
+          }
+        ],
+        "confirmOrderKey": "202609270750410010069028250"
+      },
+      "response": {
+        "orderNo": "202609270910110031243408250",
+        "payNo": "CHP2026092710100090345704001",
+        "out_trade_no": "331L20260927100090345804001",
+        "total_amount(支付宝侧实付)": "8.00",
+        "expire_at": "2026-09-27+16:20:42",
+        "order_str": "alipay_sdk=alipay-sdk-java-4.40.237.ALL&app_auth_token=202511BBb03f0a4ddba545aa8f09a02a9a101X44&app_id=2018080860981451&biz_content=%7B%22time_expire%22%3A%222026-09-27+16%3A20%3A42%22%2C%22extend_params%22%3A%7B%22sys_service_provider_id%22%3A%222088021787797493%22%7D%2C%22out_trade_no%22%3A%22331L20260927100090345804001%22%2C%22total_amount%22%3A%228.00%22%2C%22subject%22%3A%22CHAGEE%E9%9C%B8%E7%8E%8B%E8%8C%B6%E5%A7%AC%EF%BC%88%E5%B9%BF%E4%B8%9C%E4%BD%9B%E5%B1%B1%E9%A1%BA%E5%BE%B7%E9%BE%99%E6%B1%9F%E6%B2%83%E8%BE%BE%E7%99%BE%E8%B4%A7%E5%BA%97%EF%BC%89%22%2C%22business_params%22%3A%7B%7D%2C%22timeout_express%22%3A%2230m%22%2C%22product_code%22%3A%22QUICK_MSECURITY_PAY%22%2C%22merchant_order_no%22%3A%22331L20260927100090345804001%22%7D&charset=UTF-8&format=json&method=alipay.trade.app.pay&notify_url=https%3A%2F%2Fqr-wh.chinaums.com%2Fnetpay-portal%2Ftrade%2Fnotify.do%2FAlipay2%2FALIPAY%2FAPP_PAY%2F70d496f5-7c03-4a0b-acf1-fe0302634873%2F1790495442791%2FE0517626ebf8420289d85b5cc93e07ba&return_url=https%3A%2F%2Fqr-wh.chinaums.com%2Fnetpay-portal%2Falipay2%2Fh5PayResult.do%2F70d496f5-7c03-4a0b-acf1-fe0302634873%2F1790495442791%2FE0517626ebf8420289d85b5cc93e07ba%2FFINISH&sign=E3tEOwru7vPzgZM%2FdP9g8TOy%2FM0e...(sign截断,len=370)&sign_type=RSA2&timestamp=2026-09-27+15%3A50%3A42&version=1.0"
+      }
+    },
+    {
+      "ts": "2026-09-27 15:50:43.388",
+      "name": "落库-OrderRecord+支付会话",
+      "request": {
+        "order_no": "202609270910110031243408250",
+        "coupon_code": "1310656331716878336",
+        "mode": "partial",
+        "order_target_snapshot": {
+          "target": {
+            "storeNo": "CN08121",
+            "storeName": "广东佛山顺德龙江沃达百货店",
+            "spuId": "640215811876831233",
+            "spuName": "青青糯山",
+            "skuId": "655441178728091650",
+            "skuName": "青青糯山",
+            "itemSkuId": "1113574504790253568",
+            "quantity": 1,
+            "salePrice": "18.00",
+            "specList": [
+              {
+                "specId": "653599312273510400",
+                "specOptionId": "653599312273510402",
+                "specOptionName": "大杯"
+              }
+            ],
+            "attributeList": [
+              {
+                "attributeId": "745317722624679942",
+                "attributeName": " 温度",
+                "attributeOptionId": "745317722624679945",
+                "attributeOptionName": "标准冰"
+              },
+              {
+                "attributeId": "623882672850116609",
+                "attributeName": "甜度",
+                "attributeOptionId": "623882672850116614",
+                "attributeOptionName": "标准糖"
+              }
+            ],
+            "imageUrl": "https://images.qmai.cn/s49006/2026/09/15/cb7f608404bc31b507.jpg",
+            "spuType": "stand",
+            "nutritionInfo": null,
+            "specDesc": "大杯"
+          },
+          "extra_list": [],
+          "store_no": "CN08121",
+          "store_name": "广东佛山顺德龙江沃达百货店",
+          "goods_desc": "青青糯山 x1（大杯）"
+        }
+      },
+      "response": {
+        "pay_token": "0c9DLak2eg2HSrLPoTBAzrH8o_Tqx0LScAmtDtNAcfU",
+        "portal_url": "http://192.168.2.237:8010/pay/0c9DLak2eg2HSrLPoTBAzrH8o_Tqx0LScAmtDtNAcfU",
+        "alipay_cashier_url": "https://mclient.alipay.com/cashierRoutePay.htm?route_pay_from=h5&init_from=SDKLite&session=RZZFB000tXXHTyNxf0TbFfXfhu1xlVmobilecashierRZZFB00&utdid=ard6vj24ouoDAPwfC0RN0/hz&tid=2e80dd74198790910ee488e446e945e319c838fd490f3d80dcddeae2fe3827aa&cc=y",
+        "pay_deadline": "",
+        "coupon_record": {
+          "exists": true,
+          "bucket": "settle_available",
+          "last_used_at": "2026-09-27 15:50:43",
+          "last_order_no": "202609270910110031243408250",
+          "reset_ok": false
+        }
+      }
+    },
+    {
+      "ts": "2026-09-27 15:50:43.397",
+      "name": "指引-收银台门户在线检测",
+      "request": {
+        "url": "http://127.0.0.1:8010/",
+        "timeout": 3.0
+      },
+      "response": {
+        "online": true
+      }
+    }
+  ],
+  "timeline": [
+    {
+      "ts": "15:50:43",
+      "kind": "poll",
+      "via": "portal",
+      "n": 1,
+      "session_status": "issued",
+      "pickup_no": "",
+      "remaining_seconds": null
+    },
+    {
+      "ts": "15:50:43",
+      "kind": "events",
+      "count": 1,
+      "events": [
+        "link_issued"
+      ]
+    },
+    {
+      "ts": "15:50:46",
+      "kind": "poll",
+      "via": "portal",
+      "n": 2,
+      "session_status": "issued",
+      "pickup_no": "",
+      "remaining_seconds": null
+    },
+    {
+      "ts": "15:50:48",
+      "kind": "poll",
+      "via": "portal",
+      "n": 3,
+      "session_status": "issued",
+      "pickup_no": "",
+      "remaining_seconds": null
+    },
+    {
+      "ts": "15:50:50",
+      "kind": "poll",
+      "via": "portal",
+      "n": 4,
+      "session_status": "issued",
+      "pickup_no": "",
+      "remaining_seconds": null
+    },
+    {
+      "ts": "15:50:50",
+      "kind": "events",
+      "count": 1,
+      "events": [
+        "link_issued"
+      ]
+    },
+    {
+      "ts": "15:50:53",
+      "kind": "poll",
+      "via": "portal",
+      "n": 5,
+      "session_status": "issued",
+      "pickup_no": "",
+      "remaining_seconds": null
+    },
+    {
+      "ts": "15:50:55",
+      "kind": "poll",
+      "via": "portal",
+      "n": 6,
+      "session_status": "issued",
+      "pickup_no": "",
+      "remaining_seconds": null
+    },
+    {
+      "ts": "15:50:57",
+      "kind": "poll",
+      "via": "portal",
+      "n": 7,
+      "session_status": "issued",
+      "pickup_no": "",
+      "remaining_seconds": null
+    },
+    {
+      "ts": "15:50:57",
+      "kind": "events",
+      "count": 1,
+      "events": [
+        "link_issued"
+      ]
+    },
+    {
+      "ts": "15:51:00",
+      "kind": "poll",
+      "via": "portal",
+      "n": 8,
+      "session_status": "issued",
+      "pickup_no": "",
+      "remaining_seconds": null
+    },
+    {
+      "ts": "15:51:02",
+      "kind": "poll",
+      "via": "portal",
+      "n": 9,
+      "session_status": "issued",
+      "pickup_no": "",
+      "remaining_seconds": null
+    },
+    {
+      "ts": "15:51:05",
+      "kind": "poll",
+      "via": "portal",
+      "n": 10,
+      "session_status": "issued",
+      "pickup_no": "",
+      "remaining_seconds": null
+    },
+    {
+      "ts": "15:51:05",
+      "kind": "events",
+      "count": 1,
+      "events": [
+        "link_issued"
+      ]
+    },
+    {
+      "ts": "15:51:07",
+      "kind": "poll",
+      "via": "portal",
+      "n": 11,
+      "session_status": "issued",
+      "pickup_no": "",
+      "remaining_seconds": null
+    },
+    {
+      "ts": "15:51:09",
+      "kind": "poll",
+      "via": "portal",
+      "n": 12,
+      "session_status": "issued",
+      "pickup_no": "",
+      "remaining_seconds": null
+    },
+    {
+      "ts": "15:51:12",
+      "kind": "poll",
+      "via": "portal",
+      "n": 13,
+      "session_status": "issued",
+      "pickup_no": "",
+      "remaining_seconds": null
+    },
+    {
+      "ts": "15:51:12",
+      "kind": "events",
+      "count": 1,
+      "events": [
+        "link_issued"
+      ]
+    },
+    {
+      "ts": "15:51:14",
+      "kind": "poll",
+      "via": "portal",
+      "n": 14,
+      "session_status": "issued",
+      "pickup_no": "",
+      "remaining_seconds": null
+    },
+    {
+      "ts": "15:51:16",
+      "kind": "poll",
+      "via": "portal",
+      "n": 15,
+      "session_status": "issued",
+      "pickup_no": "",
+      "remaining_seconds": null
+    },
+    {
+      "ts": "15:51:19",
+      "kind": "poll",
+      "via": "portal",
+      "n": 16,
+      "session_status": "issued",
+      "pickup_no": "",
+      "remaining_seconds": null
+    },
+    {
+      "ts": "15:51:19",
+      "kind": "events",
+      "count": 1,
+      "events": [
+        "link_issued"
+      ]
+    },
+    {
+      "ts": "15:51:21",
+      "kind": "poll",
+      "via": "portal",
+      "n": 17,
+      "session_status": "issued",
+      "pickup_no": "",
+      "remaining_seconds": null
+    },
+    {
+      "ts": "15:51:24",
+      "kind": "poll",
+      "via": "portal",
+      "n": 18,
+      "session_status": "issued",
+      "pickup_no": "",
+      "remaining_seconds": null
+    },
+    {
+      "ts": "15:51:26",
+      "kind": "poll",
+      "via": "portal",
+      "n": 19,
+      "session_status": "issued",
+      "pickup_no": "",
+      "remaining_seconds": null
+    },
+    {
+      "ts": "15:51:26",
+      "kind": "events",
+      "count": 1,
+      "events": [
+        "link_issued"
+      ]
+    },
+    {
+      "ts": "15:51:28",
+      "kind": "poll",
+      "via": "portal",
+      "n": 20,
+      "session_status": "issued",
+      "pickup_no": "",
+      "remaining_seconds": null
+    },
+    {
+      "ts": "15:51:31",
+      "kind": "poll",
+      "via": "portal",
+      "n": 21,
+      "session_status": "issued",
+      "pickup_no": "",
+      "remaining_seconds": null
+    },
+    {
+      "ts": "15:51:33",
+      "kind": "poll",
+      "via": "portal",
+      "n": 22,
+      "session_status": "issued",
+      "pickup_no": "",
+      "remaining_seconds": null
+    },
+    {
+      "ts": "15:51:33",
+      "kind": "events",
+      "count": 1,
+      "events": [
+        "link_issued"
+      ]
+    },
+    {
+      "ts": "15:51:35",
+      "kind": "poll",
+      "via": "portal",
+      "n": 23,
+      "session_status": "issued",
+      "pickup_no": "",
+      "remaining_seconds": null
+    },
+    {
+      "ts": "15:51:38",
+      "kind": "poll",
+      "via": "portal",
+      "n": 24,
+      "session_status": "issued",
+      "pickup_no": "",
+      "remaining_seconds": null
+    },
+    {
+      "ts": "15:51:40",
+      "kind": "poll",
+      "via": "portal",
+      "n": 25,
+      "session_status": "issued",
+      "pickup_no": "",
+      "remaining_seconds": null
+    },
+    {
+      "ts": "15:51:40",
+      "kind": "events",
+      "count": 1,
+      "events": [
+        "link_issued"
+      ]
+    },
+    {
+      "ts": "15:51:42",
+      "kind": "poll",
+      "via": "portal",
+      "n": 26,
+      "session_status": "issued",
+      "pickup_no": "",
+      "remaining_seconds": null
+    },
+    {
+      "ts": "15:51:45",
+      "kind": "poll",
+      "via": "portal",
+      "n": 27,
+      "session_status": "issued",
+      "pickup_no": "",
+      "remaining_seconds": null
+    },
+    {
+      "ts": "15:51:47",
+      "kind": "poll",
+      "via": "portal",
+      "n": 28,
+      "session_status": "issued",
+      "pickup_no": "",
+      "remaining_seconds": null
+    },
+    {
+      "ts": "15:51:47",
+      "kind": "events",
+      "count": 1,
+      "events": [
+        "link_issued"
+      ]
+    },
+    {
+      "ts": "15:51:49",
+      "kind": "poll",
+      "via": "portal",
+      "n": 29,
+      "session_status": "issued",
+      "pickup_no": "",
+      "remaining_seconds": null
+    },
+    {
+      "ts": "15:51:52",
+      "kind": "poll",
+      "via": "portal",
+      "n": 30,
+      "session_status": "issued",
+      "pickup_no": "",
+      "remaining_seconds": null
+    },
+    {
+      "ts": "15:51:54",
+      "kind": "poll",
+      "via": "portal",
+      "n": 31,
+      "session_status": "issued",
+      "pickup_no": "",
+      "remaining_seconds": null
+    },
+    {
+      "ts": "15:51:54",
+      "kind": "events",
+      "count": 1,
+      "events": [
+        "link_issued"
+      ]
+    },
+    {
+      "ts": "15:51:56",
+      "kind": "poll",
+      "via": "portal",
+      "n": 32,
+      "session_status": "issued",
+      "pickup_no": "",
+      "remaining_seconds": null
+    },
+    {
+      "ts": "15:51:59",
+      "kind": "poll",
+      "via": "portal",
+      "n": 33,
+      "session_status": "issued",
+      "pickup_no": "",
+      "remaining_seconds": null
+    },
+    {
+      "ts": "15:52:01",
+      "kind": "poll",
+      "via": "portal",
+      "n": 34,
+      "session_status": "issued",
+      "pickup_no": "",
+      "remaining_seconds": null
+    },
+    {
+      "ts": "15:52:01",
+      "kind": "events",
+      "count": 1,
+      "events": [
+        "link_issued"
+      ]
+    },
+    {
+      "ts": "15:52:03",
+      "kind": "poll",
+      "via": "portal",
+      "n": 35,
+      "session_status": "issued",
+      "pickup_no": "",
+      "remaining_seconds": null
+    },
+    {
+      "ts": "15:52:06",
+      "kind": "poll",
+      "via": "portal",
+      "n": 36,
+      "session_status": "issued",
+      "pickup_no": "",
+      "remaining_seconds": null
+    },
+    {
+      "ts": "15:52:08",
+      "kind": "poll",
+      "via": "portal",
+      "n": 37,
+      "session_status": "issued",
+      "pickup_no": "",
+      "remaining_seconds": null
+    },
+    {
+      "ts": "15:52:08",
+      "kind": "events",
+      "count": 2,
+      "events": [
+        "link_issued",
+        "remint"
+      ]
+    },
+    {
+      "ts": "15:52:11",
+      "kind": "poll",
+      "via": "portal",
+      "n": 38,
+      "session_status": "issued",
+      "pickup_no": "",
+      "remaining_seconds": null
+    },
+    {
+      "ts": "15:52:13",
+      "kind": "poll",
+      "via": "portal",
+      "n": 39,
+      "session_status": "issued",
+      "pickup_no": "",
+      "remaining_seconds": null
+    },
+    {
+      "ts": "15:52:15",
+      "kind": "poll",
+      "via": "portal",
+      "n": 40,
+      "session_status": "issued",
+      "pickup_no": "",
+      "remaining_seconds": null
+    },
+    {
+      "ts": "15:52:15",
+      "kind": "events",
+      "count": 2,
+      "events": [
+        "link_issued",
+        "remint"
+      ]
+    },
+    {
+      "ts": "15:52:18",
+      "kind": "poll",
+      "via": "portal",
+      "n": 41,
+      "session_status": "issued",
+      "pickup_no": "",
+      "remaining_seconds": null
+    },
+    {
+      "ts": "15:52:20",
+      "kind": "poll",
+      "via": "portal",
+      "n": 42,
+      "session_status": "issued",
+      "pickup_no": "",
+      "remaining_seconds": null
+    },
+    {
+      "ts": "15:52:22",
+      "kind": "poll",
+      "via": "portal",
+      "n": 43,
+      "session_status": "issued",
+      "pickup_no": "",
+      "remaining_seconds": null
+    },
+    {
+      "ts": "15:52:22",
+      "kind": "events",
+      "count": 2,
+      "events": [
+        "link_issued",
+        "remint"
+      ]
+    },
+    {
+      "ts": "15:52:25",
+      "kind": "poll",
+      "via": "portal",
+      "n": 44,
+      "session_status": "issued",
+      "pickup_no": "",
+      "remaining_seconds": null
+    },
+    {
+      "ts": "15:52:27",
+      "kind": "poll",
+      "via": "portal",
+      "n": 45,
+      "session_status": "issued",
+      "pickup_no": "",
+      "remaining_seconds": null
+    },
+    {
+      "ts": "15:52:29",
+      "kind": "poll",
+      "via": "portal",
+      "n": 46,
+      "session_status": "issued",
+      "pickup_no": "",
+      "remaining_seconds": null
+    },
+    {
+      "ts": "15:52:29",
+      "kind": "events",
+      "count": 2,
+      "events": [
+        "link_issued",
+        "remint"
+      ]
+    },
+    {
+      "ts": "15:52:32",
+      "kind": "poll",
+      "via": "portal",
+      "n": 47,
+      "session_status": "issued",
+      "pickup_no": "",
+      "remaining_seconds": null
+    },
+    {
+      "ts": "15:52:34",
+      "kind": "poll",
+      "via": "portal",
+      "n": 48,
+      "session_status": "issued",
+      "pickup_no": "",
+      "remaining_seconds": null
+    },
+    {
+      "ts": "15:52:36",
+      "kind": "poll",
+      "via": "portal",
+      "n": 49,
+      "session_status": "issued",
+      "pickup_no": "",
+      "remaining_seconds": null
+    },
+    {
+      "ts": "15:52:36",
+      "kind": "events",
+      "count": 3,
+      "events": [
+        "link_issued",
+        "remint",
+        "page_opened"
+      ]
+    },
+    {
+      "ts": "15:52:39",
+      "kind": "poll",
+      "via": "portal",
+      "n": 50,
+      "session_status": "issued",
+      "pickup_no": "",
+      "remaining_seconds": null
+    },
+    {
+      "ts": "15:52:41",
+      "kind": "poll",
+      "via": "portal",
+      "n": 51,
+      "session_status": "issued",
+      "pickup_no": "",
+      "remaining_seconds": null
+    },
+    {
+      "ts": "15:52:44",
+      "kind": "poll",
+      "via": "portal",
+      "n": 52,
+      "session_status": "issued",
+      "pickup_no": "",
+      "remaining_seconds": null
+    },
+    {
+      "ts": "15:52:44",
+      "kind": "events",
+      "count": 3,
+      "events": [
+        "link_issued",
+        "remint",
+        "page_opened"
+      ]
+    },
+    {
+      "ts": "15:52:46",
+      "kind": "poll",
+      "via": "portal",
+      "n": 53,
+      "session_status": "issued",
+      "pickup_no": "",
+      "remaining_seconds": null
+    },
+    {
+      "ts": "15:52:48",
+      "kind": "poll",
+      "via": "portal",
+      "n": 54,
+      "session_status": "issued",
+      "pickup_no": "",
+      "remaining_seconds": null
+    },
+    {
+      "ts": "15:52:51",
+      "kind": "poll",
+      "via": "portal",
+      "n": 55,
+      "session_status": "issued",
+      "pickup_no": "",
+      "remaining_seconds": null
+    },
+    {
+      "ts": "15:52:51",
+      "kind": "events",
+      "count": 3,
+      "events": [
+        "link_issued",
+        "remint",
+        "page_opened"
+      ]
+    },
+    {
+      "ts": "15:52:53",
+      "kind": "poll",
+      "via": "portal",
+      "n": 56,
+      "session_status": "issued",
+      "pickup_no": "",
+      "remaining_seconds": null
+    },
+    {
+      "ts": "15:52:55",
+      "kind": "poll",
+      "via": "portal",
+      "n": 57,
+      "session_status": "issued",
+      "pickup_no": "",
+      "remaining_seconds": null
+    },
+    {
+      "ts": "15:52:58",
+      "kind": "poll",
+      "via": "portal",
+      "n": 58,
+      "session_status": "issued",
+      "pickup_no": "",
+      "remaining_seconds": null
+    },
+    {
+      "ts": "15:52:58",
+      "kind": "events",
+      "count": 3,
+      "events": [
+        "link_issued",
+        "remint",
+        "page_opened"
+      ]
+    },
+    {
+      "ts": "15:53:00",
+      "kind": "poll",
+      "via": "portal",
+      "n": 59,
+      "session_status": "issued",
+      "pickup_no": "",
+      "remaining_seconds": null
+    },
+    {
+      "ts": "15:53:02",
+      "kind": "poll",
+      "via": "portal",
+      "n": 60,
+      "session_status": "issued",
+      "pickup_no": "",
+      "remaining_seconds": null
+    },
+    {
+      "ts": "15:53:05",
+      "kind": "poll",
+      "via": "portal",
+      "n": 61,
+      "session_status": "issued",
+      "pickup_no": "",
+      "remaining_seconds": null
+    },
+    {
+      "ts": "15:53:05",
+      "kind": "events",
+      "count": 3,
+      "events": [
+        "link_issued",
+        "remint",
+        "page_opened"
+      ]
+    },
+    {
+      "ts": "15:53:07",
+      "kind": "poll",
+      "via": "portal",
+      "n": 62,
+      "session_status": "issued",
+      "pickup_no": "",
+      "remaining_seconds": null
+    },
+    {
+      "ts": "15:53:09",
+      "kind": "poll",
+      "via": "portal",
+      "n": 63,
+      "session_status": "issued",
+      "pickup_no": "",
+      "remaining_seconds": null
+    },
+    {
+      "ts": "15:53:12",
+      "kind": "poll",
+      "via": "portal",
+      "n": 64,
+      "session_status": "issued",
+      "pickup_no": "",
+      "remaining_seconds": null
+    },
+    {
+      "ts": "15:53:12",
+      "kind": "events",
+      "count": 3,
+      "events": [
+        "link_issued",
+        "remint",
+        "page_opened"
+      ]
+    },
+    {
+      "ts": "15:53:14",
+      "kind": "poll",
+      "via": "portal",
+      "n": 65,
+      "session_status": "issued",
+      "pickup_no": "",
+      "remaining_seconds": null
+    },
+    {
+      "ts": "15:53:17",
+      "kind": "poll",
+      "via": "portal",
+      "n": 66,
+      "session_status": "issued",
+      "pickup_no": "",
+      "remaining_seconds": null
+    },
+    {
+      "ts": "15:53:19",
+      "kind": "poll",
+      "via": "portal",
+      "n": 67,
+      "session_status": "issued",
+      "pickup_no": "",
+      "remaining_seconds": null
+    },
+    {
+      "ts": "15:53:19",
+      "kind": "events",
+      "count": 3,
+      "events": [
+        "link_issued",
+        "remint",
+        "page_opened"
+      ]
+    },
+    {
+      "ts": "15:53:21",
+      "kind": "poll",
+      "via": "portal",
+      "n": 68,
+      "session_status": "issued",
+      "pickup_no": "",
+      "remaining_seconds": null
+    },
+    {
+      "ts": "15:53:24",
+      "kind": "poll",
+      "via": "portal",
+      "n": 69,
+      "session_status": "issued",
+      "pickup_no": "",
+      "remaining_seconds": null
+    },
+    {
+      "ts": "15:53:26",
+      "kind": "poll",
+      "via": "portal",
+      "n": 70,
+      "session_status": "issued",
+      "pickup_no": "",
+      "remaining_seconds": null
+    },
+    {
+      "ts": "15:53:26",
+      "kind": "events",
+      "count": 3,
+      "events": [
+        "link_issued",
+        "remint",
+        "page_opened"
+      ]
+    },
+    {
+      "ts": "15:53:28",
+      "kind": "poll",
+      "via": "portal",
+      "n": 71,
+      "session_status": "issued",
+      "pickup_no": "",
+      "remaining_seconds": null
+    },
+    {
+      "ts": "15:53:31",
+      "kind": "poll",
+      "via": "portal",
+      "n": 72,
+      "session_status": "issued",
+      "pickup_no": "",
+      "remaining_seconds": null
+    },
+    {
+      "ts": "15:53:33",
+      "kind": "poll",
+      "via": "portal",
+      "n": 73,
+      "session_status": "issued",
+      "pickup_no": "",
+      "remaining_seconds": null
+    },
+    {
+      "ts": "15:53:33",
+      "kind": "events",
+      "count": 3,
+      "events": [
+        "link_issued",
+        "remint",
+        "page_opened"
+      ]
+    },
+    {
+      "ts": "15:53:35",
+      "kind": "poll",
+      "via": "portal",
+      "n": 74,
+      "session_status": "issued",
+      "pickup_no": "",
+      "remaining_seconds": null
+    },
+    {
+      "ts": "15:53:38",
+      "kind": "poll",
+      "via": "portal",
+      "n": 75,
+      "session_status": "issued",
+      "pickup_no": "",
+      "remaining_seconds": null
+    },
+    {
+      "ts": "15:53:40",
+      "kind": "poll",
+      "via": "portal",
+      "n": 76,
+      "session_status": "cancelled",
+      "pickup_no": "",
+      "remaining_seconds": null
+    },
+    {
+      "ts": "15:53:40",
+      "kind": "wait_end",
+      "final": "cancelled",
+      "polls": 76,
+      "portal_online": true
+    }
+  ],
+  "events_snapshot": [
+    {
+      "id": 1,
+      "ts": "15:50:43",
+      "event": "link_issued",
+      "payload": {
+        "pay_no": "CHP2026092710100090345704001",
+        "out_trade_no": "331L20260927100090345804001",
+        "mode": "partial",
+        "expire_at": "2026-09-27+16:20:42",
+        "pay_amount": "8.00"
+      }
+    },
+    {
+      "id": 2,
+      "ts": "15:52:05",
+      "event": "remint",
+      "payload": {
+        "pay_no": "CHP2026092710100090428904001",
+        "out_trade_no": "331L20260927100090429004001",
+        "mode": "partial",
+        "expire_at": "2026-09-27+16:22:05",
+        "pay_amount": "8.00"
+      }
+    },
+    {
+      "id": 3,
+      "ts": "15:52:36",
+      "event": "page_opened",
+      "payload": {
+        "ua": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/149.0.0.0 Safari/537.36 Edg/149.0.0.0",
+        "ip": "192.168.2.237"
+      }
+    },
+    {
+      "id": 4,
+      "ts": "15:53:39",
+      "event": "order_cancelled",
+      "payload": {
+        "source": "pay-watcher",
+        "order_status": 7
+      }
+    },
+    {
+      "id": 5,
+      "ts": "15:53:39",
+      "event": "rolled_back",
+      "payload": {
+        "coupon_code": "1310656331716878336",
+        "operator": "pay-watcher"
+      }
+    },
+    {
+      "id": 6,
+      "ts": "15:53:40",
+      "event": "order_cancelled",
+      "payload": {
+        "source": "switch_full_price",
+        "coupon_code": "1310656331716878336",
+        "coupon_rolled_back": true
+      }
+    },
+    {
+      "id": 7,
+      "ts": "15:53:40",
+      "event": "rolled_back",
+      "payload": {
+        "coupon_code": "1310656331716878336",
+        "operator": "pay-portal"
+      }
+    }
+  ],
+  "assertions": [
+    {
+      "name": "试算-带券总额与无券一致",
+      "pass": true,
+      "detail": "带券 18 vs 无券 18"
+    },
+    {
+      "name": "试算-应付=max(总额-券面额,0)=max(18.00-10.00,0)",
+      "pass": true,
+      "detail": "实际应付 8，期望 8"
+    },
+    {
+      "name": "试算-选中券为10元代金券",
+      "pass": true,
+      "detail": "templateName=霸王茶姬10元代金券-LT，benefitText=10元（回退券时此条为 FAIL，不影响流程）"
+    },
+    {
+      "name": "下单-verify口径(payAmount+promotionId==券码)",
+      "pass": true,
+      "detail": "{\"orderNo\": \"202609270910110031243408250\", \"status\": 1, \"statusText\": \"待支付\", \"coupon\": {\"promotionId\": \"1310656331716878336\", \"name\": \"霸王茶姬10元代金券-LT\", \"discountAmount\": \"10\"}, \"pickupNo\": \"\", \"payTypeText\": \"支付宝App支付\"}"
+    },
+    {
+      "name": "终态-订单已取消",
+      "pass": true,
+      "detail": "final=cancelled，order_status=7"
+    },
+    {
+      "name": "终态-rolled_back事件",
+      "pass": true,
+      "detail": "observed=link_issued->remint->page_opened->order_cancelled->rolled_back->order_cancelled->rolled_back"
+    },
+    {
+      "name": "终态-CouponRecord复位(last_used_at清空/bucket=effective)",
+      "pass": true,
+      "detail": "{\"exists\": true, \"bucket\": \"effective\", \"last_used_at\": null, \"last_order_no\": \"\", \"reset_ok\": true}"
+    }
+  ],
+  "verdict": "pass"
+}

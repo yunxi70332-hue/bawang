@@ -1,0 +1,33 @@
+﻿{
+    "captured_at":  "2026-09-07T02:12:35.4057718+08:00",
+    "serial":  "emulator-5554",
+    "device":  {
+                   "model":  "V1824A",
+                   "abi":  "x86_64",
+                   "android_release":  "9"
+               },
+    "package_before":  {
+                           "package_paths":  [
+                                                 "package:/data/app/com.chagee.application.cn-r2BmqgHSQ4hjtXE6mC2Wqg==/base.apk"
+                                             ],
+                           "package_fields":  [
+                                                  "    codePath=/data/app/com.chagee.application.cn-r2BmqgHSQ4hjtXE6mC2Wqg==",
+                                                  "    primaryCpuAbi=arm64-v8a",
+                                                  "    versionCode=638 minSdk=24 targetSdk=35",
+                                                  "    versionName=1.0.0",
+                                                  "    installerPackageName=com.android.packageinstaller"
+                                              ]
+                       },
+    "clean_install":  true,
+    "package_after":  {
+                          "package_paths":  [
+                                                "package:/data/app/com.chagee.application.cn-o1XHJXfSUpAKrvMvr5Ej3Q==/base.apk"
+                                            ],
+                          "package_fields":  [
+                                                 "    codePath=/data/app/com.chagee.application.cn-o1XHJXfSUpAKrvMvr5Ej3Q==",
+                                                 "    primaryCpuAbi=arm64-v8a",
+                                                 "    versionCode=638 minSdk=24 targetSdk=35",
+                                                 "    versionName=1.0.0"
+                                             ]
+                      }
+}

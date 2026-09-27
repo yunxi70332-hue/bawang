@@ -1,0 +1,1032 @@
+{
+  "tool": "Blutter",
+  "recovery_output_root": "E:\\霸王茶姬\\so_analysis\\blutter_out",
+  "original_libapp": {
+    "path": "E:\\霸王茶姬\\decompiled\\raw_apk\\lib\\arm64-v8a\\libapp.so",
+    "sha256": "8b4aa0dd6dc15ec8380e402bfdb251941678c5b7830ee5a9200822857da5edd7",
+    "bytes": 12911520
+  },
+  "selected_packages": [
+    "chagee_base_network",
+    "chagee_cn_login_module",
+    "chagee_cn_app_login_module",
+    "chagee_cn_login_service",
+    "chagee_cn_app_user_module",
+    "chagee_cn_app_order_module",
+    "chagee_cn_app_pay_module",
+    "chagee_common_utils"
+  ],
+  "keyword_totals": {
+    "login": 2890,
+    "mobile": 584,
+    "refresh": 456,
+    "request": 371,
+    "response": 216,
+    "token": 167,
+    "encrypt": 160,
+    "api": 137,
+    "interceptor": 76,
+    "dio": 74,
+    "header": 60,
+    "baseurl": 52,
+    "sign": 38,
+    "device": 14,
+    "storage": 13,
+    "decrypt": 12,
+    "secure": 5
+  },
+  "files_with_keyword_hits": [
+    {
+      "package": "chagee_cn_login_module",
+      "file": "asm/chagee_cn_login_module/page/phone_login/phone_login_bloc.dart",
+      "bytes": 337908,
+      "hits": {
+        "login": 600,
+        "token": 9,
+        "encrypt": 12,
+        "sign": 2,
+        "request": 18,
+        "response": 4,
+        "api": 8,
+        "mobile": 24
+      }
+    },
+    {
+      "package": "chagee_cn_login_module",
+      "file": "asm/chagee_cn_login_module/page/phone_login/phone_login_page.dart",
+      "bytes": 433941,
+      "hits": {
+        "login": 580,
+        "header": 3,
+        "request": 8,
+        "secure": 2,
+        "api": 6
+      }
+    },
+    {
+      "package": "chagee_cn_login_module",
+      "file": "asm/chagee_cn_login_module/business/login_service.dart",
+      "bytes": 340144,
+      "hits": {
+        "login": 426,
+        "token": 37,
+        "request": 3,
+        "api": 15,
+        "mobile": 2
+      }
+    },
+    {
+      "package": "chagee_cn_login_module",
+      "file": "asm/chagee_cn_login_module/page/change_mobile/change_mobile_bloc.dart",
+      "bytes": 235175,
+      "hits": {
+        "login": 116,
+        "encrypt": 12,
+        "sign": 2,
+        "request": 15,
+        "response": 4,
+        "mobile": 225
+      }
+    },
+    {
+      "package": "chagee_cn_login_module",
+      "file": "asm/chagee_cn_login_module/page/change_mobile/change_mobile_page.dart",
+      "bytes": 314485,
+      "hits": {
+        "login": 87,
+        "header": 3,
+        "request": 4,
+        "api": 4,
+        "mobile": 248
+      }
+    },
+    {
+      "package": "chagee_base_network",
+      "file": "asm/chagee_base_network/network/chagee_interceptor.dart",
+      "bytes": 187910,
+      "hits": {
+        "encrypt": 45,
+        "decrypt": 12,
+        "sign": 10,
+        "header": 22,
+        "interceptor": 70,
+        "dio": 21,
+        "request": 27,
+        "response": 45,
+        "baseurl": 9
+      }
+    },
+    {
+      "package": "chagee_cn_login_module",
+      "file": "asm/chagee_cn_login_module/page/verify/verify_bloc.dart",
+      "bytes": 181273,
+      "hits": {
+        "login": 164,
+        "token": 9,
+        "encrypt": 16,
+        "sign": 2,
+        "request": 26,
+        "response": 5,
+        "api": 6,
+        "mobile": 12
+      }
+    },
+    {
+      "package": "chagee_base_network",
+      "file": "asm/chagee_base_network/network/chagee_network.dart",
+      "bytes": 140294,
+      "hits": {
+        "login": 3,
+        "token": 8,
+        "header": 2,
+        "interceptor": 6,
+        "dio": 41,
+        "request": 67,
+        "response": 54,
+        "baseurl": 6
+      }
+    },
+    {
+      "package": "chagee_cn_login_module",
+      "file": "asm/chagee_cn_login_module/page/bind_phone/bind_phone_page.dart",
+      "bytes": 254264,
+      "hits": {
+        "login": 145,
+        "secure": 2,
+        "api": 2
+      }
+    },
+    {
+      "package": "chagee_cn_login_module",
+      "file": "asm/chagee_cn_login_module/page/verify/verify_page.dart",
+      "bytes": 141745,
+      "hits": {
+        "login": 94,
+        "secure": 1,
+        "api": 2
+      }
+    },
+    {
+      "package": "chagee_cn_login_module",
+      "file": "asm/chagee_cn_login_module/third_part_login/login_third_helper.dart",
+      "bytes": 44989,
+      "hits": {
+        "login": 49,
+        "token": 9,
+        "encrypt": 4,
+        "request": 11,
+        "response": 5,
+        "api": 12,
+        "mobile": 4
+      }
+    },
+    {
+      "package": "chagee_cn_app_login_module",
+      "file": "asm/chagee_cn_app_login_module/fastlogin/fast_login.dart",
+      "bytes": 28552,
+      "hits": {
+        "login": 54,
+        "token": 15,
+        "request": 3,
+        "response": 6,
+        "api": 2
+      }
+    },
+    {
+      "package": "chagee_cn_login_module",
+      "file": "asm/chagee_cn_login_module/utils/login_page_coordinate.dart",
+      "bytes": 51270,
+      "hits": {
+        "login": 73,
+        "request": 3,
+        "response": 1,
+        "api": 2
+      }
+    },
+    {
+      "package": "chagee_cn_app_login_module",
+      "file": "asm/chagee_cn_app_login_module/Interface/login_wrapper_service.dart",
+      "bytes": 24601,
+      "hits": {
+        "login": 70,
+        "token": 6
+      }
+    },
+    {
+      "package": "chagee_cn_login_module",
+      "file": "asm/chagee_cn_login_module/net/entities/token_entity.dart",
+      "bytes": 29826,
+      "hits": {
+        "login": 29,
+        "token": 37
+      }
+    },
+    {
+      "package": "chagee_cn_login_module",
+      "file": "asm/chagee_cn_login_module/page/bind_phone/bind_phone_bloc.dart",
+      "bytes": 110765,
+      "hits": {
+        "login": 48,
+        "encrypt": 4,
+        "sign": 2,
+        "request": 6,
+        "response": 1,
+        "mobile": 2
+      }
+    },
+    {
+      "package": "chagee_cn_app_order_module",
+      "file": "asm/chagee_cn_app_order_module/page/order_list/order_list_page.dart",
+      "bytes": 127600,
+      "hits": {
+        "login": 4,
+        "header": 3,
+        "request": 2,
+        "refresh": 46
+      }
+    },
+    {
+      "package": "chagee_cn_app_login_module",
+      "file": "asm/chagee_cn_app_login_module/business/login_service.dart",
+      "bytes": 19707,
+      "hits": {
+        "login": 54
+      }
+    },
+    {
+      "package": "chagee_cn_app_user_module",
+      "file": "asm/chagee_cn_app_user_module/pages/vouchers_history/vouchers_history/vouchers_history_list_page.dart",
+      "bytes": 69211,
+      "hits": {
+        "header": 3,
+        "refresh": 46,
+        "storage": 4
+      }
+    },
+    {
+      "package": "chagee_cn_login_module",
+      "file": "asm/chagee_cn_login_module/intl_util/login_intl.dart",
+      "bytes": 33096,
+      "hits": {
+        "login": 52
+      }
+    },
+    {
+      "package": "chagee_cn_app_user_module",
+      "file": "asm/chagee_cn_app_user_module/util/country_config_utils.dart",
+      "bytes": 114157,
+      "hits": {
+        "request": 2,
+        "response": 15,
+        "api": 2,
+        "baseurl": 32
+      }
+    },
+    {
+      "package": "chagee_cn_app_user_module",
+      "file": "asm/chagee_cn_app_user_module/pages/me/me_page.dart",
+      "bytes": 393867,
+      "hits": {
+        "login": 39,
+        "request": 6,
+        "refresh": 5
+      }
+    },
+    {
+      "package": "chagee_cn_app_user_module",
+      "file": "asm/chagee_cn_app_user_module/pages/my_vouchers/my_vouchers_page.dart",
+      "bytes": 86912,
+      "hits": {
+        "header": 3,
+        "refresh": 47
+      }
+    },
+    {
+      "package": "chagee_cn_app_user_module",
+      "file": "asm/chagee_cn_app_user_module/pages/my_vouchers/applicable_stores/applicable_stores_page.dart",
+      "bytes": 65864,
+      "hits": {
+        "header": 3,
+        "refresh": 46
+      }
+    },
+    {
+      "package": "chagee_cn_app_user_module",
+      "file": "asm/chagee_cn_app_user_module/util/encrypt_utils.dart",
+      "bytes": 23053,
+      "hits": {
+        "encrypt": 29,
+        "request": 4,
+        "api": 10,
+        "baseurl": 5
+      }
+    },
+    {
+      "package": "chagee_cn_app_order_module",
+      "file": "asm/chagee_cn_app_order_module/page/order_voucher/order_voucher_page.dart",
+      "bytes": 109839,
+      "hits": {
+        "header": 3,
+        "refresh": 44
+      }
+    },
+    {
+      "package": "chagee_cn_app_user_module",
+      "file": "asm/chagee_cn_app_user_module/pages/my_vouchers/applicable_product/applicable_product_page_content.dart",
+      "bytes": 60987,
+      "hits": {
+        "header": 3,
+        "refresh": 41,
+        "storage": 3
+      }
+    },
+    {
+      "package": "chagee_cn_app_order_module",
+      "file": "asm/chagee_cn_app_order_module/page/order_detail/order_detail_bloc.dart",
+      "bytes": 171624,
+      "hits": {
+        "encrypt": 4,
+        "request": 17,
+        "response": 2,
+        "refresh": 12,
+        "api": 4,
+        "mobile": 4
+      }
+    },
+    {
+      "package": "chagee_cn_app_user_module",
+      "file": "asm/chagee_cn_app_user_module/pages/message/message_bloc.dart",
+      "bytes": 71484,
+      "hits": {
+        "dio": 1,
+        "request": 9,
+        "response": 7,
+        "refresh": 16,
+        "api": 6
+      }
+    },
+    {
+      "package": "chagee_cn_app_user_module",
+      "file": "asm/chagee_cn_app_user_module/pages/yuu_rewards/yuu_rewards_bloc.dart",
+      "bytes": 71883,
+      "hits": {
+        "request": 12,
+        "response": 4,
+        "refresh": 15,
+        "api": 8
+      }
+    },
+    {
+      "package": "chagee_cn_app_user_module",
+      "file": "asm/chagee_cn_app_user_module/pages/point_list/point_list_page.dart",
+      "bytes": 89171,
+      "hits": {
+        "header": 2,
+        "refresh": 35
+      }
+    },
+    {
+      "package": "chagee_cn_app_user_module",
+      "file": "asm/chagee_cn_app_user_module/util/user_util.dart",
+      "bytes": 67866,
+      "hits": {
+        "login": 6,
+        "token": 3,
+        "encrypt": 5,
+        "request": 6,
+        "response": 3,
+        "device": 8,
+        "api": 2,
+        "mobile": 2
+      }
+    },
+    {
+      "package": "chagee_cn_app_order_module",
+      "file": "asm/chagee_cn_app_order_module/page/order_list/order_list_bloc.dart",
+      "bytes": 105989,
+      "hits": {
+        "login": 2,
+        "encrypt": 4,
+        "request": 9,
+        "response": 2,
+        "refresh": 11,
+        "mobile": 4
+      }
+    },
+    {
+      "package": "chagee_cn_login_module",
+      "file": "asm/chagee_cn_login_module/page/select_country/select_country_page.dart",
+      "bytes": 140369,
+      "hits": {
+        "login": 30,
+        "api": 2
+      }
+    },
+    {
+      "package": "chagee_cn_app_order_module",
+      "file": "asm/chagee_cn_app_order_module/page/order_detail/order_detail_page.dart",
+      "bytes": 249891,
+      "hits": {
+        "request": 2,
+        "refresh": 29
+      }
+    },
+    {
+      "package": "chagee_cn_app_login_module",
+      "file": "asm/chagee_cn_app_login_module/Interface/login_auth_manager.dart",
+      "bytes": 26051,
+      "hits": {
+        "login": 16,
+        "sign": 12
+      }
+    },
+    {
+      "package": "chagee_cn_app_login_module",
+      "file": "asm/chagee_cn_app_login_module/fastlogin/model/token_response_model.dart",
+      "bytes": 16517,
+      "hits": {
+        "login": 4,
+        "token": 17,
+        "response": 7
+      }
+    },
+    {
+      "package": "chagee_cn_app_order_module",
+      "file": "asm/chagee_cn_app_order_module/page/order_place/order_place_bloc.dart",
+      "bytes": 199323,
+      "hits": {
+        "encrypt": 4,
+        "request": 12,
+        "response": 4,
+        "api": 2,
+        "mobile": 6
+      }
+    },
+    {
+      "package": "chagee_cn_app_user_module",
+      "file": "asm/chagee_cn_app_user_module/business/me_service.dart",
+      "bytes": 51802,
+      "hits": {
+        "encrypt": 15,
+        "header": 2,
+        "request": 4,
+        "response": 4,
+        "mobile": 1
+      }
+    },
+    {
+      "package": "chagee_cn_app_user_module",
+      "file": "asm/chagee_cn_app_user_module/pages/personal/personal_bloc.dart",
+      "bytes": 269241,
+      "hits": {
+        "encrypt": 4,
+        "dio": 2,
+        "request": 13,
+        "response": 5,
+        "mobile": 2
+      }
+    },
+    {
+      "package": "chagee_cn_login_module",
+      "file": "asm/chagee_cn_login_module/page/select_country/select_country_bloc.dart",
+      "bytes": 89939,
+      "hits": {
+        "login": 20,
+        "request": 3,
+        "response": 1
+      }
+    },
+    {
+      "package": "chagee_cn_app_user_module",
+      "file": "asm/chagee_cn_app_user_module/pages/account_management/account_management_bloc.dart",
+      "bytes": 14381,
+      "hits": {
+        "mobile": 20
+      }
+    },
+    {
+      "package": "chagee_cn_login_module",
+      "file": "asm/chagee_cn_login_module/widgets/verify_slider_native.dart",
+      "bytes": 68734,
+      "hits": {
+        "login": 9,
+        "request": 11
+      }
+    },
+    {
+      "package": "chagee_cn_app_user_module",
+      "file": "asm/chagee_cn_app_user_module/pages/me/me_bloc.dart",
+      "bytes": 86963,
+      "hits": {
+        "login": 2,
+        "request": 8,
+        "response": 3,
+        "api": 6
+      }
+    },
+    {
+      "package": "chagee_cn_login_module",
+      "file": "asm/chagee_cn_login_module/net/logout_api.dart",
+      "bytes": 4036,
+      "hits": {
+        "login": 14,
+        "token": 3,
+        "api": 2
+      }
+    },
+    {
+      "package": "chagee_cn_app_user_module",
+      "file": "asm/chagee_cn_app_user_module/pages/yuu_rewards/yuu_rewards_page.dart",
+      "bytes": 152688,
+      "hits": {
+        "login": 10,
+        "refresh": 8
+      }
+    },
+    {
+      "package": "chagee_cn_app_order_module",
+      "file": "asm/chagee_cn_app_order_module/page/order_place/order_place_state.dart",
+      "bytes": 246647,
+      "hits": {
+        "token": 12,
+        "response": 4
+      }
+    },
+    {
+      "package": "chagee_cn_app_order_module",
+      "file": "asm/chagee_cn_app_order_module/page/order_tab/order_tab_page.dart",
+      "bytes": 148286,
+      "hits": {
+        "login": 4,
+        "request": 6,
+        "refresh": 6
+      }
+    },
+    {
+      "package": "chagee_base_network",
+      "file": "asm/chagee_base_network/src/chagee_base_response.dart",
+      "bytes": 33584,
+      "hits": {
+        "response": 15
+      }
+    },
+    {
+      "package": "chagee_cn_app_user_module",
+      "file": "asm/chagee_cn_app_user_module/pages/setting/setting_bloc.dart",
+      "bytes": 50612,
+      "hits": {
+        "request": 4,
+        "response": 1,
+        "api": 2,
+        "mobile": 8
+      }
+    },
+    {
+      "package": "chagee_cn_login_module",
+      "file": "asm/chagee_cn_login_module/config/third_part_auth_config/auth_config.dart",
+      "bytes": 19409,
+      "hits": {
+        "login": 3,
+        "api": 12
+      }
+    },
+    {
+      "package": "chagee_cn_login_module",
+      "file": "asm/chagee_cn_login_module/widgets/login_widget.dart",
+      "bytes": 50458,
+      "hits": {
+        "login": 15
+      }
+    },
+    {
+      "package": "chagee_cn_login_module",
+      "file": "asm/chagee_cn_login_module/route/login_route.dart",
+      "bytes": 4251,
+      "hits": {
+        "login": 7,
+        "mobile": 7
+      }
+    },
+    {
+      "package": "chagee_cn_app_user_module",
+      "file": "asm/chagee_cn_app_user_module/pages/point_list/point_list_bloc.dart",
+      "bytes": 33112,
+      "hits": {
+        "request": 3,
+        "refresh": 10
+      }
+    },
+    {
+      "package": "chagee_cn_app_user_module",
+      "file": "asm/chagee_cn_app_user_module/pages/my_vouchers/add_voucher/add_voucher_bloc.dart",
+      "bytes": 38878,
+      "hits": {
+        "request": 6,
+        "response": 2,
+        "api": 4
+      }
+    },
+    {
+      "package": "chagee_cn_login_module",
+      "file": "asm/chagee_cn_login_module/page/terms/terms_page.dart",
+      "bytes": 26942,
+      "hits": {
+        "login": 6,
+        "request": 3,
+        "response": 1,
+        "api": 2
+      }
+    },
+    {
+      "package": "chagee_cn_app_user_module",
+      "file": "asm/chagee_cn_app_user_module/pages/access_settings/settings_platform_cubit.dart",
+      "bytes": 65119,
+      "hits": {
+        "request": 5,
+        "response": 2,
+        "api": 4
+      }
+    },
+    {
+      "package": "chagee_cn_app_user_module",
+      "file": "asm/chagee_cn_app_user_module/pages/account_management/account_management_page.dart",
+      "bytes": 49128,
+      "hits": {
+        "login": 4,
+        "mobile": 7
+      }
+    },
+    {
+      "package": "chagee_cn_app_user_module",
+      "file": "asm/chagee_cn_app_user_module/pages/my_vouchers/applicable_product/applicable_product_bloc.dart",
+      "bytes": 40466,
+      "hits": {
+        "request": 3,
+        "response": 1,
+        "refresh": 4,
+        "device": 3
+      }
+    },
+    {
+      "package": "chagee_base_network",
+      "file": "asm/chagee_base_network/src/chagee_base_request.dart",
+      "bytes": 9570,
+      "hits": {
+        "token": 2,
+        "header": 2,
+        "request": 6
+      }
+    },
+    {
+      "package": "chagee_cn_app_user_module",
+      "file": "asm/chagee_cn_app_user_module/pages/my_vouchers/applicable_stores/applicable_stores_bloc.dart",
+      "bytes": 39728,
+      "hits": {
+        "request": 3,
+        "response": 1,
+        "refresh": 4,
+        "api": 2
+      }
+    },
+    {
+      "package": "chagee_cn_app_user_module",
+      "file": "asm/chagee_cn_app_user_module/pages/personal/personal_page.dart",
+      "bytes": 271623,
+      "hits": {
+        "dio": 8,
+        "api": 2
+      }
+    },
+    {
+      "package": "chagee_cn_login_module",
+      "file": "asm/chagee_cn_login_module/page/merge_account_dialog/merge_account_dialog.dart",
+      "bytes": 120711,
+      "hits": {
+        "login": 7,
+        "header": 2
+      }
+    },
+    {
+      "package": "chagee_cn_app_order_module",
+      "file": "asm/chagee_cn_app_order_module/page/order_detail/order_detail_state.dart",
+      "bytes": 105647,
+      "hits": {
+        "refresh": 8
+      }
+    },
+    {
+      "package": "chagee_cn_app_user_module",
+      "file": "asm/chagee_cn_app_user_module/pages/my_vouchers/my_vouchers_bloc.dart",
+      "bytes": 38515,
+      "hits": {
+        "request": 3,
+        "response": 1,
+        "refresh": 4
+      }
+    },
+    {
+      "package": "chagee_cn_app_user_module",
+      "file": "asm/chagee_cn_app_user_module/pages/vouchers_history/vouchers_history/vouchers_history_list_bloc.dart",
+      "bytes": 40243,
+      "hits": {
+        "request": 3,
+        "response": 1,
+        "refresh": 4
+      }
+    },
+    {
+      "package": "chagee_cn_app_order_module",
+      "file": "asm/chagee_cn_app_order_module/page/order_place/order_place_page.dart",
+      "bytes": 384775,
+      "hits": {
+        "request": 5,
+        "response": 2
+      }
+    },
+    {
+      "package": "chagee_cn_app_order_module",
+      "file": "asm/chagee_cn_app_order_module/page/order_voucher/order_voucher_bloc.dart",
+      "bytes": 37220,
+      "hits": {
+        "request": 3,
+        "response": 1,
+        "refresh": 3
+      }
+    },
+    {
+      "package": "chagee_cn_login_module",
+      "file": "asm/chagee_cn_login_module/pub_header/pub_header.dart",
+      "bytes": 2403,
+      "hits": {
+        "login": 5,
+        "header": 2
+      }
+    },
+    {
+      "package": "chagee_cn_login_service",
+      "file": "asm/chagee_cn_login_service/chagee_login_service.dart",
+      "bytes": 5497,
+      "hits": {
+        "login": 7
+      }
+    },
+    {
+      "package": "chagee_cn_app_user_module",
+      "file": "asm/chagee_cn_app_user_module/pages/message/message_page.dart",
+      "bytes": 111990,
+      "hits": {
+        "refresh": 6
+      }
+    },
+    {
+      "package": "chagee_cn_app_user_module",
+      "file": "asm/chagee_cn_app_user_module/pages/vouchers_history/vouchers_manager/vouchers_manager_page.dart",
+      "bytes": 39197,
+      "hits": {
+        "storage": 6
+      }
+    },
+    {
+      "package": "chagee_cn_app_pay_module",
+      "file": "asm/chagee_cn_app_pay_module/model/list_channel_pay_method_resp.dart",
+      "bytes": 60699,
+      "hits": {
+        "dio": 1,
+        "mobile": 4
+      }
+    },
+    {
+      "package": "chagee_cn_login_module",
+      "file": "asm/chagee_cn_login_module/net/entities/country.dart",
+      "bytes": 23832,
+      "hits": {
+        "login": 5
+      }
+    },
+    {
+      "package": "chagee_cn_app_login_module",
+      "file": "asm/chagee_cn_app_login_module/Interface/thirdpart/apple_sign_in_service.dart",
+      "bytes": 258,
+      "hits": {
+        "login": 2,
+        "sign": 2
+      }
+    },
+    {
+      "package": "chagee_cn_app_login_module",
+      "file": "asm/chagee_cn_app_login_module/Interface/thirdpart/facebook_sign_in_service.dart",
+      "bytes": 258,
+      "hits": {
+        "login": 2,
+        "sign": 2
+      }
+    },
+    {
+      "package": "chagee_cn_app_login_module",
+      "file": "asm/chagee_cn_app_login_module/Interface/thirdpart/google_sign_in_service.dart",
+      "bytes": 260,
+      "hits": {
+        "login": 2,
+        "sign": 2
+      }
+    },
+    {
+      "package": "chagee_cn_app_login_module",
+      "file": "asm/chagee_cn_app_login_module/Interface/thirdpart/line_sign_in_service.dart",
+      "bytes": 250,
+      "hits": {
+        "login": 2,
+        "sign": 2
+      }
+    },
+    {
+      "package": "chagee_cn_app_user_module",
+      "file": "asm/chagee_cn_app_user_module/intl_util/me_intl.dart",
+      "bytes": 66131,
+      "hits": {
+        "login": 4
+      }
+    },
+    {
+      "package": "chagee_cn_app_user_module",
+      "file": "asm/chagee_cn_app_user_module/pages/delete_account/delete_account_bloc.dart",
+      "bytes": 11394,
+      "hits": {
+        "request": 2,
+        "api": 2
+      }
+    },
+    {
+      "package": "chagee_cn_app_user_module",
+      "file": "asm/chagee_cn_app_user_module/pages/delete_account/delete_account_page.dart",
+      "bytes": 95370,
+      "hits": {
+        "encrypt": 2,
+        "mobile": 2
+      }
+    },
+    {
+      "package": "chagee_cn_login_module",
+      "file": "asm/chagee_cn_login_module/widgets/images_widget.dart",
+      "bytes": 3420,
+      "hits": {
+        "login": 4
+      }
+    },
+    {
+      "package": "chagee_cn_app_order_module",
+      "file": "asm/chagee_cn_app_order_module/dialog/order_remarks_dialog.dart",
+      "bytes": 66696,
+      "hits": {
+        "login": 1,
+        "api": 2
+      }
+    },
+    {
+      "package": "chagee_cn_login_module",
+      "file": "asm/chagee_cn_login_module/widgets/slider_wrapper.dart",
+      "bytes": 4891,
+      "hits": {
+        "login": 3
+      }
+    },
+    {
+      "package": "chagee_common_utils",
+      "file": "asm/chagee_common_utils/router/web_url.dart",
+      "bytes": 19628,
+      "hits": {
+        "device": 3
+      }
+    },
+    {
+      "package": "chagee_base_network",
+      "file": "asm/chagee_base_network/network/chagee_header.dart",
+      "bytes": 228,
+      "hits": {
+        "header": 2
+      }
+    },
+    {
+      "package": "chagee_cn_app_order_module",
+      "file": "asm/chagee_cn_app_order_module/model/order_settle_price_resp.dart",
+      "bytes": 461945,
+      "hits": {
+        "request": 2
+      }
+    },
+    {
+      "package": "chagee_cn_app_order_module",
+      "file": "asm/chagee_cn_app_order_module/page/order_detail/order_detail_event.dart",
+      "bytes": 1493,
+      "hits": {
+        "refresh": 2
+      }
+    },
+    {
+      "package": "chagee_cn_app_order_module",
+      "file": "asm/chagee_cn_app_order_module/page/order_list/order_list_event.dart",
+      "bytes": 983,
+      "hits": {
+        "refresh": 2
+      }
+    },
+    {
+      "package": "chagee_cn_app_user_module",
+      "file": "asm/chagee_cn_app_user_module/pages/my_vouchers/add_voucher/add_voucher_view.dart",
+      "bytes": 53925,
+      "hits": {
+        "api": 2
+      }
+    },
+    {
+      "package": "chagee_cn_app_user_module",
+      "file": "asm/chagee_cn_app_user_module/pages/my_vouchers/dialog/my_vouchers_remind_view/voucher_detail_cubit.dart",
+      "bytes": 12941,
+      "hits": {
+        "request": 2
+      }
+    },
+    {
+      "package": "chagee_cn_app_user_module",
+      "file": "asm/chagee_cn_app_user_module/pages/views/province_city_area_selector.dart",
+      "bytes": 246664,
+      "hits": {
+        "request": 1,
+        "response": 1
+      }
+    },
+    {
+      "package": "chagee_cn_app_user_module",
+      "file": "asm/chagee_cn_app_user_module/pages/yuu_rewards/dialog/yuu_bind_error_widget.dart",
+      "bytes": 34890,
+      "hits": {
+        "login": 2
+      }
+    },
+    {
+      "package": "chagee_cn_app_order_module",
+      "file": "asm/chagee_cn_app_order_module/model/list_user_order_available_coupon_resp.dart",
+      "bytes": 257,
+      "hits": {
+        "response": 1
+      }
+    },
+    {
+      "package": "chagee_cn_app_order_module",
+      "file": "asm/chagee_cn_app_order_module/page/order_voucher/order_voucher_event.dart",
+      "bytes": 488,
+      "hits": {
+        "refresh": 1
+      }
+    },
+    {
+      "package": "chagee_cn_app_user_module",
+      "file": "asm/chagee_cn_app_user_module/pages/views/person_date_picker.dart",
+      "bytes": 52257,
+      "hits": {
+        "login": 1
+      }
+    },
+    {
+      "package": "chagee_cn_app_user_module",
+      "file": "asm/chagee_cn_app_user_module/pages/views/person_select_image.dart",
+      "bytes": 61812,
+      "hits": {
+        "login": 1
+      }
+    },
+    {
+      "package": "chagee_cn_app_user_module",
+      "file": "asm/chagee_cn_app_user_module/pages/views/tip_dialog.dart",
+      "bytes": 19460,
+      "hits": {
+        "login": 1
+      }
+    },
+    {
+      "package": "chagee_cn_app_user_module",
+      "file": "asm/chagee_cn_app_user_module/pages/yuu_rewards/yuu_rewards_event.dart",
+      "bytes": 556,
+      "hits": {
+        "refresh": 1
+      }
+    },
+    {
+      "package": "chagee_cn_login_module",
+      "file": "asm/chagee_cn_login_module/net/entities/verify_type.dart",
+      "bytes": 2391,
+      "hits": {
+        "login": 1
+      }
+    },
+    {
+      "package": "chagee_cn_login_module",
+      "file": "asm/chagee_cn_login_module/widgets/verify_slider_web_native.dart",
+      "bytes": 256,
+      "hits": {
+        "login": 1
+      }
+    }
+  ],
+  "caveat": "Blutter output is an AOT recovery aid, not original Dart source. Validate behavior with original bytes, a runtime hook, or a sanitized trace."
+}

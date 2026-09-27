@@ -1,0 +1,846 @@
+{
+  "generated_at": "20260927_013211",
+  "target": {
+    "storeNo": "CN08121",
+    "spuId": "1253292834069934081",
+    "spuName": "粉芭乐",
+    "skuId": "1253292834082516992",
+    "skuName": "粉芭乐",
+    "quantity": 1,
+    "salePrice": 20,
+    "specList": [
+      {
+        "specId": "653599312273510400",
+        "specOptionId": "653599312273510402",
+        "specOptionName": "大杯"
+      }
+    ],
+    "attributeList": [
+      {
+        "attributeId": "745317722624679942",
+        "attributeOptionId": "745317722624679945"
+      },
+      {
+        "attributeId": "623882672850116609",
+        "attributeOptionId": "623882672850116612"
+      }
+    ],
+    "imageUrl": "https://images.qmai.cn/s49006/2026/09/14/efc78d54275abbe932.jpg",
+    "spuType": "stand",
+    "nutritionInfo": {
+      "energyLevel": "C",
+      "energyUnit": "kcal/杯",
+      "energyValue": "192"
+    }
+  },
+  "results": [
+    {
+      "label": "1",
+      "customer_id": "1193099363",
+      "token_head": "eyJhbGciOiJSUzI1NiJ9.eyJ",
+      "sk_head": "ZjczNDYwMjJjMmQ1",
+      "steps": [
+        {
+          "step": "whoami",
+          "requests": [
+            {
+              "method": "GET",
+              "path": "/user-client/customer/userInfo/query",
+              "headers": {
+                "ua": "Dart/2.12 (dart:io)",
+                "user-agent": "Dart/3.8 (dart:io)",
+                "avc": "2060",
+                "apv": "1.0.3",
+                "tcode": "CHAGEE",
+                "channel": "APP",
+                "os": "android",
+                "aid": "100001",
+                "language": "zh_CN",
+                "region": "CN",
+                "devicetimezoneregion": "Asia/Shanghai",
+                "content-type": "application/json",
+                "uuid": "bc547030-bff7-41aa-8508-709766eff11d",
+                "cid": "bc547030-bff7-41aa-8508-709766eff11d",
+                "sk": "ZjczNDYwMjJjMmQ1N2M4MQ==...",
+                "authorization": "eyJhbGciOiJSUzI1NiJ9.eyJ..."
+              },
+              "body": null,
+              "status": "ok",
+              "elapsed_ms": 449,
+              "resp": {
+                "errcode": "0",
+                "errmsg": "处理成功",
+                "data": {
+                  "customerId": "1193099363",
+                  "avatar": "https://prod-chagee-cms-cn-cdn.chagee.com/user-server/prod/270d0b02c1ab12e9d9dfa76cf0fab53c.png",
+                  "nickName": "19926070",
+                  "phoneCode": "86",
+                  "mobile": "199****0332",
+                  "gender": 0,
+                  "birthday": null,
+                  "address": "广东省佛山市顺德区",
+                  "mobileEncrypt": "QDWEhh9UOYj5CpD7w5qTOg==",
+                  "levelInfo": {
+                    "level": 2,
+                    "levelName": "初釉象",
+                    "cardName": "初釉象",
+                    "maxLevel": false,
+                    "nextLevel": 3,
+                    "nextLevelName": "天青象",
+                    "totalExpNum": 53,
+                    "nextLevelMinExpNum": 100,
+                    "expNumForNextLevel": 47,
+                    "levelUpgradeMessage": "需47经验值升级至天青象",
+                    "levelProgressBarColor": [
+                      "#C6B28B",
+                      "#9F9071"
+                    ],
+                    "levelNameColor": "#9F9071",
+                    "levelBgImgUrl": "https://prod-chagee-cms-cn-cdn.chagee.com/cms-management/2025/12/30/5ade4f68b20847718ca7625781ffa05f.png",
+                    "levelExpirationDate": "2027-04-11"
+                  },
+                  "pointInfo": {
+                    "pointNum": "104.0",
+                    "expirePoint": null
+                  },
+                  "deregisterInfo": null,
+                  "showLevelCardAndBenefitEntry": true,
+                  "qmCustomerId": "1099019346834944000"
+                },
+                "traceId": null,
+                "globalTicket": "449ab377421bfe5ba29db6c25b53202c",
+                "timestamp": 1790443929035
+              }
+            }
+          ],
+          "summary": "customerId=1193099363 mobile=QDWEhh9UOYj5..."
+        },
+        {
+          "step": "calculatePrice",
+          "requests": [
+            {
+              "method": "GET",
+              "path": "/user-client/customer/userInfo/query",
+              "headers": {
+                "ua": "Dart/2.12 (dart:io)",
+                "user-agent": "Dart/3.8 (dart:io)",
+                "avc": "2060",
+                "apv": "1.0.3",
+                "tcode": "CHAGEE",
+                "channel": "APP",
+                "os": "android",
+                "aid": "100001",
+                "language": "zh_CN",
+                "region": "CN",
+                "devicetimezoneregion": "Asia/Shanghai",
+                "content-type": "application/json",
+                "uuid": "bc547030-bff7-41aa-8508-709766eff11d",
+                "cid": "bc547030-bff7-41aa-8508-709766eff11d",
+                "sk": "ZjczNDYwMjJjMmQ1N2M4MQ==...",
+                "authorization": "eyJhbGciOiJSUzI1NiJ9.eyJ..."
+              },
+              "body": null,
+              "status": "ok",
+              "elapsed_ms": 286,
+              "resp": {
+                "errcode": "0",
+                "errmsg": "处理成功",
+                "data": {
+                  "customerId": "1193099363",
+                  "avatar": "https://prod-chagee-cms-cn-cdn.chagee.com/user-server/prod/270d0b02c1ab12e9d9dfa76cf0fab53c.png",
+                  "nickName": "19926070",
+                  "phoneCode": "86",
+                  "mobile": "199****0332",
+                  "gender": 0,
+                  "birthday": null,
+                  "address": "广东省佛山市顺德区",
+                  "mobileEncrypt": "QDWEhh9UOYj5CpD7w5qTOg==",
+                  "levelInfo": {
+                    "level": 2,
+                    "levelName": "初釉象",
+                    "cardName": "初釉象",
+                    "maxLevel": false,
+                    "nextLevel": 3,
+                    "nextLevelName": "天青象",
+                    "totalExpNum": 53,
+                    "nextLevelMinExpNum": 100,
+                    "expNumForNextLevel": 47,
+                    "levelUpgradeMessage": "需47经验值升级至天青象",
+                    "levelProgressBarColor": [
+                      "#C6B28B",
+                      "#9F9071"
+                    ],
+                    "levelNameColor": "#9F9071",
+                    "levelBgImgUrl": "https://prod-chagee-cms-cn-cdn.chagee.com/cms-management/2025/12/30/5ade4f68b20847718ca7625781ffa05f.png",
+                    "levelExpirationDate": "2027-04-11"
+                  },
+                  "pointInfo": {
+                    "pointNum": "104.0",
+                    "expirePoint": null
+                  },
+                  "deregisterInfo": null,
+                  "showLevelCardAndBenefitEntry": true,
+                  "qmCustomerId": "1099019346834944000"
+                },
+                "traceId": null,
+                "globalTicket": "7d022dc45227657053220a2ed2a698fa",
+                "timestamp": 1790443929325
+              }
+            },
+            {
+              "method": "POST",
+              "path": "/chagee-navigation-web/api/navigation/goods/sku/calculatePrice",
+              "headers": {
+                "ua": "Dart/2.12 (dart:io)",
+                "user-agent": "Dart/3.8 (dart:io)",
+                "avc": "2060",
+                "apv": "1.0.3",
+                "tcode": "CHAGEE",
+                "channel": "APP",
+                "os": "android",
+                "aid": "100001",
+                "language": "zh_CN",
+                "region": "CN",
+                "devicetimezoneregion": "Asia/Shanghai",
+                "content-type": "application/json",
+                "uuid": "bc547030-bff7-41aa-8508-709766eff11d",
+                "cid": "bc547030-bff7-41aa-8508-709766eff11d",
+                "sk": "ZjczNDYwMjJjMmQ1N2M4MQ==...",
+                "authorization": "eyJhbGciOiJSUzI1NiJ9.eyJ..."
+              },
+              "body": {
+                "skuInfo": {
+                  "spuId": "1253292834069934081",
+                  "spuType": "stand",
+                  "skuId": "1253292834082516992",
+                  "num": 1,
+                  "salePrice": 20.0,
+                  "specList": [
+                    {
+                      "specId": "653599312273510400",
+                      "specOptionId": "653599312273510402"
+                    }
+                  ],
+                  "attributeList": [
+                    {
+                      "attributeId": "745317722624679942",
+                      "attributeOptionId": "745317722624679945"
+                    },
+                    {
+                      "attributeId": "623882672850116609",
+                      "attributeOptionId": "623882672850116612"
+                    }
+                  ]
+                },
+                "saleChannel": "2",
+                "saleType": "1",
+                "storeNo": "CN08121",
+                "storeBusinessType": 1,
+                "storeChannelCode": "android",
+                "userId": "1193099363"
+              },
+              "status": "ok",
+              "elapsed_ms": 620,
+              "resp": {
+                "errcode": "0",
+                "errmsg": "处理成功",
+                "data": {
+                  "spuId": "1253292834069934081",
+                  "spuType": "stand",
+                  "skuId": "1253292834082516992",
+                  "totalSalePrice": "20.00",
+                  "totalTradePrice": "20.00",
+                  "totalGoodsItemPrice": "20.00",
+                  "totalGoodsItemDiscountAmount": "0.00",
+                  "totalGoodsPaymentDiscountAmount": "0.00",
+                  "totalDiscountAmount": "0.00",
+                  "totalWrappingPrice": "0.00"
+                },
+                "globalTicket": "18c406991d8694ec34fd65c136f8f842",
+                "timestamp": 1790443929942
+              }
+            }
+          ],
+          "summary": "totalGoodsItemPrice=20.00 totalTradePrice=20.00"
+        },
+        {
+          "step": "settlePrice",
+          "requests": [
+            {
+              "method": "GET",
+              "path": "/user-client/customer/userInfo/query",
+              "headers": {
+                "ua": "Dart/2.12 (dart:io)",
+                "user-agent": "Dart/3.8 (dart:io)",
+                "avc": "2060",
+                "apv": "1.0.3",
+                "tcode": "CHAGEE",
+                "channel": "APP",
+                "os": "android",
+                "aid": "100001",
+                "language": "zh_CN",
+                "region": "CN",
+                "devicetimezoneregion": "Asia/Shanghai",
+                "content-type": "application/json",
+                "uuid": "bc547030-bff7-41aa-8508-709766eff11d",
+                "cid": "bc547030-bff7-41aa-8508-709766eff11d",
+                "sk": "ZjczNDYwMjJjMmQ1N2M4MQ==...",
+                "authorization": "eyJhbGciOiJSUzI1NiJ9.eyJ..."
+              },
+              "body": null,
+              "status": "ok",
+              "elapsed_ms": 316,
+              "resp": {
+                "errcode": "0",
+                "errmsg": "处理成功",
+                "data": {
+                  "customerId": "1193099363",
+                  "avatar": "https://prod-chagee-cms-cn-cdn.chagee.com/user-server/prod/270d0b02c1ab12e9d9dfa76cf0fab53c.png",
+                  "nickName": "19926070",
+                  "phoneCode": "86",
+                  "mobile": "199****0332",
+                  "gender": 0,
+                  "birthday": null,
+                  "address": "广东省佛山市顺德区",
+                  "mobileEncrypt": "QDWEhh9UOYj5CpD7w5qTOg==",
+                  "levelInfo": {
+                    "level": 2,
+                    "levelName": "初釉象",
+                    "cardName": "初釉象",
+                    "maxLevel": false,
+                    "nextLevel": 3,
+                    "nextLevelName": "天青象",
+                    "totalExpNum": 53,
+                    "nextLevelMinExpNum": 100,
+                    "expNumForNextLevel": 47,
+                    "levelUpgradeMessage": "需47经验值升级至天青象",
+                    "levelProgressBarColor": [
+                      "#C6B28B",
+                      "#9F9071"
+                    ],
+                    "levelNameColor": "#9F9071",
+                    "levelBgImgUrl": "https://prod-chagee-cms-cn-cdn.chagee.com/cms-management/2025/12/30/5ade4f68b20847718ca7625781ffa05f.png",
+                    "levelExpirationDate": "2027-04-11"
+                  },
+                  "pointInfo": {
+                    "pointNum": "104.0",
+                    "expirePoint": null
+                  },
+                  "deregisterInfo": null,
+                  "showLevelCardAndBenefitEntry": true,
+                  "qmCustomerId": "1099019346834944000"
+                },
+                "traceId": null,
+                "globalTicket": "5415e315ffc2391809d4253576c92442",
+                "timestamp": 1790443930263
+              }
+            },
+            {
+              "method": "POST",
+              "path": "/chagee-biz-trade-web/trade-web/order/settlePrice",
+              "headers": {
+                "ua": "Dart/2.12 (dart:io)",
+                "user-agent": "Dart/3.8 (dart:io)",
+                "avc": "2060",
+                "apv": "1.0.3",
+                "tcode": "CHAGEE",
+                "channel": "APP",
+                "os": "android",
+                "aid": "100001",
+                "language": "zh_CN",
+                "region": "CN",
+                "devicetimezoneregion": "Asia/Shanghai",
+                "content-type": "application/json",
+                "uuid": "bc547030-bff7-41aa-8508-709766eff11d",
+                "cid": "bc547030-bff7-41aa-8508-709766eff11d",
+                "sk": "ZjczNDYwMjJjMmQ1N2M4MQ==...",
+                "authorization": "eyJhbGciOiJSUzI1NiJ9.eyJ..."
+              },
+              "body": {
+                "settleBizInfo": {
+                  "businessType": 1,
+                  "orderType": 0,
+                  "storeNo": "CN08121",
+                  "userId": "1193099363",
+                  "userType": 3,
+                  "deliveryType": 1,
+                  "packageFeeSelected": null,
+                  "recommendCoupon": true
+                },
+                "goodsList": [
+                  {
+                    "uniqueKey": "c2f82876-4780-43c1-9480-469def9477d9",
+                    "currentGoodId": null,
+                    "itemId": null,
+                    "orderItemNo": null,
+                    "buyNum": 1,
+                    "salePrice": "20",
+                    "realPrice": null,
+                    "marketPrice": "20",
+                    "totalItemAmount": "20",
+                    "totalItemDiscountedAmount": "20",
+                    "spuId": "1253292834069934081",
+                    "skuId": "1253292834082516992",
+                    "skuName": "粉芭乐",
+                    "spuType": "stand",
+                    "skuImage": "https://images.qmai.cn/s49006/2026/09/14/efc78d54275abbe932.jpg",
+                    "clientUniqKey": null,
+                    "spuCategory": null,
+                    "tagImageUrl": null,
+                    "refunded": null,
+                    "specList": [
+                      {
+                        "specId": "...",
+                        "specOptionId": "...",
+                        "specOptionName": "..."
+                      }
+                    ],
+                    "attributeList": [
+                      {
+                        "attributeId": "...",
+                        "attributeOptionId": "..."
+                      },
+                      {
+                        "attributeId": "...",
+                        "attributeOptionId": "..."
+                      }
+                    ],
+                    "extraList": null,
+                    "comboGroupId": null,
+                    "isGift": null,
+                    "ruleId": null,
+                    "comboGroupType": null,
+                    "tagList": null,
+                    "comboItemList": null,
+                    "discountList": null,
+                    "tradeGoodsType": null,
+                    "nutritionInfo": {
+                      "energyLevel": "C",
+                      "energyUnit": "kcal/杯",
+                      "energyValue": "192"
+                    },
+                    "promotionDiscountId": null
+                  }
+                ],
+                "discountList": []
+              },
+              "status": "chagee_error",
+              "elapsed_ms": 264,
+              "errcode": "91010009",
+              "errmsg": "[91010009] 网络异常，请稍后重试 (trace=)"
+            }
+          ],
+          "error": {
+            "errcode": "91010009",
+            "msg": "[91010009] 网络异常，请稍后重试 (trace=)"
+          }
+        }
+      ],
+      "verdict": "settlePrice -> 91010009"
+    },
+    {
+      "label": "2",
+      "customer_id": "1190018250",
+      "token_head": "eyJhbGciOiJSUzI1NiJ9.eyJ",
+      "sk_head": "ZjczNDYwMjJjMmQ1",
+      "steps": [
+        {
+          "step": "whoami",
+          "requests": [
+            {
+              "method": "GET",
+              "path": "/user-client/customer/userInfo/query",
+              "headers": {
+                "ua": "Dart/2.12 (dart:io)",
+                "user-agent": "Dart/3.8 (dart:io)",
+                "avc": "2060",
+                "apv": "1.0.3",
+                "tcode": "CHAGEE",
+                "channel": "APP",
+                "os": "android",
+                "aid": "100001",
+                "language": "zh_CN",
+                "region": "CN",
+                "devicetimezoneregion": "Asia/Shanghai",
+                "content-type": "application/json",
+                "uuid": "a756bc21-66ad-4281-a15b-20cc431b596d",
+                "cid": "a756bc21-66ad-4281-a15b-20cc431b596d",
+                "sk": "ZjczNDYwMjJjMmQ1N2M4MQ==...",
+                "authorization": "eyJhbGciOiJSUzI1NiJ9.eyJ..."
+              },
+              "body": null,
+              "status": "ok",
+              "elapsed_ms": 283,
+              "resp": {
+                "errcode": "0",
+                "errmsg": "处理成功",
+                "data": {
+                  "customerId": "1190018250",
+                  "avatar": "https://prod-chagee-cms-cn-cdn.chagee.com/user-server/prod/270d0b02c1ab12e9d9dfa76cf0fab53c.png",
+                  "nickName": "Hi，茶友",
+                  "phoneCode": "86",
+                  "mobile": "159****1290",
+                  "gender": 0,
+                  "birthday": null,
+                  "address": "",
+                  "mobileEncrypt": "YUUjd1xuMwOdN/NgckaJ6Q==",
+                  "levelInfo": {
+                    "level": 2,
+                    "levelName": "初釉象",
+                    "cardName": "初釉象",
+                    "maxLevel": false,
+                    "nextLevel": 3,
+                    "nextLevelName": "天青象",
+                    "totalExpNum": 23,
+                    "nextLevelMinExpNum": 100,
+                    "expNumForNextLevel": 77,
+                    "levelUpgradeMessage": "需77经验值升级至天青象",
+                    "levelProgressBarColor": [
+                      "#C6B28B",
+                      "#9F9071"
+                    ],
+                    "levelNameColor": "#9F9071",
+                    "levelBgImgUrl": "https://prod-chagee-cms-cn-cdn.chagee.com/cms-management/2025/12/30/5ade4f68b20847718ca7625781ffa05f.png",
+                    "levelExpirationDate": "2027-09-26"
+                  },
+                  "pointInfo": {
+                    "pointNum": "81.0",
+                    "expirePoint": null
+                  },
+                  "deregisterInfo": null,
+                  "showLevelCardAndBenefitEntry": true,
+                  "qmCustomerId": "1138183512086601728"
+                },
+                "traceId": null,
+                "globalTicket": "acc57094745d541a1bff65aee3b8a75c",
+                "timestamp": 1790443930814
+              }
+            }
+          ],
+          "summary": "customerId=1190018250 mobile=YUUjd1xuMwOd..."
+        },
+        {
+          "step": "calculatePrice",
+          "requests": [
+            {
+              "method": "GET",
+              "path": "/user-client/customer/userInfo/query",
+              "headers": {
+                "ua": "Dart/2.12 (dart:io)",
+                "user-agent": "Dart/3.8 (dart:io)",
+                "avc": "2060",
+                "apv": "1.0.3",
+                "tcode": "CHAGEE",
+                "channel": "APP",
+                "os": "android",
+                "aid": "100001",
+                "language": "zh_CN",
+                "region": "CN",
+                "devicetimezoneregion": "Asia/Shanghai",
+                "content-type": "application/json",
+                "uuid": "a756bc21-66ad-4281-a15b-20cc431b596d",
+                "cid": "a756bc21-66ad-4281-a15b-20cc431b596d",
+                "sk": "ZjczNDYwMjJjMmQ1N2M4MQ==...",
+                "authorization": "eyJhbGciOiJSUzI1NiJ9.eyJ..."
+              },
+              "body": null,
+              "status": "ok",
+              "elapsed_ms": 304,
+              "resp": {
+                "errcode": "0",
+                "errmsg": "处理成功",
+                "data": {
+                  "customerId": "1190018250",
+                  "avatar": "https://prod-chagee-cms-cn-cdn.chagee.com/user-server/prod/270d0b02c1ab12e9d9dfa76cf0fab53c.png",
+                  "nickName": "Hi，茶友",
+                  "phoneCode": "86",
+                  "mobile": "159****1290",
+                  "gender": 0,
+                  "birthday": null,
+                  "address": "",
+                  "mobileEncrypt": "YUUjd1xuMwOdN/NgckaJ6Q==",
+                  "levelInfo": {
+                    "level": 2,
+                    "levelName": "初釉象",
+                    "cardName": "初釉象",
+                    "maxLevel": false,
+                    "nextLevel": 3,
+                    "nextLevelName": "天青象",
+                    "totalExpNum": 23,
+                    "nextLevelMinExpNum": 100,
+                    "expNumForNextLevel": 77,
+                    "levelUpgradeMessage": "需77经验值升级至天青象",
+                    "levelProgressBarColor": [
+                      "#C6B28B",
+                      "#9F9071"
+                    ],
+                    "levelNameColor": "#9F9071",
+                    "levelBgImgUrl": "https://prod-chagee-cms-cn-cdn.chagee.com/cms-management/2025/12/30/5ade4f68b20847718ca7625781ffa05f.png",
+                    "levelExpirationDate": "2027-09-26"
+                  },
+                  "pointInfo": {
+                    "pointNum": "81.0",
+                    "expirePoint": null
+                  },
+                  "deregisterInfo": null,
+                  "showLevelCardAndBenefitEntry": true,
+                  "qmCustomerId": "1138183512086601728"
+                },
+                "traceId": null,
+                "globalTicket": "721b6e55a59cc6460dddd8f6f3b5963c",
+                "timestamp": 1790443931114
+              }
+            },
+            {
+              "method": "POST",
+              "path": "/chagee-navigation-web/api/navigation/goods/sku/calculatePrice",
+              "headers": {
+                "ua": "Dart/2.12 (dart:io)",
+                "user-agent": "Dart/3.8 (dart:io)",
+                "avc": "2060",
+                "apv": "1.0.3",
+                "tcode": "CHAGEE",
+                "channel": "APP",
+                "os": "android",
+                "aid": "100001",
+                "language": "zh_CN",
+                "region": "CN",
+                "devicetimezoneregion": "Asia/Shanghai",
+                "content-type": "application/json",
+                "uuid": "a756bc21-66ad-4281-a15b-20cc431b596d",
+                "cid": "a756bc21-66ad-4281-a15b-20cc431b596d",
+                "sk": "ZjczNDYwMjJjMmQ1N2M4MQ==...",
+                "authorization": "eyJhbGciOiJSUzI1NiJ9.eyJ..."
+              },
+              "body": {
+                "skuInfo": {
+                  "spuId": "1253292834069934081",
+                  "spuType": "stand",
+                  "skuId": "1253292834082516992",
+                  "num": 1,
+                  "salePrice": 20.0,
+                  "specList": [
+                    {
+                      "specId": "653599312273510400",
+                      "specOptionId": "653599312273510402"
+                    }
+                  ],
+                  "attributeList": [
+                    {
+                      "attributeId": "745317722624679942",
+                      "attributeOptionId": "745317722624679945"
+                    },
+                    {
+                      "attributeId": "623882672850116609",
+                      "attributeOptionId": "623882672850116612"
+                    }
+                  ]
+                },
+                "saleChannel": "2",
+                "saleType": "1",
+                "storeNo": "CN08121",
+                "storeBusinessType": 1,
+                "storeChannelCode": "android",
+                "userId": "1190018250"
+              },
+              "status": "ok",
+              "elapsed_ms": 445,
+              "resp": {
+                "errcode": "0",
+                "errmsg": "处理成功",
+                "data": {
+                  "spuId": "1253292834069934081",
+                  "spuType": "stand",
+                  "skuId": "1253292834082516992",
+                  "totalSalePrice": "20.00",
+                  "totalTradePrice": "20.00",
+                  "totalGoodsItemPrice": "0.00",
+                  "totalGoodsItemDiscountAmount": "0.00",
+                  "totalGoodsPaymentDiscountAmount": "20.00",
+                  "totalDiscountAmount": "20.00",
+                  "totalWrappingPrice": "0.00"
+                },
+                "globalTicket": "7bb22192ff1d431d53651cde2e841944",
+                "timestamp": 1790443931557
+              }
+            }
+          ],
+          "summary": "totalGoodsItemPrice=0.00 totalTradePrice=20.00"
+        },
+        {
+          "step": "settlePrice",
+          "requests": [
+            {
+              "method": "GET",
+              "path": "/user-client/customer/userInfo/query",
+              "headers": {
+                "ua": "Dart/2.12 (dart:io)",
+                "user-agent": "Dart/3.8 (dart:io)",
+                "avc": "2060",
+                "apv": "1.0.3",
+                "tcode": "CHAGEE",
+                "channel": "APP",
+                "os": "android",
+                "aid": "100001",
+                "language": "zh_CN",
+                "region": "CN",
+                "devicetimezoneregion": "Asia/Shanghai",
+                "content-type": "application/json",
+                "uuid": "a756bc21-66ad-4281-a15b-20cc431b596d",
+                "cid": "a756bc21-66ad-4281-a15b-20cc431b596d",
+                "sk": "ZjczNDYwMjJjMmQ1N2M4MQ==...",
+                "authorization": "eyJhbGciOiJSUzI1NiJ9.eyJ..."
+              },
+              "body": null,
+              "status": "ok",
+              "elapsed_ms": 309,
+              "resp": {
+                "errcode": "0",
+                "errmsg": "处理成功",
+                "data": {
+                  "customerId": "1190018250",
+                  "avatar": "https://prod-chagee-cms-cn-cdn.chagee.com/user-server/prod/270d0b02c1ab12e9d9dfa76cf0fab53c.png",
+                  "nickName": "Hi，茶友",
+                  "phoneCode": "86",
+                  "mobile": "159****1290",
+                  "gender": 0,
+                  "birthday": null,
+                  "address": "",
+                  "mobileEncrypt": "YUUjd1xuMwOdN/NgckaJ6Q==",
+                  "levelInfo": {
+                    "level": 2,
+                    "levelName": "初釉象",
+                    "cardName": "初釉象",
+                    "maxLevel": false,
+                    "nextLevel": 3,
+                    "nextLevelName": "天青象",
+                    "totalExpNum": 23,
+                    "nextLevelMinExpNum": 100,
+                    "expNumForNextLevel": 77,
+                    "levelUpgradeMessage": "需77经验值升级至天青象",
+                    "levelProgressBarColor": [
+                      "#C6B28B",
+                      "#9F9071"
+                    ],
+                    "levelNameColor": "#9F9071",
+                    "levelBgImgUrl": "https://prod-chagee-cms-cn-cdn.chagee.com/cms-management/2025/12/30/5ade4f68b20847718ca7625781ffa05f.png",
+                    "levelExpirationDate": "2027-09-26"
+                  },
+                  "pointInfo": {
+                    "pointNum": "81.0",
+                    "expirePoint": null
+                  },
+                  "deregisterInfo": null,
+                  "showLevelCardAndBenefitEntry": true,
+                  "qmCustomerId": "1138183512086601728"
+                },
+                "traceId": null,
+                "globalTicket": "74d11bb3074367f0d7374825af765472",
+                "timestamp": 1790443931867
+              }
+            },
+            {
+              "method": "POST",
+              "path": "/chagee-biz-trade-web/trade-web/order/settlePrice",
+              "headers": {
+                "ua": "Dart/2.12 (dart:io)",
+                "user-agent": "Dart/3.8 (dart:io)",
+                "avc": "2060",
+                "apv": "1.0.3",
+                "tcode": "CHAGEE",
+                "channel": "APP",
+                "os": "android",
+                "aid": "100001",
+                "language": "zh_CN",
+                "region": "CN",
+                "devicetimezoneregion": "Asia/Shanghai",
+                "content-type": "application/json",
+                "uuid": "a756bc21-66ad-4281-a15b-20cc431b596d",
+                "cid": "a756bc21-66ad-4281-a15b-20cc431b596d",
+                "sk": "ZjczNDYwMjJjMmQ1N2M4MQ==...",
+                "authorization": "eyJhbGciOiJSUzI1NiJ9.eyJ..."
+              },
+              "body": {
+                "settleBizInfo": {
+                  "businessType": 1,
+                  "orderType": 0,
+                  "storeNo": "CN08121",
+                  "userId": "1190018250",
+                  "userType": 3,
+                  "deliveryType": 1,
+                  "packageFeeSelected": null,
+                  "recommendCoupon": true
+                },
+                "goodsList": [
+                  {
+                    "uniqueKey": "e22dcd23-c100-4aa7-9b0b-393d40c12cb4",
+                    "currentGoodId": null,
+                    "itemId": null,
+                    "orderItemNo": null,
+                    "buyNum": 1,
+                    "salePrice": "0",
+                    "realPrice": null,
+                    "marketPrice": "20",
+                    "totalItemAmount": "20",
+                    "totalItemDiscountedAmount": "0",
+                    "spuId": "1253292834069934081",
+                    "skuId": "1253292834082516992",
+                    "skuName": "粉芭乐",
+                    "spuType": "stand",
+                    "skuImage": "https://images.qmai.cn/s49006/2026/09/14/efc78d54275abbe932.jpg",
+                    "clientUniqKey": null,
+                    "spuCategory": null,
+                    "tagImageUrl": null,
+                    "refunded": null,
+                    "specList": [
+                      {
+                        "specId": "...",
+                        "specOptionId": "...",
+                        "specOptionName": "..."
+                      }
+                    ],
+                    "attributeList": [
+                      {
+                        "attributeId": "...",
+                        "attributeOptionId": "..."
+                      },
+                      {
+                        "attributeId": "...",
+                        "attributeOptionId": "..."
+                      }
+                    ],
+                    "extraList": null,
+                    "comboGroupId": null,
+                    "isGift": null,
+                    "ruleId": null,
+                    "comboGroupType": null,
+                    "tagList": null,
+                    "comboItemList": null,
+                    "discountList": null,
+                    "tradeGoodsType": null,
+                    "nutritionInfo": {
+                      "energyLevel": "C",
+                      "energyUnit": "kcal/杯",
+                      "energyValue": "192"
+                    },
+                    "promotionDiscountId": null
+                  }
+                ],
+                "discountList": []
+              },
+              "status": "chagee_error",
+              "elapsed_ms": 278,
+              "errcode": "91010009",
+              "errmsg": "[91010009] 网络异常，请稍后重试 (trace=)"
+            }
+          ],
+          "error": {
+            "errcode": "91010009",
+            "msg": "[91010009] 网络异常，请稍后重试 (trace=)"
+          }
+        }
+      ],
+      "verdict": "settlePrice -> 91010009"
+    }
+  ]
+}

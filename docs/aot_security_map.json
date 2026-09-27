@@ -1,0 +1,108 @@
+{
+  "artifact": {
+    "libapp": "E:\\霸王茶姬\\decompiled\\raw_apk\\lib\\arm64-v8a\\libapp.so",
+    "sha256": "8b4aa0dd6dc15ec8380e402bfdb251941678c5b7830ee5a9200822857da5edd7",
+    "bytes": 12911520
+  },
+  "recovery_root": "E:\\霸王茶姬\\so_analysis\\blutter_out",
+  "evidence_type": "Blutter static Dart AOT recovery output",
+  "files": [
+    {
+      "file": "so_analysis/blutter_out/asm/chagee_base_network/network/chagee_interceptor.dart",
+      "methods": {
+        "onRequest": {
+          "address": "0xb48248",
+          "size": "0x214"
+        },
+        "_handleRequestPostBody": {
+          "address": "0xb48518",
+          "size": "0x888"
+        },
+        "buildEncryptedDataFromOriginal": {
+          "address": "0xb49234",
+          "size": "0x59c"
+        },
+        "_handleRequestHeaders": {
+          "address": "0xb49ad4",
+          "size": "0x1b0"
+        },
+        "_handleCustomBaseUrl": {
+          "address": "0xb49fa8",
+          "size": "0xc4"
+        },
+        "onResponse": {
+          "address": "0xb21470",
+          "size": "0x70"
+        },
+        "_decryptResponseIfNeeded": {
+          "address": "0xb21730",
+          "size": "0x404"
+        },
+        "decryptFieldsInResponse": {
+          "address": "0xb21ba8",
+          "size": "0x554"
+        }
+      },
+      "selected_literals": [
+        "customBaseUrl",
+        "customHeaders",
+        "sign"
+      ]
+    },
+    {
+      "file": "so_analysis/blutter_out/asm/chagee_base_network/network/chagee_network.dart",
+      "methods": {
+        "_downloadRequestBy": {
+          "address": "0x552994",
+          "size": "0x108"
+        }
+      },
+      "selected_literals": []
+    },
+    {
+      "file": "so_analysis/blutter_out/asm/chagee_cn_login_module/business/login_service.dart",
+      "methods": {
+        "initOneClickLogin": {
+          "address": "0xb74810",
+          "size": "0x208"
+        },
+        "preGetPhoneNumber": {
+          "address": "0xb742a0",
+          "size": "0x244"
+        },
+        "_tryOneClickLoginOrFallback": {
+          "address": "0xba1080",
+          "size": "0x660"
+        },
+        "_callOneClickLoginAPI": {
+          "address": "0xba18e8",
+          "size": "0x598"
+        },
+        "_handleOneClickLoginSuccess": {
+          "address": "0xba16e0",
+          "size": "0x208"
+        },
+        "_processLoginSuccess": {
+          "address": "0xba1e80",
+          "size": "0x20c"
+        },
+        "cleanToken": {
+          "address": "0xb75714",
+          "size": "0x44"
+        },
+        "loginSuccess": {
+          "address": "0xb75890",
+          "size": "0x17c"
+        }
+      },
+      "selected_literals": [
+        "accessToken",
+        "data",
+        "login_type",
+        "login_userLoginToken",
+        "token"
+      ]
+    }
+  ],
+  "interpretation_boundary": "Addresses and names are navigation anchors. They do not establish a full protocol, server acceptance rules, or any credential value; validate behavioral claims with a sanitized trace from a controlled device."
+}

@@ -1,0 +1,9 @@
+{
+ "captured_at": "2026-09-27T18:24:10.268202",
+ "source": "frida_mint",
+ "port": 9231,
+ "url": "https://mclient.alipay.com/h5pay/landing/index.html?h5_request_token=RZZFB11jbylX0JnXRDd6sJrXM05QHlmobilecashierRZZFB11&query_params=cc%3Dy%26session%3DRZZFB11jbylX0JnXRDd6sJrXM05QHlmobilecashierRZZFB11%26utdid%3Dard6vj24ouoDAPwfC0RN0%252Fhz%26init_from%3DSDKLite%26awid%3DRZ42eLSnX2VsOXGdny3oC7XrINogQ2mobileclientgwRZ55%26route_pay_from%3Dh5%26tid%3D2e80dd74198790910ee488e446e945e319c838fd490f3d80dcddeae2fe3827aa&x_requested_with=com.chagee.application.cn&app_name=mc&tid=2e80dd74198790910ee488e446e945e319c838fd490f3d80dcddeae2fe3827aa&targetDispatchSystem=unitradeprod&serverParams=emlkPTc5O2RwdD0wZjMzO25kcHQ9ZDhkNztjYz15O2Jpel91bmlxdWVJZD1tb2JpbGVjYXNoaWVyX2NjbWM7dGVuYW50TmFtZT1NWkZCVzNDTg%3D%3D&cookieToken=f68df071ff59457383d9ecfa570103e6",
+ "order_no": "202609270910110028444798250",
+ "entry_url": "https://mclient.alipay.com/cashierRoutePay.htm?route_pay_from=h5&init_from=SDKLite&session=RZZFB11jbylX0JnXRDd6sJrXM05QHlmobilecashierRZZFB11&utdid=ard6vj24ouoDAPwfC0RN0/hz&tid=2e80dd74198790910ee488e446e945e319c838fd490f3d80dcddeae2fe3827aa&cc=y",
+ "probe_alive": true
+}

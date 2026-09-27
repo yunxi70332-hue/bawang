@@ -1,0 +1,469 @@
+{
+  "verified_at": "2026-09-10",
+  "scope": "只读静态分析复核；未修改 APK/DEX/SO/签名，未采集任何密钥或账户数据",
+  "apk": {
+    "path": "E:\\霸王茶姬\\apk\\霸王茶姬.apk",
+    "bytes": 155475443,
+    "sha256": "c4f2e82db1a51ae604a0ce05638fdc0a626a2de21fe5be5ded2a8a2b51e2959a",
+    "matches_prior_inventory": true
+  },
+  "manifest": {
+    "package": "com.chagee.application.cn",
+    "versionCode": 638,
+    "versionName": "1.0.0",
+    "minSdk": 24,
+    "targetSdk": 35,
+    "compileSdk": 35,
+    "application_class": "com.chagee.application.cn.ChageeApplication",
+    "allowBackup": false,
+    "extractNativeLibs": false,
+    "usesCleartextTraffic": true,
+    "networkSecurityConfig": "@xml/network_security_config_debug",
+    "networkSecurityConfigsPresent": [
+      "network_security_config_debug.xml",
+      "network_security_config_release.xml"
+    ],
+    "debug_config_trusts_user_certs": true,
+    "permission_count": 24,
+    "sensitive_permissions": [
+      "READ_PHONE_STATE",
+      "CAMERA",
+      "ACCESS_FINE_LOCATION",
+      "ACCESS_BACKGROUND_LOCATION",
+      "RECORD_AUDIO",
+      "QUERY_ALL_PACKAGES",
+      "READ_EXTERNAL_STORAGE",
+      "WRITE_EXTERNAL_STORAGE"
+    ]
+  },
+  "build_config": {
+    "BUILD_TYPE": "release",
+    "DEBUG": false,
+    "IsDebug": "true",
+    "FlutterBranch": "master",
+    "TaskId": "767",
+    "is_debug_chain": {
+      "dart_entry": "ChageeEnv::initEnv() → UserAppUtils::isDebug() @0x8f97f8",
+      "bridge": "ChageeChannelNative::call({\"key\":\"IsDebug\"}) @0x8f98a8 → MethodChannel",
+      "java_handler": "MainActivity::getBuildConfigValue(String) —— Class.forName(\"<pkg>.BuildConfig\").getField(key).get(null) 反射读取",
+      "resolved_value": "BuildConfig.IsDebug = \"true\" → 与字面量 \"true\" 比较 → ChageeEnv.isDebug = true (static field offset 0x10fc)",
+      "impacts": [
+        "trace_config.dart @0x7fee78/@0x7feec8 决定埋点项目：mys_dev（debug） vs mys_production",
+        "init.dart @0x550e98 配合 LoggerModule 控制日志 print 开关",
+        "init.dart::setNativeH5Domain @0x80a418 结合 SpUtil.getString(\"c_debug_env\") 与 \"test\" 决定 native H5 域名"
+      ]
+    }
+  },
+  "signing": {
+    "schemes_present": [
+      "v2"
+    ],
+    "v1_files": [],
+    "signing_block_pairs": [
+      {
+        "id": "0x7109871a",
+        "len": 1464
+      },
+      {
+        "id": "0x504b4453",
+        "len": 10660
+      },
+      {
+        "id": "0x42726577",
+        "len": 96
+      }
+    ],
+    "dependency_info_block": "0x504b4453 = Google DEPENDENCY_INFO_BLOCK（AGP 生成，内容对第三方不可读，非可疑）",
+    "signer_cert_der": "docs/signer_certificate.der",
+    "signer_cert_bytes": 818,
+    "signer_cert_sha256": "d7cf2c4475a47686e4ae3a547d4f3f32d7b87346507ba7767e7f17582bf5f8ee",
+    "signer_cert_serial": "B418168AD6CD908A",
+    "signer_cert_not_before": "2024-05-07T09:39:32Z",
+    "signer_cert_not_after": "2051-09-23T09:39:32Z",
+    "signer_cert_subject": "C=US, ST=, L=, O=, OU=, CN=(空)"
+  },
+  "native": {
+    "total": 26,
+    "by_abi": {
+      "arm64-v8a": 8,
+      "armeabi": 1,
+      "armeabi-v7a": 6,
+      "x86": 4,
+      "x86_64": 7
+    },
+    "aot_target": {
+      "abi": "arm64-v8a",
+      "name": "libapp.so",
+      "bytes": 12911520,
+      "sha256": "8b4aa0dd6dc15ec8380e402bfdb251941678c5b7830ee5a9200822857da5edd7"
+    },
+    "libraries": [
+      {
+        "abi": "arm64-v8a",
+        "name": "libapp.so",
+        "bytes": 12911520,
+        "elf_machine": "0xb7",
+        "sha256": "8b4aa0dd6dc15ec8380e402bfdb251941678c5b7830ee5a9200822857da5edd7"
+      },
+      {
+        "abi": "arm64-v8a",
+        "name": "libCtaApiLib.so",
+        "bytes": 498176,
+        "elf_machine": "0xb7",
+        "sha256": "aabb64fce16684415c535cd818f26889870051474b8f8badc2dabc432a2a3888"
+      },
+      {
+        "abi": "arm64-v8a",
+        "name": "libdartjni.so",
+        "bytes": 122216,
+        "elf_machine": "0xb7",
+        "sha256": "64fe0d9abe2a76d8ee99a3bbc47d2c2c79db3be8d8afffff006331ef59ddb575"
+      },
+      {
+        "abi": "arm64-v8a",
+        "name": "libflutter.so",
+        "bytes": 10814192,
+        "elf_machine": "0xb7",
+        "sha256": "e5a55e7277079b4c1148709a7af82b45c38e9d431787f034d3d4ad212899d593"
+      },
+      {
+        "abi": "arm64-v8a",
+        "name": "libjutils.so",
+        "bytes": 1406072,
+        "elf_machine": "0xb7",
+        "sha256": "fc3d4aa7bac240043d382c953a6585e239d6895b4b23685012fd514632d33383"
+      },
+      {
+        "abi": "arm64-v8a",
+        "name": "libmmkv.so",
+        "bytes": 717088,
+        "elf_machine": "0xb7",
+        "sha256": "a3fea0fdcf78bda2c615d94b7131e4d53c6a4c3232963732ccc74b307298fd46"
+      },
+      {
+        "abi": "arm64-v8a",
+        "name": "libsentry-android.so",
+        "bytes": 16832,
+        "elf_machine": "0xb7",
+        "sha256": "bfd08bbea47d9c664d746c46d4af7b26ff1d0c222c5f7bbd18b06dbdebfb8e00"
+      },
+      {
+        "abi": "arm64-v8a",
+        "name": "libsentry.so",
+        "bytes": 681784,
+        "elf_machine": "0xb7",
+        "sha256": "7626e4885ccad9e33eb54d55edfffd4b7f3e60993f2410042b16f2b5e720722a"
+      },
+      {
+        "abi": "armeabi",
+        "name": "libCtaApiLib.so",
+        "bytes": 296828,
+        "elf_machine": "0x28",
+        "sha256": "85e2dd80727c1bae0e64f03a36314cf107a5362674ec8282f633a58f1f79ed0e"
+      },
+      {
+        "abi": "armeabi-v7a",
+        "name": "libapp.so",
+        "bytes": 14254676,
+        "elf_machine": "0x28",
+        "sha256": "a24efd50b904bdacf814338449348c089b06ea3a75562418f65e82edb74604a9"
+      },
+      {
+        "abi": "armeabi-v7a",
+        "name": "libCtaApiLib.so",
+        "bytes": 280448,
+        "elf_machine": "0x28",
+        "sha256": "af4892be37c29d74dfa935b56cec3e0dccdb76cfb859f5b5f7d946d82a4ec70b"
+      },
+      {
+        "abi": "armeabi-v7a",
+        "name": "libdartjni.so",
+        "bytes": 75760,
+        "elf_machine": "0x28",
+        "sha256": "11ce57b260f7e14a8868e08c3532d5c19b62844f00174c875ca5b2787dd8e112"
+      },
+      {
+        "abi": "armeabi-v7a",
+        "name": "libflutter.so",
+        "bytes": 7614304,
+        "elf_machine": "0x28",
+        "sha256": "bc68beaee236fe4f26e208937186ceb514c113406516ee8bd69d3e0760ac6d6f"
+      },
+      {
+        "abi": "armeabi-v7a",
+        "name": "libsentry-android.so",
+        "bytes": 12080,
+        "elf_machine": "0x28",
+        "sha256": "987623d98285e22262dbfdfd3e1c72b6484ec18ca8e40992f9e81d911f7925f8"
+      },
+      {
+        "abi": "armeabi-v7a",
+        "name": "libsentry.so",
+        "bytes": 440816,
+        "elf_machine": "0x28",
+        "sha256": "ad3cd37c71a935c788122e771ac98ab329ffde0bc0ac9fae571139ac4886876f"
+      },
+      {
+        "abi": "x86",
+        "name": "libCtaApiLib.so",
+        "bytes": 509864,
+        "elf_machine": "0x3",
+        "sha256": "972b2304015c96875781f5cfa651e0127657a8261970987cae9fb3c2265ed283"
+      },
+      {
+        "abi": "x86",
+        "name": "libdartjni.so",
+        "bytes": 102616,
+        "elf_machine": "0x3",
+        "sha256": "1daf1b84c1a91bd008d1217767e400508e1a91c1954395b4e82d3ca462ef2b2f"
+      },
+      {
+        "abi": "x86",
+        "name": "libsentry-android.so",
+        "bytes": 14760,
+        "elf_machine": "0x3",
+        "sha256": "7b550a972e0c500e0d14e7b83887ae12a69983f126c8e8272fa53b1995551321"
+      },
+      {
+        "abi": "x86",
+        "name": "libsentry.so",
+        "bytes": 695140,
+        "elf_machine": "0x3",
+        "sha256": "46850bcd75f97791765c9d4230d155e3e6533638d1a0af0dcbea421e6e7ef803"
+      },
+      {
+        "abi": "x86_64",
+        "name": "libapp.so",
+        "bytes": 12911520,
+        "elf_machine": "0x3e",
+        "sha256": "cd44b8dbcfc95166d983676fa408ef9c84edf0efcac48fc1f342d748e148e15c"
+      },
+      {
+        "abi": "x86_64",
+        "name": "libCtaApiLib.so",
+        "bytes": 519080,
+        "elf_machine": "0x3e",
+        "sha256": "f47c23cce6fa1ef9b3e04cde85e4e13eb51bf5e530e22e591891ab36926504de"
+      },
+      {
+        "abi": "x86_64",
+        "name": "libdartjni.so",
+        "bytes": 110744,
+        "elf_machine": "0x3e",
+        "sha256": "6aaac1750abbe4433b1caeb58acbde97d3abaaf6003c14ddf7ea5d7fe10a4789"
+      },
+      {
+        "abi": "x86_64",
+        "name": "libflutter.so",
+        "bytes": 11888064,
+        "elf_machine": "0x3e",
+        "sha256": "a43add10a176a511cfcfb9d15b58c3a9848e98a19a60051b65bdb6b94316f128"
+      },
+      {
+        "abi": "x86_64",
+        "name": "libmmkv.so",
+        "bytes": 711400,
+        "elf_machine": "0x3e",
+        "sha256": "2d78945f291ce58e89fd1eeed2e4cb5154f27baa3ccbbd759bdaf4cceab7a3c5"
+      },
+      {
+        "abi": "x86_64",
+        "name": "libsentry-android.so",
+        "bytes": 16384,
+        "elf_machine": "0x3e",
+        "sha256": "9fa8abaccfee05d2c35fd3017e0164c54231a373c8ed58b0bdff5755a7605d82"
+      },
+      {
+        "abi": "x86_64",
+        "name": "libsentry.so",
+        "bytes": 668944,
+        "elf_machine": "0x3e",
+        "sha256": "22435fa61008f3d17c0f16391e29d5191843d4c3a51e7d33c5abe3b46bc5f913"
+      }
+    ]
+  },
+  "dex": {
+    "files": [
+      "classes.dex",
+      "classes2.dex",
+      "classes3.dex",
+      "classes4.dex"
+    ],
+    "app_java_classes": 5,
+    "app_namespace": "com.chagee.application.cn（仅 ChageeApplication / MainActivity / EngineUtils / BuildConfig / R）"
+  },
+  "flutter_aot": {
+    "recovered_files": 1845,
+    "anchors": {
+      "generateSign": "0xb48da0",
+      "buildEncryptedDataFromOriginal": "0xb49234",
+      "decryptFieldsInResponse": "0xb21ba8",
+      "onRequest": "0xb48248",
+      "onResponse": "0xb21470",
+      "_handleRequestPostBody": "0xb48518",
+      "_handleRequestHeaders": "0xb49ad4",
+      "_handleCustomBaseUrl": "0xb49fa8",
+      "_handleResponseStatusCode": "0xb21598",
+      "getEncryptKey": "0x7f2a1c",
+      "getSecretKey": "0x8b35f0",
+      "MYLoginService": "0x8f85cc"
+    }
+  },
+  "security_posture": {
+    "client_sign_algorithm": "HMAC(secretKey, \"k1=v1&k2=v2...\" 按键名排序后用 & 连接) → digest → base64 → trim（见 generateSign 0xb48da0；HMAC 摘要实现由入参决定，需运行时确认）",
+    "request_envelope": "extra.requestEncryptFields + extra.sk → AES/Encrypted.fromUtf8 → buildEncryptedDataFromOriginal",
+    "response_envelope": "extra.responseEncryptFields + extra.sk → AES → decryptFieldsInResponse（Map/List 递归）",
+    "key_source": "/encrypt-server/enctrypt/api/getsk（EncryptUtils::getEncryptKey）→ 缓存（setEncryptKeySP）；EncryptUtils::getSecretKey 依 EncryptUtils.env（\"release\"）分支",
+    "dex_certificate_pinning": "未发现应用自配置 pin；okhttp3 CertificatePinner 仅库内实现，无 sha256/<pin> 常量",
+    "dart_certificate_pinning": "未发现 badCertificateCallback / SecurityContext / pinning 字面量",
+    "root_detection": "仅 Sentry RootChecker（上报用）与 SensorsData enableRootCheck 开关，非应用级阻断",
+    "anti_frida_antidebug": "未发现应用级反调试；frida/xposed 关键字命中均为库字符串表误报（\"Exposed\" 等）",
+    "dynamic_dex_loading": "无应用级 Dynamic DEX；DexClassLoader 命中位于极光推送 SDK",
+    "notable_risk": "release 构建携带 IsDebug=true 且清单引用 debug 版网络安全配置（信任用户 CA + 允许明文），为 MITM 调试留口",
+    "root_emulator_detection_attribution": {
+      "conclusion": "检测特征串存在，但全部归属第三方 SDK，且仅用于采集/上报，非应用级阻断",
+      "owners": {
+        "cn/jiguang/bu/b.java + cn/jiguang/bz/i.java": "极光推送（设备画像）",
+        "com/alipay/sdk/m/d0/b.java + com/alipay/sdk/m/v/b.java": "支付宝 SDK（风控）",
+        "io/sentry/android/core/internal/util/RootChecker.java": "Sentry（崩溃上下文）",
+        "神策 deviceIsEmulator/setDeviceIsEmulator": "神策（事件属性）"
+      }
+    }
+  },
+  "endpoints": {
+    "count": 87,
+    "inventory_file": "docs/api_endpoints_aot.txt",
+    "list": [
+      "/api/marketing-activity-web/fission-activity/home-page",
+      "/api/marketing-activity-web/fission-activity/my-invitees",
+      "/api/marketing-activity-web/fission-activity/my-reward",
+      "/api/marketing-activity-web/fission-activity/share-info",
+      "/api/marketing-activity-web/ranking-activity/queryBindRankingInfo",
+      "/api/messaging-web/im-user-device-info/report",
+      "/api/messaging-web/im-user-message/delete",
+      "/api/messaging-web/im-user-message/query",
+      "/api/messaging-web/im-user-message/read-update",
+      "/api/messaging-web/im-user-message/un-read-count",
+      "/api/multi-lang/server/checkAndGetUpdateInfo",
+      "/api/multi-lang/server/getDataAndVersion",
+      "/api/navigation/global/config/countryInfo",
+      "/api/navigation/global/config/detail",
+      "/api/navigation/order/refund",
+      "/api/promotion-web/adv/exposure-report",
+      "/api/promotion-web/adv/page-show",
+      "/api/promotion-web/coupon-exchange/exchange",
+      "/api/promotion-web/coupon-exchange/query-activity",
+      "/api/promotion-web/skin/info",
+      "/api/promotion-web/user-coupon/available-store-list",
+      "/api/user-client/app/dict/tso",
+      "/api/user-client/common/login/sg",
+      "/api/user-client/customer/bindMobile",
+      "/api/user-client/customer/checkMergeAccount",
+      "/api/user-client/customer/del",
+      "/api/user-client/customer/mergeAccount",
+      "/api/user-client/customer/setting",
+      "/api/user-client/customer/setting/notify",
+      "/api/user-client/customer/yuu/bind",
+      "/api/user-client/customer/yuu/bindQrcode",
+      "/api/user-client/customer/yuu/status",
+      "/api/user-client/customer/yuu/unbind",
+      "/api/user-client/my-point/order-point",
+      "/api/user-client/third/apple/callback",
+      "/api/user-client/third/apple/login",
+      "/api/user-client/third/apple/render",
+      "/api/user-client/third/facebook/login",
+      "/api/user-client/third/facebook/render",
+      "/api/user-client/third/google/login",
+      "/api/user-client/third/google/render",
+      "/api/user-client/third/line/login",
+      "/api/user-client/third/line/render",
+      "/chagee-biz-trade-web/trade-web/order/cancelOrder",
+      "/chagee-biz-trade-web/trade-web/order/commitPay",
+      "/chagee-biz-trade-web/trade-web/order/continuePay",
+      "/chagee-biz-trade-web/trade-web/order/createOrder",
+      "/chagee-biz-trade-web/trade-web/order/getOrderDetail",
+      "/chagee-biz-trade-web/trade-web/order/getOrderList",
+      "/chagee-biz-trade-web/trade-web/order/getOrderStatus",
+      "/chagee-biz-trade-web/trade-web/order/getWaitingInfo",
+      "/chagee-biz-trade-web/trade-web/order/settlePrice",
+      "/chagee-messaging-web/im-user-device-info/report",
+      "/chagee-navigation-web/api/navigation/decoration/getDecorationData",
+      "/chagee-navigation-web/api/navigation/decoration/pageInfo",
+      "/chagee-navigation-web/api/navigation/goods/detail",
+      "/chagee-navigation-web/api/navigation/goods/storeGoodsMenu",
+      "/chagee-navigation-web/api/navigation/payment/channelPayMethod",
+      "/chagee-navigation-web/api/navigation/shoppingCart/change",
+      "/chagee-navigation-web/api/navigation/shoppingCart/get",
+      "/chagee-navigation-web/api/navigation/store/cityList",
+      "/chagee-navigation-web/api/navigation/store/detail",
+      "/chagee-navigation-web/api/navigation/store/getNearestStoreDetail",
+      "/chagee-navigation-web/api/navigation/store/list",
+      "/chagee-navigation-web/api/navigation/store/reverseGeo",
+      "/chagee-promotion-web/user-coupon/available-goods-list",
+      "/chagee-promotion-web/user-coupon/available-store-list",
+      "/chagee-promotion-web/user-coupon/effective-list",
+      "/chagee-promotion-web/user-coupon/historical-list",
+      "/chagee-promotion-web/user-coupon/order-coupon-list",
+      "/chagee-promotion-web/user-coupon/view-detail",
+      "/changeCountry",
+      "/encrypt-server/enctrypt/api/getsk",
+      "/envelope/",
+      "/h5/exchange_record",
+      "/h5/level",
+      "/h5/point",
+      "/user-client/auth/login/oneKey",
+      "/user-client/auth/login/sms",
+      "/user-client/auth/logout",
+      "/user-client/customer/city/list",
+      "/user-client/customer/image/upload",
+      "/user-client/customer/modify/mobile",
+      "/user-client/customer/userInfo/query",
+      "/user-client/customer/userInfo/update",
+      "/user-client/message/countryCode",
+      "/user-client/my-point/history"
+    ]
+  },
+  "artifacts_written": [
+    "docs/static_analysis_verify.json",
+    "docs/静态分析报告.md",
+    "docs/api_endpoints_aot.txt",
+    "docs/signer_certificate.der"
+  ],
+  "limits": [
+    "未持有测试账号与已脱敏抓包，未验证服务端验收规则",
+    "HMAC 摘要算法未在静态层确定",
+    "ARM64 RVA 须与 native/arm64-v8a/libapp.so 一一对应，不可套用 x86_64 副本",
+    "envString() 运行时取值受 SP/远端配置影响，静态层无法确定真机实际域名"
+  ],
+  "environments": {
+    "config_file": "asm/chagee_global_app/env/env_app.dart",
+    "matrix": {
+      "release": {
+        "api": "https://gw.chagee.com",
+        "h5": "https://h5-sea.chagee.com/"
+      },
+      "uat": {
+        "api": "https://uat-gw.chagee.com",
+        "h5": "https://uat-h5-sea.chagee.com/"
+      },
+      "test": {
+        "api": "https://test-gw.chagee.com",
+        "h5": "https://test-h5-sea.chagee.com"
+      },
+      "dev": {
+        "api": "https://dev-gw.chagee.com",
+        "h5": "https://dev-h5-sea.chagee.com"
+      }
+    },
+    "env_string_logic": "init.dart::envString() @0x7f2724：isDebug 为真时按 ChageeEnv.selectEnv 解析 debug 环境名，否则走 release 分支",
+    "select_env_static_value": "ChageeEnv::selectEnv() @0x7f2884 静态恢复返回 AppEnvConfig::uat",
+    "local_override": "SharedPreferences key \"c_debug_env\"（SpUtil::getString）",
+    "caveat": "运行时最终域名受 SP 与远端配置影响，静态层无法确定真机生效值"
+  },
+  "architecture": {
+    "dual_engine": true,
+    "detail": "EngineUtils.java：RN_ENGINE=\"rn\" / FLUTTER_ENGINE=\"flutter\"，读 SharedPreferences(\"chagee_core_data\")[\"engine\"]，缺省 flutter；提供 jump2RNEngine/jump2FlutterEngine/startEngine",
+    "rn_assets_in_apk": false,
+    "note": "本 APK 内无 RN bundle 资产，RN 分支为休眠或待远端下发"
+  }
+}

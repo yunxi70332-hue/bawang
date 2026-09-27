@@ -1,0 +1,42 @@
+# ---- Python ----
+__pycache__/
+*.py[cod]
+.venv*/
+.pytest_cache/
+
+# ---- 运行时数据/库/日志（不入库，可再生成） ----
+*.db
+*.db-journal
+*.db-wal
+*.db-shm
+account_system/server/data/logs/
+account_system/data/logs/
+account_system/server/test_*.db*
+account_system/data/test_*.db*
+account_system/data/secret.key
+account_system/data/internal_broadcast.secret
+account_system/data/msp_runtime_pubkey.txt
+
+# ---- 前端 ----
+web/node_modules/
+web/dist/
+
+# ---- 巨型取证/安装资产（体积原因不入库；不会被代码改动波及） ----
+apk/
+capture/*.flows
+
+# ---- 产出物/临时文件 ----
+.zcode/
+.workbuddy/
+output/*.jpg
+output/*.png
+output/*.bin
+output/mcpay_req_flow*.bin
+output/__pycache__/
+output/ui_*.xml
+decompiled/
+repack/
+so_analysis/
+*.log
+.DS_Store
+Thumbs.db

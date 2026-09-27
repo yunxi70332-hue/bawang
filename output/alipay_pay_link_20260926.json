@@ -1,0 +1,169 @@
+{
+ "orderNo": "202609260910110025007908250",
+ "payNo": "CHP2026092610100108755109036",
+ "orderStr": "alipay_sdk=alipay-sdk-java-4.40.237.ALL&app_auth_token=202511BBb03f0a4ddba545aa8f09a02a9a101X44&app_id=2018080860981451&biz_content=%7B%22time_expire%22%3A%222026-09-26+17%3A10%3A49%22%2C%22extend_params%22%3A%7B%22sys_service_provider_id%22%3A%222088021787797493%22%7D%2C%22out_trade_no%22%3A%22331L20260926100098716809036%22%2C%22total_amount%22%3A%2210.00%22%2C%22subject%22%3A%22CHAGEE%E9%9C%B8%E7%8E%8B%E8%8C%B6%E5%A7%AC%EF%BC%88%E6%B9%96%E5%8D%97%E8%A1%A1%E9%98%B3%E5%B8%B8%E5%AE%81%E4%B8%9C%E9%A3%8E%E5%B9%BF%E5%9C%BA%E5%BA%97%EF%BC%89%22%2C%22business_params%22%3A%7B%7D%2C%22timeout_express%22%3A%2230m%22%2C%22product_code%22%3A%22QUICK_MSECURITY_PAY%22%2C%22merchant_order_no%22%3A%22331L20260926100098716809036%22%7D&charset=UTF-8&format=json&method=alipay.trade.app.pay&notify_url=https%3A%2F%2Fqr-wh.chinaums.com%2Fnetpay-portal%2Ftrade%2Fnotify.do%2FAlipay2%2FALIPAY%2FAPP_PAY%2F7ee09e49-5db3-4246-81f1-36298d407d7b%2F1790412049805%2FE06a40af553144dbabcdb92a8139a7ae&return_url=https%3A%2F%2Fqr-wh.chinaums.com%2Fnetpay-portal%2Falipay2%2Fh5PayResult.do%2F7ee09e49-5db3-4246-81f1-36298d407d7b%2F1790412049805%2FE06a40af553144dbabcdb92a8139a7ae%2FFINISH&sign=LyWkQeYdsJfs9YIN0mtodJYJv1K2kwhO2m37JbS4%2B2g1wfALgMHLnzS9udAezykvv4HTnEdxAVdlyEz1Ir9fc4uZbhImf7uZ4YVXWNP2tjWKd5H%2FfT0ygQZR6CluEOCQQQcVrQ%2BGi1paEwY6dXsgn%2F6rbIIVOcxlzZv72PXSBCbk12J0QkwXpFqo84epMROclxsPAPvf5SxB0gu9xguUY6xQVt2DzeTC3%2B6r9gnJHCiR72CYVhM2VOlf462JrNK%2BZV%2FzbLhDQFvHqgSV4Mqn4N3JP5qznIsoD%2BUaDGHWBqs50IVeBv6DJqyN465h3%2B%2F6FRv8M4%2FoF80AtdbHFD7TEA%3D%3D&sign_type=RSA2&timestamp=2026-09-26+16%3A40%3A49&version=1.0",
+ "biz_content": {
+  "time_expire": "2026-09-26+17:10:49",
+  "extend_params": {
+   "sys_service_provider_id": "2088021787797493"
+  },
+  "out_trade_no": "331L20260926100098716809036",
+  "total_amount": "10.00",
+  "subject": "CHAGEE霸王茶姬（湖南衡阳常宁东风广场店）",
+  "business_params": {},
+  "timeout_express": "30m",
+  "product_code": "QUICK_MSECURITY_PAY",
+  "merchant_order_no": "331L20260926100098716809036"
+ },
+ "alipay_method": "alipay.trade.app.pay",
+ "app_id": "2018080860981451",
+ "notify_url": "https://qr-wh.chinaums.com/netpay-portal/trade/notify.do/Alipay2/ALIPAY/APP_PAY/7ee09e49-5db3-4246-81f1-36298d407d7b/1790412049805/E06a40af553144dbabcdb92a8139a7ae",
+ "return_url": "https://qr-wh.chinaums.com/netpay-portal/alipay2/h5PayResult.do/7ee09e49-5db3-4246-81f1-36298d407d7b/1790412049805/E06a40af553144dbabcdb92a8139a7ae/FINISH",
+ "createOrder_req": {
+  "tcode": "CHAGEE",
+  "orderInfo": {
+   "buyerRemark": null,
+   "orderBizInfo": {
+    "businessType": 1,
+    "orderType": 0
+   },
+   "storeInfo": {
+    "storeNo": "CN08820",
+    "storeName": "湖南衡阳常宁东风广场店"
+   },
+   "userInfo": {
+    "userId": "1190018250",
+    "userType": 3,
+    "mobile": "YUUjd1xuMwOdN/NgckaJ6Q==",
+    "areaCode": "86"
+   },
+   "paymentInfo": {
+    "payerId": "1190018250",
+    "payType": 60,
+    "channelCode": "UnionPay",
+    "currencyType": 156,
+    "payAmount": "10"
+   },
+   "deliveryInfo": {
+    "deliveryType": 1,
+    "packageFeeSelected": null
+   }
+  },
+  "orderGroupList": [
+   {
+    "discountList": [],
+    "goodsList": [
+     {
+      "attributeList": [
+       {
+        "attributeId": "745317722624679948",
+        "attributeName": " 茶底",
+        "attributeOptionId": "1188136223577550861",
+        "attributeOptionName": "茶香款"
+       },
+       {
+        "attributeId": "745317722624679942",
+        "attributeName": " 温度",
+        "attributeOptionId": "745317722624679945",
+        "attributeOptionName": "标准冰"
+       },
+       {
+        "attributeId": "623882672850116609",
+        "attributeName": "甜度",
+        "attributeOptionId": "623882672850116614",
+        "attributeOptionName": "标准糖"
+       }
+      ],
+      "buyNum": 1,
+      "comboGroupId": null,
+      "comboItemList": [],
+      "currentGoodId": "e2280fc4a7410b114d0b8650b7871c0f",
+      "discountList": [
+       {
+        "deductionType": null,
+        "discountAmount": "10",
+        "discountId": "1310638595720736768",
+        "currentSelect": null,
+        "discountName": "霸王茶姬10元代金券-LT",
+        "discountSource": 1,
+        "discountType": 1,
+        "ruleId": null,
+        "scopeType": 2
+       }
+      ],
+      "extraList": [],
+      "groupUserId": null,
+      "itemId": "200001_0",
+      "nutritionInfo": {
+       "energyLevel": "C",
+       "energyUnit": "kcal/杯",
+       "energyValue": "268"
+      },
+      "promotionDiscountId": null,
+      "salePrice": "20",
+      "skuId": "653632618000097282",
+      "skuImage": "https://images.qmai.cn/s49006/2026/09/14/18736e39420bf84099.jpg",
+      "skuName": "伯牙绝弦",
+      "specList": [
+       {
+        "specId": "653599312273510400",
+        "specName": null,
+        "specOptionId": "653599312273510402",
+        "specOptionName": "大杯"
+       }
+      ],
+      "spuId": "625339451983278080",
+      "spuType": "stand",
+      "tagList": [],
+      "totalItemAmount": "20",
+      "totalItemDiscountedAmount": "20",
+      "tradeGoodsType": 1,
+      "uniqueKey": "eb93a714-11c9-4630-8956-6fdb3b14e3a2"
+     }
+    ],
+    "orderId": "100001",
+    "spiltGoodsList": [],
+    "tradeFundInfo": {
+     "buyerRealPrice": "10",
+     "packageFeeInfo": null,
+     "totalActivityDiscountAmount": "",
+     "totalCouponDiscountAmount": "",
+     "totalDiscountAmount": "10",
+     "totalExtraGoodsPrice": "0",
+     "totalFreightDiscountAmount": "0",
+     "totalFreightPrice": "0",
+     "totalGoodsItemDiscountAmount": "0",
+     "totalGoodsItemPrice": "10",
+     "totalGoodsPaymentDiscountAmount": "10",
+     "totalMarketPrice": "0",
+     "totalOriginPrice": "20",
+     "totalPackageDiscountAmount": "0",
+     "totalPackagePrice": "0",
+     "totalRealFreightPrice": "0",
+     "totalRealPackagePrice": "0",
+     "totalSalePrice": "20",
+     "totalTradePrice": "20"
+    }
+   }
+  ],
+  "discountList": [
+   {
+    "deductionType": null,
+    "discountAmount": "10",
+    "discountId": "1310638595720736768",
+    "currentSelect": null,
+    "discountName": "霸王茶姬10元代金券-LT",
+    "discountSource": 1,
+    "discountType": 1,
+    "ruleId": null,
+    "scopeType": 2
+   }
+  ],
+  "confirmOrderKey": "202609260834350010085858250"
+ },
+ "sign": "LyWkQeYdsJfs9YIN0mtodJYJv1K2kwhO2m37JbS4%2B2g1wfALgMHLnzS9udAezykvv4HTnEdxAVdlyEz1Ir9fc4uZbhImf7uZ4YVXWNP2tjWKd5H%2FfT0ygQZR6CluEOCQQQcVrQ%2BGi1paEwY6dXsgn%2F6rbIIVOcxlzZv72PXSBCbk12J0QkwXpFqo84epMROclxsPAPvf5SxB0gu9xguUY6xQVt2DzeTC3%2B6r9gnJHCiR72CYVhM2VOlf462JrNK%2BZV%2FzbLhDQFvHqgSV4Mqn4N3JP5qznIsoD%2BUaDGHWBqs50IVeBv6DJqyN465h3%2B%2F6FRv8M4%2FoF80AtdbHFD7TEA%3D%3D",
+ "sign_type": "RSA2",
+ "timestamp": "2026-09-26+16%3A40%3A49",
+ "h5_cashier_url": "https://mclient.alipay.com/cashierRoutePay.htm?route_pay_from=h5&init_from=SDKLite&session=RZZFB000tXXHTyNxf0TbFfXfhu1xlVmobilecashierRZZFB00&utdid=ard6vj24ouoDAPwfC0RN0/hz&tid=2e80dd74198790910ee488e446e945e319c838fd490f3d80dcddeae2fe3827aa&cc=y",
+ "h5_landing_302": "https://mclient.alipay.com/h5pay/landing/index.html?h5_request_token=RZZFB000tXXHTyNxf0TbFfXfhu1xlVmobilecashierRZZFB00&query_params=cc%3Dy%26session%3DRZZFB000tXXHTyNxf0TbFfXfhu1xlVmobilecashierRZZFB00%26utdid%3Dard6vj24ouoDAPwfC0RN0%252Fhz%26init_from%3DSDKLite%26awid%3DRZ42OBQ58u1daqqMG8EroFjBXGFXd9mobileclientgwRZ42%26route_pay_from%3Dh5%26tid%3D2e80dd74198790910ee488e446e945e319c838fd490f3d80dcddeae2fe3827aa&x_requested_with=com.chagee.application.cn&app_name=mc&tid=2e80dd74198790910ee488e446e945e319c838fd490f3d80dcddeae2fe3827aa&targetDispatchSystem=unitradeprod&serverParams=emlkPTk5O2RwdD04NzFkO25kcHQ9YTIzODtjYz15O2Jpel91bmlxdWVJZD1tb2JpbGVjYXNoaWVyX2NjbWM7dGVuYW50TmFtZT1NWkZCVzNDTg%3D%3D&cookieToken=64b571bb18fe49ca90213f0541b84c50"
+}

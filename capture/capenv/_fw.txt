@@ -1,0 +1,21 @@
+﻿
+Name    Enabled DefaultInboundAction
+----    ------- --------------------
+Domain     True        NotConfigured
+Private   False        NotConfigured
+Public    False        NotConfigured
+
+
+
+
+IPAddress       InterfaceAlias
+---------       --------------
+169.254.197.20  以太网 2         
+169.254.226.189 本地连接* 2       
+169.254.142.196 本地连接* 1       
+28.0.0.1        Meta          
+169.254.4.111   以太网           
+192.168.1.4     WLAN          
+
+
+

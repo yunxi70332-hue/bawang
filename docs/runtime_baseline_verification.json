@@ -1,0 +1,44 @@
+{
+  "serial": "emulator-5554",
+  "package": "com.chagee.application.cn",
+  "pid": "4582",
+  "record": "E:\\霸王茶姬\\capture\\baseline-20260907-021235.json",
+  "sanitized_log": "E:\\霸王茶姬\\capture\\interaction-20260907-021949.sanitized.log",
+  "libapp": {
+    "path": "E:\\霸王茶姬\\so_analysis\\native\\arm64-v8a\\libapp.so",
+    "sha256": "8b4aa0dd6dc15ec8380e402bfdb251941678c5b7830ee5a9200822857da5edd7"
+  },
+  "device": {
+    "model": "V1824A",
+    "abi": "x86_64",
+    "android_release": "9"
+  },
+  "package_after": {
+    "package_paths": [
+      "package:/data/app/com.chagee.application.cn-o1XHJXfSUpAKrvMvr5Ej3Q==/base.apk"
+    ],
+    "package_fields": [
+      "    codePath=/data/app/com.chagee.application.cn-o1XHJXfSUpAKrvMvr5Ej3Q==",
+      "    primaryCpuAbi=arm64-v8a",
+      "    versionCode=638 minSdk=24 targetSdk=35",
+      "    versionName=1.0.0"
+    ]
+  },
+  "checks": {
+    "adb_online": true,
+    "package_installed": true,
+    "package_name": true,
+    "main_activity_present": true,
+    "main_activity_displayed": true,
+    "flutter_events": true,
+    "one_click_login_init": true,
+    "privacy_false_baseline": true,
+    "raw_logs_absent": true,
+    "arm64_libapp_hash_matches": true
+  },
+  "maps_check": {
+    "status": "permission-denied-fallback",
+    "detail": "Android 9 emulator denied /proc/<pid>/maps; ABI, package path, Flutter events and static libapp hash were used instead."
+  },
+  "ok": true
+}

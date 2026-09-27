@@ -1,0 +1,67 @@
+{
+ "timeline": [
+  {
+   "t": "16:47:15",
+   "event": "¥10单(…908250) s1待支付"
+  },
+  {
+   "t": "16:52:54",
+   "event": "¥10单 s7已取消 — paymentExpiryTime(16:50:50)+autoCancel 实证生效"
+  },
+  {
+   "t": "16:57:28",
+   "event": "¥8新单(…258250) getOrderDetail s1待支付 payType=支付宝App支付"
+  },
+  {
+   "t": "16:57:33",
+   "event": "continuePay 调用 — 重新拉起支付(新out_trade_no/新签名支付串, expire 17:27:33)"
+  },
+  {
+   "t": "16:58:22",
+   "event": "订单翻转 s3制作中 pickupNo=TA0001 — 支付成功"
+  },
+  {
+   "t": "16:58:25",
+   "event": "getWaitingInfo {waitingCups:0, waitingTime:300, queueLimit:61}"
+  }
+ ],
+ "status_enum_evidence": {
+  "1": "待支付",
+  "3": "制作中",
+  "6": "已完成(带T0xxx取餐码)",
+  "7": "已取消(autoCancel/手动)"
+ },
+ "continuePay": {
+  "request": {
+   "tcode": "CHAGEE",
+   "userId": "1190018250",
+   "orderNo": "202609260910110029049258250",
+   "channelCode": "UnionPay",
+   "payType": 60
+  },
+  "response": {
+   "errcode": "0",
+   "errmsg": "处理成功",
+   "data": {
+    "orderNo": "202609260910110029049258250",
+    "payUrl": "{\"requestJson\":{\"orderStr\":\"alipay_sdk=alipay-sdk-java-4.40.237.ALL&app_auth_token=202511BBb03f0a4ddba545aa8f09a02a9a101X44&app_id=2018080860981451&biz_content=%7B%22time_expire%22%3A%222026-09-26+17%3A27%3A33%22%2C%22extend_params%22%3A%7B%22sys_service_provider_id%22%3A%222088021787797493%22%7D%2C%22out_trade_no%22%3A%22331L20260926100099830101022%22%2C%22total_amount%22%3A%228.00%22%2C%22subject%22%3A%22CHAGEE%E9%9C%B8%E7%8E%8B%E8%8C%B6%E5%A7%AC%EF%BC%88%E6%B1%9F%E8%8B%8F%E5%8D%97%E4%BA%AC%E6%B5%A6%E5%8F%A3%E9%87%91%E8%B1%A1%E5%9F%8E%E5%BA%97%EF%BC%89%22%2C%22business_params%22%3A%7B%7D%2C%22timeout_express%22%3A%2230m%22%2C%22product_code%22%3A%22QUICK_MSECURITY_PAY%22%2C%22merchant_order_no%22%3A%22331L20260926100099830101022%22%7D&charset=UTF-8&format=json&method=alipay.trade.app.pay&notify_url=https%3A%2F%2Fqr-wh.chinaums.com%2Fnetpay-portal%2Ftrade%2Fnotify.do%2FAlipay2%2FALIPAY%2FAPP_PAY%2F690aa369-0ef0-4dcc-9e46-2a971832c70c%2F1790413053964%2FD0c5e7e5099b403ca2e5a38cfd56aada&return_url=https%3A%2F%2Fqr-wh.chinaums.com%2Fnetpay-portal%2Falipay2%2Fh5PayResult.do%2F690aa369-0ef0-4dcc-9e46-2a971832c70c%2F1790413053964%2FD0c5e7e5099b403ca2e5a38cfd56aada%2FFINISH&sign=UQsmVVOdHQ0e6frvL1l8smE%2Fedjx1VhAeZlKGgwTwtW6iygwsDWh7axmXDUgyL5SL2b1K%2BJd8NGWVgLUvHoWMSaCoSql6uhPUdBLCpqlXeoTIM6Fj7FoSOWL5H%2F568OiLlVCwxGEmW2jhkPF5mWY24cuZafS6HrefU4c%2F8J8fgSOySOBgzxKJbWtFX2FKAYg9uXTnqYM6XveIF2o%2Fu3F3Ol%2FCaXG9RabH3D%2BGGwIr%2F6pNx7l%2BPvOh3FH5EOPHMM3rt7ExFj9quJwcOp16g0J5vJM9z3of7xvYrHor6XBN1pmCan7rM0nfqrYmXvCTbwAAiNaIiR3oOZpuMr1l8VsWQ%3D%3D&sign_type=RSA2&timestamp=2026-09-26+16%3A57%3A33&version=1.0\"}}",
+    "payNo": "CHP2026092610100109872701022"
+   },
+   "thirdTraceId": "",
+   "globalTicket": "888522f104644e7d739501526b6d4a54",
+   "timestamp": 1790413054126
+  }
+ },
+ "getWaitingInfo": {
+  "errcode": "0",
+  "errmsg": "处理成功",
+  "data": {
+   "waitingCups": 0,
+   "waitingTime": 300,
+   "queueLimit": 61
+  },
+  "thirdTraceId": "",
+  "globalTicket": "2ff9b2b3b0b7c783f168fce44124173a",
+  "timestamp": 1790413107654
+ }
+}

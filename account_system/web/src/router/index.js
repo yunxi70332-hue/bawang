@@ -1,0 +1,39 @@
+import { createRouter, createWebHistory } from 'vue-router'
+import { useAuthStore } from '../stores/auth'
+
+const routes = [
+  { path: '/login', name: 'login', component: () => import('../views/LoginView.vue'), meta: { public: true, title: '登录' } },
+  {
+    path: '/',
+    component: () => import('../layouts/MainLayout.vue'),
+    redirect: '/dashboard',
+    children: [
+      { path: 'dashboard', name: 'dashboard', component: () => import('../views/DashboardView.vue'), meta: { title: '仪表盘' } },
+      { path: 'accounts', name: 'accounts', component: () => import('../views/AccountsView.vue'), meta: { title: '账号管理', perm: 'account:read' } },
+      { path: 'ops/menu', name: 'menu-explorer', component: () => import('../views/MenuExplorerView.vue'), meta: { title: '游客菜单浏览器', perm: 'feature:menu' } },
+      { path: 'ops/coupons', name: 'coupons', component: () => import('../views/CouponQueryView.vue'), meta: { title: '优惠券查询', perm: 'feature:coupon' } },
+      { path: 'ops/order', name: 'order-create', component: () => import('../views/OrderWorkbenchView.vue'), meta: { title: '下单工作台', perm: 'feature:order' } },
+      { path: 'ops/coupon-logs', name: 'coupon-logs', component: () => import('../views/CouponUsageLogView.vue'), meta: { title: '券使用记录', perm: 'feature:order' } },
+      { path: 'ops/pickup', name: 'pickup', component: () => import('../views/PickupView.vue'), meta: { title: '取餐查询', perm: 'feature:pickup' } },
+      { path: 'system/users', name: 'users', component: () => import('../views/UsersView.vue'), meta: { title: '用户管理', perm: 'user:manage' } },
+      { path: 'system/roles', name: 'roles', component: () => import('../views/RolesView.vue'), meta: { title: '角色权限', perm: 'role:manage' } },
+      { path: 'system/audit', name: 'audit', component: () => import('../views/AuditView.vue'), meta: { title: '审计日志', perm: 'audit:read' } },
+      { path: 'profile', name: 'profile', component: () => import('../views/ProfileView.vue'), meta: { title: '个人设置' } },
+    ],
+  },
+  { path: '/:pathMatch(.*)*', redirect: '/dashboard' },
+]
+
+const router = createRouter({ history: createWebHistory(), routes })
+
+router.beforeEach((to) => {
+  const auth = useAuthStore()
+  if (to.meta.public) return true
+  if (!auth.isLoggedIn) return { name: 'login', query: { redirect: to.fullPath } }
+  if (to.meta.perm && !auth.can(to.meta.perm)) {
+    return { name: 'dashboard' }
+  }
+  return true
+})
+
+export default router

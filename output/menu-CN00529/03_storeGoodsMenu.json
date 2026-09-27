@@ -1,0 +1,3289 @@
+[
+ {
+  "menuCategoryId": "756564137429663744",
+  "menuCategoryName": "甄选套餐",
+  "categoryDesc": "",
+  "banner": "",
+  "top": false,
+  "icon": "https://static.chagee.com/cdn-tools-transfer/goods/prod/menu/756564137429663744.png",
+  "sequence": 3,
+  "spuList": [
+   {
+    "spuId": "1306637559267377152",
+    "name": "「抹茶徽章盲袋」抹茶系列单杯套餐",
+    "spuType": "combo",
+    "showTypeList": [],
+    "description": "*套餐内含：一抹茉莉花/浓抹香草籽/浓抹花田任选1杯+CHAGEE抹茶系列徽章盲袋（随机1款） *按需消费，禁止浪费食物。图片仅供参考，以实际为准。 *活动不与其他优惠同享",
+    "memberDiscounted": false,
+    "showPriceStart": true,
+    "defaultTradePrice": "0.00",
+    "defaultSalePrice": "0.00",
+    "showPrice": "18.00",
+    "imageUrlList": [
+     "https://images.qmai.cn/s49006/2026/09/15/8d96587638769da16b.jpg"
+    ],
+    "stockLimit": true,
+    "stock": 9999,
+    "status": 1,
+    "saleOut": false,
+    "sequence": 1,
+    "directPurchase": false,
+    "inSalePeriod": true,
+    "hasExtra": false,
+    "skuIdList": [
+     "1306637559275765761"
+    ]
+   },
+   {
+    "spuId": "1306637759088431105",
+    "name": "「CLOT联名盲盒」抹茶系列双杯套餐",
+    "spuType": "combo",
+    "showTypeList": [],
+    "description": "*套餐内含：一抹茉莉花/浓抹香草籽/浓抹花田任选2杯+霸王茶姬xCLOT联名盲盒（随机1款） *按需消费，禁止浪费食物。图片仅供参考，以实际为准。 *活动不与其他优惠同享",
+    "memberDiscounted": false,
+    "showPriceStart": true,
+    "defaultTradePrice": "0.00",
+    "defaultSalePrice": "0.00",
+    "showPrice": "36.00",
+    "imageUrlList": [
+     "https://images.qmai.cn/s49006/2026/09/15/14e1977fd368777851.jpg"
+    ],
+    "stockLimit": true,
+    "stock": 9999,
+    "status": 1,
+    "saleOut": false,
+    "sequence": 2,
+    "directPurchase": false,
+    "inSalePeriod": true,
+    "hasExtra": false,
+    "skuIdList": [
+     "1306637759101014016"
+    ]
+   }
+  ]
+ },
+ {
+  "menuCategoryId": "747424881131175937",
+  "menuCategoryName": "新品尝鲜",
+  "categoryDesc": "",
+  "banner": "",
+  "top": false,
+  "icon": "https://static.chagee.com/cdn-tools-transfer/goods/prod/menu/747424881131175937.png",
+  "sequence": 4,
+  "spuList": [
+   {
+    "spuId": "1307378304845709312",
+    "name": "桂馥兰香冰酿",
+    "spuType": "stand",
+    "showTypeList": [
+     "group"
+    ],
+    "description": "主要成分：桂花乌龙茶 、牛乳、酒酿 精选福建乌龙与广西桂花拼配的桂花乌龙茶底，融合优质牛乳与湖北孝感非遗米酿，乌龙茶醇厚，桂花清雅甜香，自然发酵的米甜层层释放，甘润绵长。风里飘来桂花香的时候，喝这杯刚刚好。 *产品含米酿，请搅拌均匀后饮用。 *产品含微量酒精（≤0.15%vol），未成年人、孕妇、哺乳期女性、驾驶人员、酒精过敏及易感人群不建议饮用。",
+    "descLabels": [
+     {
+      "labelId": "1308905404870344705",
+      "labelName": "含微量酒精",
+      "labelStyle": "TEXT",
+      "sequence": 1,
+      "backgroundColor": "#F8F3E6",
+      "fontColor": "#8A6620",
+      "labelImage": ""
+     },
+     {
+      "labelId": "1241743778668224548",
+      "labelName": "晚系列icon",
+      "labelStyle": "IMAGE",
+      "sequence": 4,
+      "backgroundColor": "",
+      "fontColor": "",
+      "labelImage": "https://images.qmai.cn/s49006/2026/03/20/b4a1b9ca3603e35366.png"
+     }
+    ],
+    "memberDiscounted": false,
+    "showPriceStart": true,
+    "defaultTradePrice": "18.00",
+    "defaultSalePrice": "18.00",
+    "imageUrlList": [
+     "https://images.qmai.cn/s49006/2026/09/21/70c9451eb98905535d.jpg"
+    ],
+    "stockLimit": true,
+    "stock": 19998,
+    "status": 1,
+    "saleOut": false,
+    "sequence": 1,
+    "directPurchase": false,
+    "inSalePeriod": true,
+    "hasExtra": true,
+    "skuIdList": [
+     "1307378304858292225",
+     "1307378304858292227"
+    ]
+   },
+   {
+    "spuId": "1307378832733589505",
+    "name": "桂馥芭乐冰酿",
+    "spuType": "stand",
+    "showTypeList": [
+     "group"
+    ],
+    "description": "主要成分：桂花乌龙茶、牛乳、芭乐浆、酒酿 精选福建乌龙与广西桂花拼配的桂花乌龙茶底，融合优质牛乳、鲜榨芭乐浆与湖北孝感非遗米酿。入口芭乐果香清新绵密，中调乌龙茶醇厚甘润，清爽不腻，尾韵桂花甜香与米酿甘甜层层交织。 *产品含米酿，请搅拌均匀后饮用。 *产品含微量酒精（≤0.15%vol），未成年人、孕妇、哺乳期女性、驾驶人员、酒精过敏及易感人群不建议饮用。",
+    "descLabels": [
+     {
+      "labelId": "1308905404870344705",
+      "labelName": "含微量酒精",
+      "labelStyle": "TEXT",
+      "sequence": 1,
+      "backgroundColor": "#F8F3E6",
+      "fontColor": "#8A6620",
+      "labelImage": ""
+     },
+     {
+      "labelId": "1241743778668224548",
+      "labelName": "晚系列icon",
+      "labelStyle": "IMAGE",
+      "sequence": 4,
+      "backgroundColor": "",
+      "fontColor": "",
+      "labelImage": "https://images.qmai.cn/s49006/2026/03/20/b4a1b9ca3603e35366.png"
+     }
+    ],
+    "memberDiscounted": false,
+    "showPriceStart": true,
+    "defaultTradePrice": "18.00",
+    "defaultSalePrice": "18.00",
+    "imageUrlList": [
+     "https://images.qmai.cn/s49006/2026/09/21/ba868b44c4cc34b016.jpg"
+    ],
+    "stockLimit": true,
+    "stock": 19998,
+    "status": 1,
+    "saleOut": false,
+    "sequence": 2,
+    "directPurchase": false,
+    "inSalePeriod": true,
+    "hasExtra": true,
+    "skuIdList": [
+     "1307378832746172417",
+     "1307378832750366721"
+    ]
+   },
+   {
+    "spuId": "1307379964495310848",
+    "name": "桂馥秋梨冰奶",
+    "spuType": "stand",
+    "showTypeList": [
+     "group"
+    ],
+    "description": "主要成分：桂花乌龙茶、茉莉雪芽、库尔勒梨汁、牛乳、芝士奶盖、焦糖浆、鲜梨片 精选茉莉雪芽与桂花乌龙双茶拼配，融合库尔勒梨的细腻清甜，搭配优质牛乳，顶部芝士奶盖覆上焦糖浆和鲜切梨片。入口茉莉花香携着梨汁的清冽，中调乌龙茶醇厚甘润，尾韵桂花幽香伴奶香绵长，鲜梨片脆嫩多汁，增添口感层次。喝一口，便遇见了秋天。",
+    "descLabels": [
+     {
+      "labelId": "1241743778668224548",
+      "labelName": "晚系列icon",
+      "labelStyle": "IMAGE",
+      "sequence": 4,
+      "backgroundColor": "",
+      "fontColor": "",
+      "labelImage": "https://images.qmai.cn/s49006/2026/03/20/b4a1b9ca3603e35366.png"
+     }
+    ],
+    "memberDiscounted": false,
+    "showPriceStart": false,
+    "defaultTradePrice": "21.00",
+    "defaultSalePrice": "21.00",
+    "imageUrlList": [
+     "https://images.qmai.cn/s49006/2026/09/21/e1e990027e16a5e79c.jpg"
+    ],
+    "stockLimit": true,
+    "stock": 9999,
+    "status": 1,
+    "saleOut": false,
+    "sequence": 3,
+    "directPurchase": false,
+    "inSalePeriod": true,
+    "hasExtra": false,
+    "skuIdList": [
+     "1307379964507893761"
+    ]
+   },
+   {
+    "spuId": "1305903142650228736",
+    "name": "浓抹香草籽",
+    "spuType": "stand",
+    "showTypeList": [
+     "group"
+    ],
+    "description": "主要成分：纯正千目抹茶、马达加斯加香草籽、抹茶干酪云顶、满满抹茶粉 严选北纬30°黄金产区优质茶种，只采春日嫩叶经千目精细研磨，带来鲜活纯正的抹茶茶香。加入马达加斯加波旁香草籽，入口先是高扬的抹茶香，伴随微苦与清新的青香；抹茶干酪云顶融入浓郁奶酪香与顺滑口感，茶香与奶香交织，尾韵留下抹茶微苦与香草奶香，回味悠长。 *温馨提示:原叶真茶，茶叶本身含有咖啡因，请茶友根据自身情况合理把握饮用时间。 *奶盖易融化，为保证风味和口感，建议在20分钟内饮用完毕。 *本产品制作方式特性，此款不支持去冰，敬请谅解。 **底部黑色颗粒沉淀为真实香草籽",
+    "memberDiscounted": false,
+    "showPriceStart": false,
+    "defaultTradePrice": "22.00",
+    "defaultSalePrice": "22.00",
+    "imageUrlList": [
+     "https://images.qmai.cn/s49006/2026/09/15/07b8f869fc9d2d905c.jpg"
+    ],
+    "stockLimit": true,
+    "stock": 9999,
+    "status": 1,
+    "saleOut": false,
+    "sequence": 4,
+    "directPurchase": false,
+    "inSalePeriod": true,
+    "hasExtra": false,
+    "skuIdList": [
+     "1305903142662811649"
+    ],
+    "promotionPrice": "18.00",
+    "promotion": [
+     {
+      "promotionId": "1306315465496260609",
+      "promotionType": 2,
+      "bizType": 10,
+      "promotionTagText": "新品尝鲜｜双杯7折",
+      "biggestDiscount": false,
+      "activityType": 10
+     },
+     {
+      "promotionId": "1307849187823484929",
+      "promotionType": 2,
+      "bizType": 5,
+      "promotionTagText": "单杯会员价",
+      "biggestDiscount": true,
+      "discountAmount": "4.00",
+      "activityType": 5
+     }
+    ]
+   },
+   {
+    "spuId": "1305903912577695744",
+    "name": "浓抹花田",
+    "spuType": "stand",
+    "showTypeList": [
+     "group"
+    ],
+    "description": "主要成分：纯正千目抹茶、蜜桃乌龙、抹茶干酪云顶 、满满抹茶粉 严选优质产区抹茶，经千目研磨，保留鲜爽纯正的抹茶香。抹茶干酪云顶绵密顺滑，茶香与奶香自然融合；蜜桃乌龙带来清甜自然的桃香，与抹茶的鲜爽茶香交织，入口清新，回味带有淡淡桃香与抹茶鲜爽。 *奶盖易融化，为保证风味和口感，建议在20分钟内饮用完毕。 *本产品制作方式特性，此款不支持去冰，敬请谅解。",
+    "descLabels": [
+     {
+      "labelId": "1241743778668224548",
+      "labelName": "晚系列icon",
+      "labelStyle": "IMAGE",
+      "sequence": 4,
+      "backgroundColor": "",
+      "fontColor": "",
+      "labelImage": "https://images.qmai.cn/s49006/2026/03/20/b4a1b9ca3603e35366.png"
+     }
+    ],
+    "memberDiscounted": false,
+    "showPriceStart": false,
+    "defaultTradePrice": "22.00",
+    "defaultSalePrice": "22.00",
+    "imageUrlList": [
+     "https://images.qmai.cn/s49006/2026/09/15/5c10ee627ae7f3da45.jpg"
+    ],
+    "stockLimit": true,
+    "stock": 9999,
+    "status": 1,
+    "saleOut": false,
+    "sequence": 5,
+    "directPurchase": false,
+    "inSalePeriod": true,
+    "hasExtra": false,
+    "skuIdList": [
+     "1305903912594472961"
+    ],
+    "promotionPrice": "18.00",
+    "promotion": [
+     {
+      "promotionId": "1306315465496260609",
+      "promotionType": 2,
+      "bizType": 10,
+      "promotionTagText": "新品尝鲜｜双杯7折",
+      "biggestDiscount": false,
+      "activityType": 10
+     },
+     {
+      "promotionId": "1307849187823484929",
+      "promotionType": 2,
+      "bizType": 5,
+      "promotionTagText": "单杯会员价",
+      "biggestDiscount": true,
+      "discountAmount": "4.00",
+      "activityType": 5
+     }
+    ]
+   },
+   {
+    "spuId": "1305902326077898753",
+    "name": "一抹茉莉花",
+    "spuType": "stand",
+    "showTypeList": [
+     "group"
+    ],
+    "description": "甄选六窨茉莉雪芽，让茉莉花香自然融入茶香，与纯正千目抹茶和优质牛乳相遇。入口先是清新鲜灵的茉莉花香，随后抹茶醇厚茶韵缓缓展开；花香与茶香层层交织，保留抹茶的鲜爽茶感的同时，增添一抹清雅花香，回味悠长。 *本产品制作方式特性，此款不支持去冰，敬请谅解。",
+    "memberDiscounted": false,
+    "showPriceStart": false,
+    "defaultTradePrice": "18.00",
+    "defaultSalePrice": "18.00",
+    "imageUrlList": [
+     "https://images.qmai.cn/s49006/2026/09/15/202e348d2dfb7b22dd.jpg"
+    ],
+    "stockLimit": true,
+    "stock": 9999,
+    "status": 1,
+    "saleOut": false,
+    "sequence": 6,
+    "directPurchase": false,
+    "inSalePeriod": true,
+    "hasExtra": false,
+    "skuIdList": [
+     "1305902326086287360"
+    ]
+   }
+  ]
+ },
+ {
+  "menuCategoryId": "1235328669203152896",
+  "menuCategoryName": "「早」系列",
+  "categoryDesc": "",
+  "banner": "",
+  "top": false,
+  "icon": "https://static.chagee.com/cdn-tools-transfer/goods/prod/menu/1235328669203152896.png",
+  "sequence": 5,
+  "spuList": [
+   {
+    "spuId": "1212451861377593345",
+    "name": "一抹山月",
+    "spuType": "stand",
+    "showTypeList": [
+     "group"
+    ],
+    "description": "选用纯正抹茶融合优质牛乳，口感丝滑细腻。严选源自北纬30度黄金产区的优质茶种，只采嫩叶，千目研磨，只为纯正抹茶香。抹茶的鲜与牛乳的醇平衡得恰到好处。轻苦不涩口，鲜爽有回甘。 *沉淀属正常现象 ，建议搅拌后饮用；20分钟内饮用完毕，口感更佳。",
+    "descLabels": [
+     {
+      "labelId": "1235330605299687425",
+      "labelName": "太阳",
+      "labelStyle": "IMAGE",
+      "sequence": 110,
+      "backgroundColor": "",
+      "fontColor": "",
+      "labelImage": "https://images.qmai.cn/s49006/2026/03/02/b83b25b481d17da23e.png"
+     },
+     {
+      "labelId": "1235330688544190464",
+      "labelName": "早系列",
+      "labelStyle": "TEXT",
+      "sequence": 111,
+      "backgroundColor": "#F8F3E6",
+      "fontColor": "#8A6620",
+      "labelImage": ""
+     }
+    ],
+    "memberDiscounted": false,
+    "showPriceStart": false,
+    "defaultTradePrice": "18.00",
+    "defaultSalePrice": "18.00",
+    "imageUrlList": [
+     "https://images.qmai.cn/s49006/2026/09/16/69419264f43f707ebd.jpg"
+    ],
+    "stockLimit": true,
+    "stock": 19998,
+    "status": 1,
+    "saleOut": false,
+    "sequence": 1,
+    "directPurchase": false,
+    "inSalePeriod": true,
+    "hasExtra": false,
+    "skuIdList": [
+     "1212451861385981952",
+     "1232801776867934208"
+    ]
+   },
+   {
+    "spuId": "1200040619665707008",
+    "name": "归云南·云焦卡美罗",
+    "spuType": "stand",
+    "showTypeList": [
+     "group"
+    ],
+    "description": "精选云南冰岛熟普和勐海熟普进行拼配，自带冰糖甜韵和醇厚茶韵。卡美罗糖经匠心手工熬制后，轻放入茶，焦糖甜焦香便开始慢慢释放，和茶香、芝士甜香和黑巧香交融，每口尽享不同的甜润丝滑。 *主要成分：云南熟普、卡美罗糖、芝士轻乳、优质牛乳 *卡美罗糖分装情况下，不另外加糖指在此基础上饮品本身不额外加糖，甜度仅来自于卡美罗糖。 *为满足个性化的甜度需求，卡美罗糖已独立分装，请根据喜好自行添加，享用专属风味。 *温馨提示：原叶真茶，茶叶本身含有咖啡因，请茶友根据自身情况合理把握饮用时间。",
+    "descLabels": [
+     {
+      "labelId": "1232857618246467584",
+      "labelName": "升运推荐",
+      "labelStyle": "TEXT",
+      "sequence": 69,
+      "backgroundColor": "#F8F3E6",
+      "fontColor": "#8A6620",
+      "labelImage": ""
+     },
+     {
+      "labelId": "1235330605299687425",
+      "labelName": "太阳",
+      "labelStyle": "IMAGE",
+      "sequence": 110,
+      "backgroundColor": "",
+      "fontColor": "",
+      "labelImage": "https://images.qmai.cn/s49006/2026/03/02/b83b25b481d17da23e.png"
+     },
+     {
+      "labelId": "1235330688544190464",
+      "labelName": "早系列",
+      "labelStyle": "TEXT",
+      "sequence": 111,
+      "backgroundColor": "#F8F3E6",
+      "fontColor": "#8A6620",
+      "labelImage": ""
+     }
+    ],
+    "memberDiscounted": false,
+    "showPriceStart": false,
+    "defaultTradePrice": "21.00",
+    "defaultSalePrice": "21.00",
+    "imageUrlList": [
+     "https://images.qmai.cn/s49006/2026/09/15/4bb5fa40e76e75f240.jpg"
+    ],
+    "stockLimit": true,
+    "stock": 19998,
+    "status": 1,
+    "saleOut": false,
+    "sequence": 2,
+    "directPurchase": false,
+    "inSalePeriod": true,
+    "hasExtra": false,
+    "skuIdList": [
+     "1200040619678289921",
+     "1232802807371091968"
+    ]
+   },
+   {
+    "spuId": "1200041961226711041",
+    "name": "归云南·云漫普洱",
+    "spuType": "stand",
+    "showTypeList": [
+     "group"
+    ],
+    "description": "甄选云南冰岛与勐海产区熟普，陈香茶韵融合醇香牛乳，未添加半分黑巧却呈现独特黑巧香，入口浓醇丝滑，随后，熟普深邃的甘醇与醇厚回甘的滋味迸发而出。 *主要成分：云南熟普、芝士轻乳、优质牛乳 *温馨提示：原叶真茶，茶叶本身含有咖啡因，请茶友根据自身情况合理把握饮用时间。 *本款产品内不含任何巧克力、可可成分，其中独特黑巧质感源于熟普茶底与牛乳的融合",
+    "descLabels": [
+     {
+      "labelId": "1235330605299687425",
+      "labelName": "太阳",
+      "labelStyle": "IMAGE",
+      "sequence": 110,
+      "backgroundColor": "",
+      "fontColor": "",
+      "labelImage": "https://images.qmai.cn/s49006/2026/03/02/b83b25b481d17da23e.png"
+     },
+     {
+      "labelId": "1235330688544190464",
+      "labelName": "早系列",
+      "labelStyle": "TEXT",
+      "sequence": 111,
+      "backgroundColor": "#F8F3E6",
+      "fontColor": "#8A6620",
+      "labelImage": ""
+     }
+    ],
+    "memberDiscounted": false,
+    "showPriceStart": false,
+    "defaultTradePrice": "18.00",
+    "defaultSalePrice": "18.00",
+    "imageUrlList": [
+     "https://images.qmai.cn/s49006/2026/09/14/ec1a7ee85fb8894912.jpg"
+    ],
+    "stockLimit": true,
+    "stock": 19998,
+    "status": 1,
+    "saleOut": false,
+    "sequence": 3,
+    "directPurchase": false,
+    "inSalePeriod": true,
+    "hasExtra": false,
+    "skuIdList": [
+     "1200041961247682560",
+     "1232802525132251137"
+    ]
+   },
+   {
+    "spuId": "996736751815323648",
+    "name": "万里木兰",
+    "spuType": "stand",
+    "showTypeList": [
+     "group"
+    ],
+    "description": "精选不同海拔的锡兰红茶进行拼配，茶香高长、果香丰富、甜香清凉和优质牛乳结合，细腻丝滑，滋味饱满醇厚。 *温馨提示:原叶真茶，现制现萃。茶叶本身含有咖啡因，请茶友根据自身情况合理把握饮用时间。",
+    "descLabels": [
+     {
+      "labelId": "1207361928193253376",
+      "labelName": "低负担",
+      "labelStyle": "TEXT",
+      "sequence": 95,
+      "backgroundColor": "#F8F3E6",
+      "fontColor": "#8A6620",
+      "labelImage": ""
+     },
+     {
+      "labelId": "1235330605299687425",
+      "labelName": "太阳",
+      "labelStyle": "IMAGE",
+      "sequence": 110,
+      "backgroundColor": "",
+      "fontColor": "",
+      "labelImage": "https://images.qmai.cn/s49006/2026/03/02/b83b25b481d17da23e.png"
+     },
+     {
+      "labelId": "1235330688544190464",
+      "labelName": "早系列",
+      "labelStyle": "TEXT",
+      "sequence": 111,
+      "backgroundColor": "#F8F3E6",
+      "fontColor": "#8A6620",
+      "labelImage": ""
+     }
+    ],
+    "memberDiscounted": false,
+    "showPriceStart": true,
+    "defaultTradePrice": "16.00",
+    "defaultSalePrice": "16.00",
+    "imageUrlList": [
+     "https://images.qmai.cn/s49006/2026/09/14/388685b09a8d3bafd4.jpg"
+    ],
+    "stockLimit": true,
+    "stock": 19998,
+    "status": 1,
+    "saleOut": false,
+    "sequence": 4,
+    "directPurchase": false,
+    "inSalePeriod": true,
+    "hasExtra": false,
+    "skuIdList": [
+     "996736751853072385",
+     "996736751857266689"
+    ]
+   }
+  ]
+ },
+ {
+  "menuCategoryId": "1240624856809112829",
+  "menuCategoryName": "轻因不扰眠系列",
+  "categoryDesc": "",
+  "banner": "",
+  "top": false,
+  "icon": "https://static.chagee.com/cdn-tools-transfer/goods/prod/menu/1240624856809112829.png",
+  "sequence": 6,
+  "spuList": [
+   {
+    "spuId": "1307378304845709312",
+    "name": "桂馥兰香冰酿",
+    "spuType": "stand",
+    "showTypeList": [
+     "group"
+    ],
+    "description": "主要成分：桂花乌龙茶 、牛乳、酒酿 精选福建乌龙与广西桂花拼配的桂花乌龙茶底，融合优质牛乳与湖北孝感非遗米酿，乌龙茶醇厚，桂花清雅甜香，自然发酵的米甜层层释放，甘润绵长。风里飘来桂花香的时候，喝这杯刚刚好。 *产品含米酿，请搅拌均匀后饮用。 *产品含微量酒精（≤0.15%vol），未成年人、孕妇、哺乳期女性、驾驶人员、酒精过敏及易感人群不建议饮用。",
+    "descLabels": [
+     {
+      "labelId": "1308905404870344705",
+      "labelName": "含微量酒精",
+      "labelStyle": "TEXT",
+      "sequence": 1,
+      "backgroundColor": "#F8F3E6",
+      "fontColor": "#8A6620",
+      "labelImage": ""
+     },
+     {
+      "labelId": "1241743778668224548",
+      "labelName": "晚系列icon",
+      "labelStyle": "IMAGE",
+      "sequence": 4,
+      "backgroundColor": "",
+      "fontColor": "",
+      "labelImage": "https://images.qmai.cn/s49006/2026/03/20/b4a1b9ca3603e35366.png"
+     }
+    ],
+    "memberDiscounted": false,
+    "showPriceStart": true,
+    "defaultTradePrice": "18.00",
+    "defaultSalePrice": "18.00",
+    "imageUrlList": [
+     "https://images.qmai.cn/s49006/2026/09/21/70c9451eb98905535d.jpg"
+    ],
+    "stockLimit": true,
+    "stock": 19998,
+    "status": 1,
+    "saleOut": false,
+    "sequence": 1,
+    "directPurchase": false,
+    "inSalePeriod": true,
+    "hasExtra": true,
+    "skuIdList": [
+     "1307378304858292225",
+     "1307378304858292227"
+    ]
+   },
+   {
+    "spuId": "1307378832733589505",
+    "name": "桂馥芭乐冰酿",
+    "spuType": "stand",
+    "showTypeList": [
+     "group"
+    ],
+    "description": "主要成分：桂花乌龙茶、牛乳、芭乐浆、酒酿 精选福建乌龙与广西桂花拼配的桂花乌龙茶底，融合优质牛乳、鲜榨芭乐浆与湖北孝感非遗米酿。入口芭乐果香清新绵密，中调乌龙茶醇厚甘润，清爽不腻，尾韵桂花甜香与米酿甘甜层层交织。 *产品含米酿，请搅拌均匀后饮用。 *产品含微量酒精（≤0.15%vol），未成年人、孕妇、哺乳期女性、驾驶人员、酒精过敏及易感人群不建议饮用。",
+    "descLabels": [
+     {
+      "labelId": "1308905404870344705",
+      "labelName": "含微量酒精",
+      "labelStyle": "TEXT",
+      "sequence": 1,
+      "backgroundColor": "#F8F3E6",
+      "fontColor": "#8A6620",
+      "labelImage": ""
+     },
+     {
+      "labelId": "1241743778668224548",
+      "labelName": "晚系列icon",
+      "labelStyle": "IMAGE",
+      "sequence": 4,
+      "backgroundColor": "",
+      "fontColor": "",
+      "labelImage": "https://images.qmai.cn/s49006/2026/03/20/b4a1b9ca3603e35366.png"
+     }
+    ],
+    "memberDiscounted": false,
+    "showPriceStart": true,
+    "defaultTradePrice": "18.00",
+    "defaultSalePrice": "18.00",
+    "imageUrlList": [
+     "https://images.qmai.cn/s49006/2026/09/21/ba868b44c4cc34b016.jpg"
+    ],
+    "stockLimit": true,
+    "stock": 19998,
+    "status": 1,
+    "saleOut": false,
+    "sequence": 2,
+    "directPurchase": false,
+    "inSalePeriod": true,
+    "hasExtra": true,
+    "skuIdList": [
+     "1307378832746172417",
+     "1307378832750366721"
+    ]
+   },
+   {
+    "spuId": "1307379964495310848",
+    "name": "桂馥秋梨冰奶",
+    "spuType": "stand",
+    "showTypeList": [
+     "group"
+    ],
+    "description": "主要成分：桂花乌龙茶、茉莉雪芽、库尔勒梨汁、牛乳、芝士奶盖、焦糖浆、鲜梨片 精选茉莉雪芽与桂花乌龙双茶拼配，融合库尔勒梨的细腻清甜，搭配优质牛乳，顶部芝士奶盖覆上焦糖浆和鲜切梨片。入口茉莉花香携着梨汁的清冽，中调乌龙茶醇厚甘润，尾韵桂花幽香伴奶香绵长，鲜梨片脆嫩多汁，增添口感层次。喝一口，便遇见了秋天。",
+    "descLabels": [
+     {
+      "labelId": "1241743778668224548",
+      "labelName": "晚系列icon",
+      "labelStyle": "IMAGE",
+      "sequence": 4,
+      "backgroundColor": "",
+      "fontColor": "",
+      "labelImage": "https://images.qmai.cn/s49006/2026/03/20/b4a1b9ca3603e35366.png"
+     }
+    ],
+    "memberDiscounted": false,
+    "showPriceStart": false,
+    "defaultTradePrice": "21.00",
+    "defaultSalePrice": "21.00",
+    "imageUrlList": [
+     "https://images.qmai.cn/s49006/2026/09/21/e1e990027e16a5e79c.jpg"
+    ],
+    "stockLimit": true,
+    "stock": 9999,
+    "status": 1,
+    "saleOut": false,
+    "sequence": 3,
+    "directPurchase": false,
+    "inSalePeriod": true,
+    "hasExtra": false,
+    "skuIdList": [
+     "1307379964507893761"
+    ]
+   },
+   {
+    "spuId": "1299896005302697985",
+    "name": "轻因·桂馥兰香",
+    "spuType": "stand",
+    "showTypeList": [
+     "group"
+    ],
+    "description": "多重福建乌龙拼配，搭配广西金桂与福建丹桂，经多段慢焙与七道做花工艺，激发多层次茶香与纯净持久的桂花香。茶底采用脱咖技术处理实现更低咖啡因。 前段花果茶香，清鲜高扬；中段茶乳交融，醇厚鲜润；尾段甜蜜回香，悠长干净。",
+    "descLabels": [
+     {
+      "labelId": "1291697818268393472",
+      "labelName": "主题杯随机",
+      "labelStyle": "TEXT",
+      "sequence": 1,
+      "backgroundColor": "#F8F3E6",
+      "fontColor": "#8A6620",
+      "labelImage": ""
+     },
+     {
+      "labelId": "1241743778668224548",
+      "labelName": "晚系列icon",
+      "labelStyle": "IMAGE",
+      "sequence": 4,
+      "backgroundColor": "",
+      "fontColor": "",
+      "labelImage": "https://images.qmai.cn/s49006/2026/03/20/b4a1b9ca3603e35366.png"
+     },
+     {
+      "labelId": "1109189447136395265",
+      "labelName": "轻咖啡因",
+      "labelStyle": "TEXT",
+      "sequence": 102,
+      "backgroundColor": "#F8F3E6",
+      "fontColor": "#8A6620",
+      "labelImage": ""
+     }
+    ],
+    "memberDiscounted": false,
+    "showPriceStart": true,
+    "defaultTradePrice": "16.00",
+    "defaultSalePrice": "16.00",
+    "imageUrlList": [
+     "https://images.qmai.cn/s49006/2026/09/14/fe811bda1e85e0c189.jpg"
+    ],
+    "stockLimit": true,
+    "stock": 19998,
+    "status": 1,
+    "saleOut": false,
+    "sequence": 4,
+    "directPurchase": false,
+    "inSalePeriod": true,
+    "hasExtra": false,
+    "skuIdList": [
+     "1299896005311086592",
+     "1299896005311086594"
+    ]
+   },
+   {
+    "spuId": "1305903912577695744",
+    "name": "浓抹花田",
+    "spuType": "stand",
+    "showTypeList": [
+     "group"
+    ],
+    "description": "主要成分：纯正千目抹茶、蜜桃乌龙、抹茶干酪云顶 、满满抹茶粉 严选优质产区抹茶，经千目研磨，保留鲜爽纯正的抹茶香。抹茶干酪云顶绵密顺滑，茶香与奶香自然融合；蜜桃乌龙带来清甜自然的桃香，与抹茶的鲜爽茶香交织，入口清新，回味带有淡淡桃香与抹茶鲜爽。 *奶盖易融化，为保证风味和口感，建议在20分钟内饮用完毕。 *本产品制作方式特性，此款不支持去冰，敬请谅解。",
+    "descLabels": [
+     {
+      "labelId": "1241743778668224548",
+      "labelName": "晚系列icon",
+      "labelStyle": "IMAGE",
+      "sequence": 4,
+      "backgroundColor": "",
+      "fontColor": "",
+      "labelImage": "https://images.qmai.cn/s49006/2026/03/20/b4a1b9ca3603e35366.png"
+     }
+    ],
+    "memberDiscounted": false,
+    "showPriceStart": false,
+    "defaultTradePrice": "22.00",
+    "defaultSalePrice": "22.00",
+    "imageUrlList": [
+     "https://images.qmai.cn/s49006/2026/09/15/5c10ee627ae7f3da45.jpg"
+    ],
+    "stockLimit": true,
+    "stock": 9999,
+    "status": 1,
+    "saleOut": false,
+    "sequence": 5,
+    "directPurchase": false,
+    "inSalePeriod": true,
+    "hasExtra": false,
+    "skuIdList": [
+     "1305903912594472961"
+    ],
+    "promotionPrice": "18.00",
+    "promotion": [
+     {
+      "promotionId": "1306315465496260609",
+      "promotionType": 2,
+      "bizType": 10,
+      "promotionTagText": "新品尝鲜｜双杯7折",
+      "biggestDiscount": false,
+      "activityType": 10
+     },
+     {
+      "promotionId": "1307849187823484929",
+      "promotionType": 2,
+      "bizType": 5,
+      "promotionTagText": "单杯会员价",
+      "biggestDiscount": true,
+      "discountAmount": "4.00",
+      "activityType": 5
+     }
+    ]
+   },
+   {
+    "spuId": "1299896224442503169",
+    "name": "轻因·折桂令",
+    "spuType": "stand",
+    "showTypeList": [
+     "group"
+    ],
+    "description": "主要成分：桂花脱咖乌龙茶 多重福建乌龙拼配，搭配广西金桂与福建丹桂，经多段慢焙与七道做花工艺，激发多层次茶香与纯净持久的桂花香。茶底采用脱咖技术处理实现更低咖啡因。 前段桂香明快，馥郁高扬；中段乌龙交织，醇厚鲜爽；尾段茶韵回甘，清润悠长。",
+    "descLabels": [
+     {
+      "labelId": "1291697818268393472",
+      "labelName": "主题杯随机",
+      "labelStyle": "TEXT",
+      "sequence": 1,
+      "backgroundColor": "#F8F3E6",
+      "fontColor": "#8A6620",
+      "labelImage": ""
+     },
+     {
+      "labelId": "1241743778668224548",
+      "labelName": "晚系列icon",
+      "labelStyle": "IMAGE",
+      "sequence": 4,
+      "backgroundColor": "",
+      "fontColor": "",
+      "labelImage": "https://images.qmai.cn/s49006/2026/03/20/b4a1b9ca3603e35366.png"
+     },
+     {
+      "labelId": "1109189447136395265",
+      "labelName": "轻咖啡因",
+      "labelStyle": "TEXT",
+      "sequence": 102,
+      "backgroundColor": "#F8F3E6",
+      "fontColor": "#8A6620",
+      "labelImage": ""
+     }
+    ],
+    "memberDiscounted": false,
+    "showPriceStart": false,
+    "defaultTradePrice": "14.00",
+    "defaultSalePrice": "14.00",
+    "imageUrlList": [
+     "https://images.qmai.cn/s49006/2026/09/14/3d74ab8083f6760be5.jpg"
+    ],
+    "stockLimit": true,
+    "stock": 9999,
+    "status": 1,
+    "saleOut": false,
+    "sequence": 6,
+    "directPurchase": false,
+    "inSalePeriod": true,
+    "hasExtra": false,
+    "skuIdList": [
+     "1299896224450891776"
+    ]
+   },
+   {
+    "spuId": "1107352244475187201",
+    "name": "轻因·伯牙绝弦",
+    "spuType": "stand",
+    "showTypeList": [
+     "group"
+    ],
+    "description": "甄选五窨茉莉花茶，拼配白木香叶、酸枣仁等，实现整杯轻咖啡因。前段优雅的茉莉花香，尾段是绿茶的鲜爽茶感，整体口感顺滑甘甜，层次感丰富。 *温馨提示：本产品原料含白木香叶，孕妇、哺乳期妇女、婴幼儿及白木香叶过敏人群不宜饮用 *因个人体质的差异，对咖啡因耐受程度有所不同，请视自身情况选择 *轻因•伯牙绝弦为「伯牙绝弦」的轻咖啡因版，风味相较伯牙绝弦有细微差异，请茶友按需选择",
+    "descLabels": [
+     {
+      "labelId": "1241743778668224548",
+      "labelName": "晚系列icon",
+      "labelStyle": "IMAGE",
+      "sequence": 4,
+      "backgroundColor": "",
+      "fontColor": "",
+      "labelImage": "https://images.qmai.cn/s49006/2026/03/20/b4a1b9ca3603e35366.png"
+     },
+     {
+      "labelId": "1109189447136395265",
+      "labelName": "轻咖啡因",
+      "labelStyle": "TEXT",
+      "sequence": 102,
+      "backgroundColor": "#F8F3E6",
+      "fontColor": "#8A6620",
+      "labelImage": ""
+     }
+    ],
+    "memberDiscounted": false,
+    "showPriceStart": true,
+    "defaultTradePrice": "16.00",
+    "defaultSalePrice": "16.00",
+    "imageUrlList": [
+     "https://images.qmai.cn/s49006/2026/09/14/9d30a4be98b47106e1.jpg"
+    ],
+    "stockLimit": true,
+    "stock": 19998,
+    "status": 1,
+    "saleOut": false,
+    "sequence": 7,
+    "directPurchase": false,
+    "inSalePeriod": true,
+    "hasExtra": false,
+    "skuIdList": [
+     "1107352244487770112",
+     "1107352244487770114"
+    ]
+   },
+   {
+    "spuId": "1270702090075148288",
+    "name": "轻因·糯青山柠檬奶",
+    "spuType": "stand",
+    "showTypeList": [
+     "group"
+    ],
+    "description": "主要成分：珑珠绿茶、香水柠檬、芝士轻乳、优质牛乳、香柠芝士云顶 以糯香绿茶为基调，现捣柠檬皮迸发的清爽柠檬香瞬间点亮茶汤。糯米香、鲜奶醇与柠檬香交织，覆上绵密柠檬芝士云顶，轻盈柔和，回甘悠长。 【温馨提示】因外送受产品特点及天气状况的影响，可能与堂食产品存在细微差异，敬请谅解。 *奶盖易融，为保证最佳风味与口感，建议及时饮用，并倾斜杯身大口直饮。 *本产品制作方式特性，此款不支持去冰，敬请谅解。 *图片仅供参考，请以实际出杯为准。",
+    "descLabels": [
+     {
+      "labelId": "1241743778668224548",
+      "labelName": "晚系列icon",
+      "labelStyle": "IMAGE",
+      "sequence": 4,
+      "backgroundColor": "",
+      "fontColor": "",
+      "labelImage": "https://images.qmai.cn/s49006/2026/03/20/b4a1b9ca3603e35366.png"
+     },
+     {
+      "labelId": "1109189447136395265",
+      "labelName": "轻咖啡因",
+      "labelStyle": "TEXT",
+      "sequence": 102,
+      "backgroundColor": "#F8F3E6",
+      "fontColor": "#8A6620",
+      "labelImage": ""
+     }
+    ],
+    "memberDiscounted": false,
+    "showPriceStart": false,
+    "defaultTradePrice": "18.00",
+    "defaultSalePrice": "18.00",
+    "imageUrlList": [
+     "https://images.qmai.cn/s49006/2026/09/14/c960b3cc1e3a66e4b9.jpg"
+    ],
+    "stockLimit": true,
+    "stock": 9999,
+    "status": 1,
+    "saleOut": false,
+    "sequence": 9,
+    "directPurchase": false,
+    "inSalePeriod": true,
+    "hasExtra": false,
+    "skuIdList": [
+     "1270702090083536897"
+    ]
+   },
+   {
+    "spuId": "1270701535198568449",
+    "name": "轻因·雾红尘柠檬奶",
+    "spuType": "stand",
+    "showTypeList": [
+     "group"
+    ],
+    "description": "主要成分：大红袍、锡兰红茶、香水柠檬、芝士轻乳、优质牛乳、香柠芝士云顶 岩韵大红袍碰撞锡兰红茶，岩韵深沉，锡兰高扬。柠檬皮的活泼果香破茧而出，穿透醇厚乳感，在茶汤的加持下，呈现出一种宛如香水般的轻透果香，层次分明。 【温馨提示】因外送受产品特点及天气状况的影响，可能与堂食产品存在细微差异，敬请谅解。 *奶盖易融，为保证最佳风味与口感，建议及时饮用，并倾斜杯身大口直饮。 *本产品制作方式特性，此款不支持去冰，敬请谅解。 *图片仅供参考，请以实际出杯为准。",
+    "descLabels": [
+     {
+      "labelId": "1241743778668224548",
+      "labelName": "晚系列icon",
+      "labelStyle": "IMAGE",
+      "sequence": 4,
+      "backgroundColor": "",
+      "fontColor": "",
+      "labelImage": "https://images.qmai.cn/s49006/2026/03/20/b4a1b9ca3603e35366.png"
+     },
+     {
+      "labelId": "1109189447136395265",
+      "labelName": "轻咖啡因",
+      "labelStyle": "TEXT",
+      "sequence": 102,
+      "backgroundColor": "#F8F3E6",
+      "fontColor": "#8A6620",
+      "labelImage": ""
+     }
+    ],
+    "memberDiscounted": false,
+    "showPriceStart": false,
+    "defaultTradePrice": "18.00",
+    "defaultSalePrice": "18.00",
+    "imageUrlList": [
+     "https://images.qmai.cn/s49006/2026/09/14/f00c6b04b91c8b8249.jpg"
+    ],
+    "stockLimit": true,
+    "stock": 9999,
+    "status": 1,
+    "saleOut": false,
+    "sequence": 10,
+    "directPurchase": false,
+    "inSalePeriod": true,
+    "hasExtra": false,
+    "skuIdList": [
+     "1270701535206957241"
+    ]
+   },
+   {
+    "spuId": "1282304499661189121",
+    "name": "轻因·伯牙柠檬奶",
+    "spuType": "stand",
+    "showTypeList": [
+     "group"
+    ],
+    "description": "主要成分：茉莉雪芽、香水柠檬、芝士轻乳、优质牛乳、香柠芝士云顶 以茉莉雪芽为清透茶底，手捣萃取新鲜柠檬皮油，瞬间点亮悠长茶汤。当茉莉的清雅、鲜奶的醇香与柠檬的清爽灵动交织，再覆上香柠芝士云顶。层层递进，清甜回甘。 【温馨提示】因外送受产品特点及天气状况的影响，可能与堂食产品存在细微差异，敬请谅解。 *奶盖易融，为保证最佳风味与口感，建议及时饮用，并倾斜杯身大口直饮。饮品中可能含有香柠皮沉淀，可放心饮用。 *本产品制作方式特性，此款不支持去冰，敬请谅解。",
+    "descLabels": [
+     {
+      "labelId": "1241743778668224548",
+      "labelName": "晚系列icon",
+      "labelStyle": "IMAGE",
+      "sequence": 4,
+      "backgroundColor": "",
+      "fontColor": "",
+      "labelImage": "https://images.qmai.cn/s49006/2026/03/20/b4a1b9ca3603e35366.png"
+     },
+     {
+      "labelId": "1109189447136395265",
+      "labelName": "轻咖啡因",
+      "labelStyle": "TEXT",
+      "sequence": 102,
+      "backgroundColor": "#F8F3E6",
+      "fontColor": "#8A6620",
+      "labelImage": ""
+     }
+    ],
+    "memberDiscounted": false,
+    "showPriceStart": false,
+    "defaultTradePrice": "19.00",
+    "defaultSalePrice": "19.00",
+    "imageUrlList": [
+     "https://images.qmai.cn/s49006/2026/09/14/60ead610acdc72fc28.jpg"
+    ],
+    "stockLimit": true,
+    "stock": 9999,
+    "status": 1,
+    "saleOut": false,
+    "sequence": 11,
+    "directPurchase": false,
+    "inSalePeriod": true,
+    "hasExtra": false,
+    "skuIdList": [
+     "1282304499673772032"
+    ]
+   },
+   {
+    "spuId": "1253292834069934081",
+    "name": "粉芭乐",
+    "spuType": "stand",
+    "showTypeList": [
+     "group"
+    ],
+    "description": "主要成分：茉莉雪芽、香水柠檬、芭乐汁 精选广西横州市茉莉鲜花窨制的茉莉雪芽，加入红心芭乐汁，带出层次丰富的热带果香。香水柠檬的加入不仅增添了明亮的酸度，更平衡了整体的甜味，每一口都能感受到多重果香与茶香的美妙融合。 【不另外加糖】选项：酸涩不甜，请根据个人喜好选择 *本产品制作方式特性，此款不支持去冰，敬请谅解。 *产品打开后，建议在30分钟内饮用完毕，口感更佳",
+    "descLabels": [
+     {
+      "labelId": "1241743778668224548",
+      "labelName": "晚系列icon",
+      "labelStyle": "IMAGE",
+      "sequence": 4,
+      "backgroundColor": "",
+      "fontColor": "",
+      "labelImage": "https://images.qmai.cn/s49006/2026/03/20/b4a1b9ca3603e35366.png"
+     }
+    ],
+    "memberDiscounted": false,
+    "showPriceStart": true,
+    "defaultTradePrice": "20.00",
+    "defaultSalePrice": "20.00",
+    "imageUrlList": [
+     "https://images.qmai.cn/s49006/2026/09/14/efc78d54275abbe932.jpg"
+    ],
+    "stockLimit": true,
+    "stock": 9999,
+    "status": 1,
+    "saleOut": false,
+    "sequence": 12,
+    "directPurchase": false,
+    "inSalePeriod": true,
+    "hasExtra": true,
+    "skuIdList": [
+     "1253292834082516992"
+    ]
+   },
+   {
+    "spuId": "625390649092390913",
+    "name": "橙香四季",
+    "spuType": "stand",
+    "showTypeList": [
+     "group"
+    ],
+    "description": "甄选福建、四川、云南三地一级烘青绿茶，搭配广西横州茉莉鲜花，平均窨次达六窨，使得茶香与茉莉花香相得益彰，茉莉花香鲜灵悠扬。在馥郁茶底之上，融入香气四溢的橙片与清新香水柠檬，一口入喉，先是鲜灵茉莉与清透茶香在舌尖绽放，随即橙香包裹柠檬的清爽层层递进，满口橙香与花香交织，层次丰富，自然清新。",
+    "descLabels": [
+     {
+      "labelId": "1241743778668224548",
+      "labelName": "晚系列icon",
+      "labelStyle": "IMAGE",
+      "sequence": 4,
+      "backgroundColor": "",
+      "fontColor": "",
+      "labelImage": "https://images.qmai.cn/s49006/2026/03/20/b4a1b9ca3603e35366.png"
+     }
+    ],
+    "memberDiscounted": true,
+    "showPriceStart": true,
+    "defaultTradePrice": "20.00",
+    "defaultSalePrice": "20.00",
+    "imageUrlList": [
+     "https://images.qmai.cn/s49006/2026/09/14/e2305f61d75013ef28.jpg"
+    ],
+    "stockLimit": true,
+    "stock": 9999,
+    "status": 1,
+    "saleOut": false,
+    "sequence": 13,
+    "directPurchase": false,
+    "inSalePeriod": true,
+    "hasExtra": true,
+    "skuIdList": [
+     "678351968804065280"
+    ]
+   },
+   {
+    "spuId": "670336463270912001",
+    "name": "琥珀光",
+    "spuType": "stand",
+    "showTypeList": [
+     "group"
+    ],
+    "description": "甄选一级奇兰拼配水仙的大红袍茶叶，定制化焙火工艺，充分激发大红袍茶叶的焙火香和岩骨花香，和香水柠檬香气完美结合。",
+    "descLabels": [
+     {
+      "labelId": "1241743778668224548",
+      "labelName": "晚系列icon",
+      "labelStyle": "IMAGE",
+      "sequence": 4,
+      "backgroundColor": "",
+      "fontColor": "",
+      "labelImage": "https://images.qmai.cn/s49006/2026/03/20/b4a1b9ca3603e35366.png"
+     }
+    ],
+    "memberDiscounted": true,
+    "showPriceStart": true,
+    "defaultTradePrice": "18.00",
+    "defaultSalePrice": "18.00",
+    "imageUrlList": [
+     "https://images.qmai.cn/s49006/2026/09/14/8304aa85772e827836.jpg"
+    ],
+    "stockLimit": true,
+    "stock": 9999,
+    "status": 1,
+    "saleOut": false,
+    "sequence": 14,
+    "directPurchase": false,
+    "inSalePeriod": true,
+    "hasExtra": true,
+    "skuIdList": [
+     "670352354251452416"
+    ]
+   }
+  ]
+ },
+ {
+  "menuCategoryId": "640209335766487041",
+  "menuCategoryName": "原叶鲜奶茶",
+  "categoryDesc": "",
+  "banner": "",
+  "top": false,
+  "icon": "https://static.chagee.com/cdn-tools-transfer/goods/prod/menu/640209335766487041.png",
+  "sequence": 7,
+  "spuList": [
+   {
+    "spuId": "625339451983278080",
+    "name": "伯牙绝弦",
+    "spuType": "stand",
+    "showTypeList": [
+     "group"
+    ],
+    "description": "霸王茶姬经典款&畅销款，累计销量突破12亿杯* 伯牙绝弦·茶香款：选用云南大叶种烘青绿茶，搭配广西横州茉莉鲜花，按照传统工艺窨制，形成清新茶香与鲜灵花香的经典风味，茶感更突出。 伯牙绝弦·花香款：甄选来自福建、四川、云南三地的一级烘青绿茶，搭配广西横州茉莉鲜花，按照传统工艺窨制，平均窨次高达六窨，使得茶香花香风味更加融合，相得益彰，茉莉花香鲜灵，整杯更*馥郁。 *伯牙绝弦累计销量经沙利文组织认证，起止日期为2022年1月1日至2025年6月30日。 *指同款产品的不同茶底进行比较，产品风味可能因个人感官而有所不同。 *温馨提示：原叶真茶，现制现萃。茶叶本身含有咖啡因，请茶友根据自身情况合理把握饮用时间。",
+    "descLabels": [
+     {
+      "labelId": "1207361928193253376",
+      "labelName": "低负担",
+      "labelStyle": "TEXT",
+      "sequence": 95,
+      "backgroundColor": "#F8F3E6",
+      "fontColor": "#8A6620",
+      "labelImage": ""
+     },
+     {
+      "labelId": "1056251092349120513",
+      "labelName": "冷热皆宜",
+      "labelStyle": "TEXT",
+      "sequence": 105,
+      "backgroundColor": "#F8F3E6",
+      "fontColor": "#8A6620",
+      "labelImage": ""
+     }
+    ],
+    "memberDiscounted": true,
+    "showPriceStart": true,
+    "defaultTradePrice": "16.00",
+    "defaultSalePrice": "16.00",
+    "imageUrlList": [
+     "https://images.qmai.cn/s49006/2026/09/14/18736e39420bf84099.jpg"
+    ],
+    "stockLimit": true,
+    "stock": 19998,
+    "status": 1,
+    "saleOut": false,
+    "sequence": 1,
+    "directPurchase": false,
+    "inSalePeriod": true,
+    "hasExtra": false,
+    "skuIdList": [
+     "653632618000097282",
+     "653632618000097280"
+    ]
+   },
+   {
+    "spuId": "1142829917145640961",
+    "name": "一骑红尘",
+    "spuType": "stand",
+    "showTypeList": [
+     "group"
+    ],
+    "description": "采用斯里兰卡锡兰红茶与福建小种红茶拼配，入口能感受荔枝果香与锡兰的花香相互融合，中调重瓣玫瑰与小种红茶碰撞出独特花果香气，荔枝果香明显，甜润饱满。 *限定包材用完即止，请以门店实际出品为准。 温馨提示:原叶真茶，现制现萃。茶叶本身含有咖啡因，请茶友根据自身情况合理把握饮用时间。",
+    "memberDiscounted": false,
+    "showPriceStart": true,
+    "defaultTradePrice": "16.00",
+    "defaultSalePrice": "16.00",
+    "imageUrlList": [
+     "https://images.qmai.cn/s49006/2026/09/14/feaa788f7c4a2cf989.jpg"
+    ],
+    "stockLimit": true,
+    "stock": 19998,
+    "status": 1,
+    "saleOut": false,
+    "sequence": 2,
+    "directPurchase": false,
+    "inSalePeriod": true,
+    "hasExtra": false,
+    "skuIdList": [
+     "1142829917162418176",
+     "1142829917162418178"
+    ]
+   },
+   {
+    "spuId": "1019648370718674945",
+    "name": "花田乌龙",
+    "spuType": "stand",
+    "showTypeList": [
+     "group"
+    ],
+    "description": "茶底升级，选用闽南金观音，真实水蜜桃汁入茶，乌龙茶醇厚回甘，桃香自然纯粹。优质牛乳加入，口感顺滑，果香清甜。 *限定包材用完即止，请以门店实际出品为准。 *温馨提示:本品茶底含有水蜜桃成分，请消费者根据自身情况酌情选择。",
+    "descLabels": [
+     {
+      "labelId": "1056251092349120513",
+      "labelName": "冷热皆宜",
+      "labelStyle": "TEXT",
+      "sequence": 105,
+      "backgroundColor": "#F8F3E6",
+      "fontColor": "#8A6620",
+      "labelImage": ""
+     }
+    ],
+    "memberDiscounted": false,
+    "showPriceStart": true,
+    "defaultTradePrice": "16.00",
+    "defaultSalePrice": "16.00",
+    "imageUrlList": [
+     "https://images.qmai.cn/s49006/2026/09/14/91cc2b2b94fc328e7c.jpg"
+    ],
+    "stockLimit": true,
+    "stock": 19998,
+    "status": 1,
+    "saleOut": false,
+    "sequence": 3,
+    "directPurchase": false,
+    "inSalePeriod": true,
+    "hasExtra": false,
+    "skuIdList": [
+     "1019648370760617986",
+     "1019648370760617984"
+    ]
+   },
+   {
+    "spuId": "1117818249579941888",
+    "name": "万象春和",
+    "spuType": "stand",
+    "showTypeList": [
+     "group"
+    ],
+    "description": "碧螺春为中国十大名茶之一，香气鲜嫩，花果香明显。搭配因具有上百种复合香气而闻名的百香果，浓郁的酸甜果香与碧螺春的清新茶香结合，口感层次分明，滋味清爽甜醇。 *限定包材用完即止，请以门店实际出品为准。",
+    "memberDiscounted": false,
+    "showPriceStart": true,
+    "defaultTradePrice": "18.00",
+    "defaultSalePrice": "18.00",
+    "imageUrlList": [
+     "https://images.qmai.cn/s49006/2026/09/17/ba6351760e80443e5e.jpg"
+    ],
+    "stockLimit": true,
+    "stock": 19998,
+    "status": 1,
+    "saleOut": false,
+    "sequence": 4,
+    "directPurchase": false,
+    "inSalePeriod": true,
+    "hasExtra": false,
+    "skuIdList": [
+     "1117818249592524801",
+     "1117818249592524803"
+    ]
+   },
+   {
+    "spuId": "640215811876831233",
+    "name": "青青糯山",
+    "spuType": "stand",
+    "showTypeList": [
+     "group"
+    ],
+    "description": "云南特产草本植物糯米香叶窨制而成的绿茶茶底，产品带有浓郁的糯米香，谷物香气浓郁，回甘持久。",
+    "memberDiscounted": false,
+    "showPriceStart": true,
+    "defaultTradePrice": "15.00",
+    "defaultSalePrice": "15.00",
+    "imageUrlList": [
+     "https://images.qmai.cn/s49006/2026/09/15/cb7f608404bc31b507.jpg"
+    ],
+    "stockLimit": true,
+    "stock": 19998,
+    "status": 1,
+    "saleOut": false,
+    "sequence": 5,
+    "directPurchase": false,
+    "inSalePeriod": true,
+    "hasExtra": false,
+    "skuIdList": [
+     "655441178728091650",
+     "655441178719703040"
+    ]
+   },
+   {
+    "spuId": "1254129976483426305",
+    "name": "风荷映月⎡浙江限定⎦",
+    "spuType": "stand",
+    "showTypeList": [
+     "group"
+    ],
+    "description": "精选浙江越州龙井春茶拼配夏季干荷叶，入口荷香飘逸，中段嫩栗香饱满，滋味醇厚鲜爽，清甜回甘。",
+    "memberDiscounted": false,
+    "showPriceStart": true,
+    "defaultTradePrice": "18.00",
+    "defaultSalePrice": "18.00",
+    "imageUrlList": [
+     "https://images.qmai.cn/s49006/2026/04/24/845a6ad2427446ab56.jpg"
+    ],
+    "stockLimit": true,
+    "stock": 19998,
+    "status": 1,
+    "saleOut": false,
+    "sequence": 7,
+    "directPurchase": false,
+    "inSalePeriod": true,
+    "hasExtra": false,
+    "skuIdList": [
+     "1254129976491814912",
+     "1254129976491814914"
+    ]
+   },
+   {
+    "spuId": "996736751815323648",
+    "name": "万里木兰",
+    "spuType": "stand",
+    "showTypeList": [
+     "group"
+    ],
+    "description": "精选不同海拔的锡兰红茶进行拼配，茶香高长、果香丰富、甜香清凉和优质牛乳结合，细腻丝滑，滋味饱满醇厚。 *温馨提示:原叶真茶，现制现萃。茶叶本身含有咖啡因，请茶友根据自身情况合理把握饮用时间。",
+    "descLabels": [
+     {
+      "labelId": "1207361928193253376",
+      "labelName": "低负担",
+      "labelStyle": "TEXT",
+      "sequence": 95,
+      "backgroundColor": "#F8F3E6",
+      "fontColor": "#8A6620",
+      "labelImage": ""
+     },
+     {
+      "labelId": "1235330605299687425",
+      "labelName": "太阳",
+      "labelStyle": "IMAGE",
+      "sequence": 110,
+      "backgroundColor": "",
+      "fontColor": "",
+      "labelImage": "https://images.qmai.cn/s49006/2026/03/02/b83b25b481d17da23e.png"
+     },
+     {
+      "labelId": "1235330688544190464",
+      "labelName": "早系列",
+      "labelStyle": "TEXT",
+      "sequence": 111,
+      "backgroundColor": "#F8F3E6",
+      "fontColor": "#8A6620",
+      "labelImage": ""
+     }
+    ],
+    "memberDiscounted": false,
+    "showPriceStart": true,
+    "defaultTradePrice": "16.00",
+    "defaultSalePrice": "16.00",
+    "imageUrlList": [
+     "https://images.qmai.cn/s49006/2026/09/14/388685b09a8d3bafd4.jpg"
+    ],
+    "stockLimit": true,
+    "stock": 19998,
+    "status": 1,
+    "saleOut": false,
+    "sequence": 8,
+    "directPurchase": false,
+    "inSalePeriod": true,
+    "hasExtra": false,
+    "skuIdList": [
+     "996736751853072385",
+     "996736751857266689"
+    ]
+   },
+   {
+    "spuId": "625341251000012801",
+    "name": "白雾红尘",
+    "spuType": "stand",
+    "showTypeList": [
+     "group"
+    ],
+    "description": "精选一级奇兰拼配水仙的大红袍茶叶，定制化焙火工艺，充分激发大红袍茶叶的焙火香和岩骨花香。岩韵明显，回味绵长不绝。",
+    "memberDiscounted": true,
+    "showPriceStart": true,
+    "defaultTradePrice": "18.00",
+    "defaultSalePrice": "18.00",
+    "imageUrlList": [
+     "https://images.qmai.cn/s49006/2026/09/14/fdb224e0c74f9135bb.jpg"
+    ],
+    "stockLimit": true,
+    "stock": 19998,
+    "status": 1,
+    "saleOut": false,
+    "sequence": 9,
+    "directPurchase": false,
+    "inSalePeriod": true,
+    "hasExtra": false,
+    "skuIdList": [
+     "653634333361377283",
+     "653634333361377281"
+    ]
+   },
+   {
+    "spuId": "625297916088557569",
+    "name": "桂馥兰香",
+    "spuType": "stand",
+    "showTypeList": [
+     "group"
+    ],
+    "description": "多重福建乌龙拼配，搭配广西金桂与丹桂，经多段慢焙与七道做花工艺，激发多层次茶香与纯净持久的桂花香。层次丰富，前调桂香清新，中调甜香萦绕，后调茶韵淡雅。稳居茶友喜爱度排名前5。",
+    "descLabels": [
+     {
+      "labelId": "1207361928193253376",
+      "labelName": "低负担",
+      "labelStyle": "TEXT",
+      "sequence": 95,
+      "backgroundColor": "#F8F3E6",
+      "fontColor": "#8A6620",
+      "labelImage": ""
+     },
+     {
+      "labelId": "1056251092349120513",
+      "labelName": "冷热皆宜",
+      "labelStyle": "TEXT",
+      "sequence": 105,
+      "backgroundColor": "#F8F3E6",
+      "fontColor": "#8A6620",
+      "labelImage": ""
+     },
+     {
+      "labelId": "1214960173168365569",
+      "labelName": "茶底升级",
+      "labelStyle": "TEXT",
+      "sequence": 109,
+      "backgroundColor": "#F8F3E6",
+      "fontColor": "#8A6620",
+      "labelImage": ""
+     }
+    ],
+    "memberDiscounted": false,
+    "showPriceStart": true,
+    "defaultTradePrice": "16.00",
+    "defaultSalePrice": "16.00",
+    "imageUrlList": [
+     "https://images.qmai.cn/s49006/2026/09/14/e87f0ef4e59d195bbe.jpg"
+    ],
+    "stockLimit": true,
+    "stock": 19998,
+    "status": 1,
+    "saleOut": false,
+    "sequence": 10,
+    "directPurchase": false,
+    "inSalePeriod": true,
+    "hasExtra": false,
+    "skuIdList": [
+     "653631627057983491",
+     "653631627057983489"
+    ]
+   },
+   {
+    "spuId": "1299769917864935424",
+    "name": "本店风荷系列包材暂无库存",
+    "spuType": "show",
+    "showTypeList": [
+     "show"
+    ],
+    "memberDiscounted": false,
+    "showPriceStart": false,
+    "defaultTradePrice": "0.00",
+    "defaultSalePrice": "0.00",
+    "imageUrlList": [
+     "https://images.qmai.cn/s49006/2026/08/27/84243afff96bd0ce83.jpg"
+    ],
+    "stockLimit": true,
+    "stock": 9999,
+    "status": 1,
+    "saleOut": false,
+    "sequence": 11,
+    "directPurchase": false,
+    "inSalePeriod": true,
+    "hasExtra": false,
+    "skuIdList": [
+     "1299769917873324033"
+    ]
+   }
+  ]
+ },
+ {
+  "menuCategoryId": "1305937225993682945",
+  "menuCategoryName": "抹茶系列",
+  "categoryDesc": "",
+  "banner": "",
+  "top": false,
+  "icon": "https://static.chagee.com/cdn-tools-transfer/goods/prod/menu/default.png",
+  "sequence": 8,
+  "spuList": [
+   {
+    "spuId": "1305903142650228736",
+    "name": "浓抹香草籽",
+    "spuType": "stand",
+    "showTypeList": [
+     "group"
+    ],
+    "description": "主要成分：纯正千目抹茶、马达加斯加香草籽、抹茶干酪云顶、满满抹茶粉 严选北纬30°黄金产区优质茶种，只采春日嫩叶经千目精细研磨，带来鲜活纯正的抹茶茶香。加入马达加斯加波旁香草籽，入口先是高扬的抹茶香，伴随微苦与清新的青香；抹茶干酪云顶融入浓郁奶酪香与顺滑口感，茶香与奶香交织，尾韵留下抹茶微苦与香草奶香，回味悠长。 *温馨提示:原叶真茶，茶叶本身含有咖啡因，请茶友根据自身情况合理把握饮用时间。 *奶盖易融化，为保证风味和口感，建议在20分钟内饮用完毕。 *本产品制作方式特性，此款不支持去冰，敬请谅解。 **底部黑色颗粒沉淀为真实香草籽",
+    "memberDiscounted": false,
+    "showPriceStart": false,
+    "defaultTradePrice": "22.00",
+    "defaultSalePrice": "22.00",
+    "imageUrlList": [
+     "https://images.qmai.cn/s49006/2026/09/15/07b8f869fc9d2d905c.jpg"
+    ],
+    "stockLimit": true,
+    "stock": 9999,
+    "status": 1,
+    "saleOut": false,
+    "sequence": 1,
+    "directPurchase": false,
+    "inSalePeriod": true,
+    "hasExtra": false,
+    "skuIdList": [
+     "1305903142662811649"
+    ],
+    "promotionPrice": "18.00",
+    "promotion": [
+     {
+      "promotionId": "1306315465496260609",
+      "promotionType": 2,
+      "bizType": 10,
+      "promotionTagText": "新品尝鲜｜双杯7折",
+      "biggestDiscount": false,
+      "activityType": 10
+     },
+     {
+      "promotionId": "1307849187823484929",
+      "promotionType": 2,
+      "bizType": 5,
+      "promotionTagText": "单杯会员价",
+      "biggestDiscount": true,
+      "discountAmount": "4.00",
+      "activityType": 5
+     }
+    ]
+   },
+   {
+    "spuId": "1305903912577695744",
+    "name": "浓抹花田",
+    "spuType": "stand",
+    "showTypeList": [
+     "group"
+    ],
+    "description": "主要成分：纯正千目抹茶、蜜桃乌龙、抹茶干酪云顶 、满满抹茶粉 严选优质产区抹茶，经千目研磨，保留鲜爽纯正的抹茶香。抹茶干酪云顶绵密顺滑，茶香与奶香自然融合；蜜桃乌龙带来清甜自然的桃香，与抹茶的鲜爽茶香交织，入口清新，回味带有淡淡桃香与抹茶鲜爽。 *奶盖易融化，为保证风味和口感，建议在20分钟内饮用完毕。 *本产品制作方式特性，此款不支持去冰，敬请谅解。",
+    "descLabels": [
+     {
+      "labelId": "1241743778668224548",
+      "labelName": "晚系列icon",
+      "labelStyle": "IMAGE",
+      "sequence": 4,
+      "backgroundColor": "",
+      "fontColor": "",
+      "labelImage": "https://images.qmai.cn/s49006/2026/03/20/b4a1b9ca3603e35366.png"
+     }
+    ],
+    "memberDiscounted": false,
+    "showPriceStart": false,
+    "defaultTradePrice": "22.00",
+    "defaultSalePrice": "22.00",
+    "imageUrlList": [
+     "https://images.qmai.cn/s49006/2026/09/15/5c10ee627ae7f3da45.jpg"
+    ],
+    "stockLimit": true,
+    "stock": 9999,
+    "status": 1,
+    "saleOut": false,
+    "sequence": 2,
+    "directPurchase": false,
+    "inSalePeriod": true,
+    "hasExtra": false,
+    "skuIdList": [
+     "1305903912594472961"
+    ],
+    "promotionPrice": "18.00",
+    "promotion": [
+     {
+      "promotionId": "1306315465496260609",
+      "promotionType": 2,
+      "bizType": 10,
+      "promotionTagText": "新品尝鲜｜双杯7折",
+      "biggestDiscount": false,
+      "activityType": 10
+     },
+     {
+      "promotionId": "1307849187823484929",
+      "promotionType": 2,
+      "bizType": 5,
+      "promotionTagText": "单杯会员价",
+      "biggestDiscount": true,
+      "discountAmount": "4.00",
+      "activityType": 5
+     }
+    ]
+   },
+   {
+    "spuId": "1305902326077898753",
+    "name": "一抹茉莉花",
+    "spuType": "stand",
+    "showTypeList": [
+     "group"
+    ],
+    "description": "甄选六窨茉莉雪芽，让茉莉花香自然融入茶香，与纯正千目抹茶和优质牛乳相遇。入口先是清新鲜灵的茉莉花香，随后抹茶醇厚茶韵缓缓展开；花香与茶香层层交织，保留抹茶的鲜爽茶感的同时，增添一抹清雅花香，回味悠长。 *本产品制作方式特性，此款不支持去冰，敬请谅解。",
+    "memberDiscounted": false,
+    "showPriceStart": false,
+    "defaultTradePrice": "18.00",
+    "defaultSalePrice": "18.00",
+    "imageUrlList": [
+     "https://images.qmai.cn/s49006/2026/09/15/202e348d2dfb7b22dd.jpg"
+    ],
+    "stockLimit": true,
+    "stock": 9999,
+    "status": 1,
+    "saleOut": false,
+    "sequence": 3,
+    "directPurchase": false,
+    "inSalePeriod": true,
+    "hasExtra": false,
+    "skuIdList": [
+     "1305902326086287360"
+    ]
+   },
+   {
+    "spuId": "1212451861377593345",
+    "name": "一抹山月",
+    "spuType": "stand",
+    "showTypeList": [
+     "group"
+    ],
+    "description": "选用纯正抹茶融合优质牛乳，口感丝滑细腻。严选源自北纬30度黄金产区的优质茶种，只采嫩叶，千目研磨，只为纯正抹茶香。抹茶的鲜与牛乳的醇平衡得恰到好处。轻苦不涩口，鲜爽有回甘。 *沉淀属正常现象 ，建议搅拌后饮用；20分钟内饮用完毕，口感更佳。",
+    "descLabels": [
+     {
+      "labelId": "1235330605299687425",
+      "labelName": "太阳",
+      "labelStyle": "IMAGE",
+      "sequence": 110,
+      "backgroundColor": "",
+      "fontColor": "",
+      "labelImage": "https://images.qmai.cn/s49006/2026/03/02/b83b25b481d17da23e.png"
+     },
+     {
+      "labelId": "1235330688544190464",
+      "labelName": "早系列",
+      "labelStyle": "TEXT",
+      "sequence": 111,
+      "backgroundColor": "#F8F3E6",
+      "fontColor": "#8A6620",
+      "labelImage": ""
+     }
+    ],
+    "memberDiscounted": false,
+    "showPriceStart": false,
+    "defaultTradePrice": "18.00",
+    "defaultSalePrice": "18.00",
+    "imageUrlList": [
+     "https://images.qmai.cn/s49006/2026/09/16/69419264f43f707ebd.jpg"
+    ],
+    "stockLimit": true,
+    "stock": 19998,
+    "status": 1,
+    "saleOut": false,
+    "sequence": 4,
+    "directPurchase": false,
+    "inSalePeriod": true,
+    "hasExtra": false,
+    "skuIdList": [
+     "1212451861385981952",
+     "1232801776867934208"
+    ]
+   }
+  ]
+ },
+ {
+  "menuCategoryId": "1201178564718297089",
+  "menuCategoryName": "原叶茶拿铁",
+  "categoryDesc": "",
+  "banner": "",
+  "top": false,
+  "icon": "https://static.chagee.com/cdn-tools-transfer/goods/prod/menu/1201178564718297089.png",
+  "sequence": 9,
+  "spuList": [
+   {
+    "spuId": "1200040619665707008",
+    "name": "归云南·云焦卡美罗",
+    "spuType": "stand",
+    "showTypeList": [
+     "group"
+    ],
+    "description": "精选云南冰岛熟普和勐海熟普进行拼配，自带冰糖甜韵和醇厚茶韵。卡美罗糖经匠心手工熬制后，轻放入茶，焦糖甜焦香便开始慢慢释放，和茶香、芝士甜香和黑巧香交融，每口尽享不同的甜润丝滑。 *主要成分：云南熟普、卡美罗糖、芝士轻乳、优质牛乳 *卡美罗糖分装情况下，不另外加糖指在此基础上饮品本身不额外加糖，甜度仅来自于卡美罗糖。 *为满足个性化的甜度需求，卡美罗糖已独立分装，请根据喜好自行添加，享用专属风味。 *温馨提示：原叶真茶，茶叶本身含有咖啡因，请茶友根据自身情况合理把握饮用时间。",
+    "descLabels": [
+     {
+      "labelId": "1232857618246467584",
+      "labelName": "升运推荐",
+      "labelStyle": "TEXT",
+      "sequence": 69,
+      "backgroundColor": "#F8F3E6",
+      "fontColor": "#8A6620",
+      "labelImage": ""
+     },
+     {
+      "labelId": "1235330605299687425",
+      "labelName": "太阳",
+      "labelStyle": "IMAGE",
+      "sequence": 110,
+      "backgroundColor": "",
+      "fontColor": "",
+      "labelImage": "https://images.qmai.cn/s49006/2026/03/02/b83b25b481d17da23e.png"
+     },
+     {
+      "labelId": "1235330688544190464",
+      "labelName": "早系列",
+      "labelStyle": "TEXT",
+      "sequence": 111,
+      "backgroundColor": "#F8F3E6",
+      "fontColor": "#8A6620",
+      "labelImage": ""
+     }
+    ],
+    "memberDiscounted": false,
+    "showPriceStart": false,
+    "defaultTradePrice": "21.00",
+    "defaultSalePrice": "21.00",
+    "imageUrlList": [
+     "https://images.qmai.cn/s49006/2026/09/15/4bb5fa40e76e75f240.jpg"
+    ],
+    "stockLimit": true,
+    "stock": 19998,
+    "status": 1,
+    "saleOut": false,
+    "sequence": 1,
+    "directPurchase": false,
+    "inSalePeriod": true,
+    "hasExtra": false,
+    "skuIdList": [
+     "1200040619678289921",
+     "1232802807371091968"
+    ]
+   },
+   {
+    "spuId": "1200041961226711041",
+    "name": "归云南·云漫普洱",
+    "spuType": "stand",
+    "showTypeList": [
+     "group"
+    ],
+    "description": "甄选云南冰岛与勐海产区熟普，陈香茶韵融合醇香牛乳，未添加半分黑巧却呈现独特黑巧香，入口浓醇丝滑，随后，熟普深邃的甘醇与醇厚回甘的滋味迸发而出。 *主要成分：云南熟普、芝士轻乳、优质牛乳 *温馨提示：原叶真茶，茶叶本身含有咖啡因，请茶友根据自身情况合理把握饮用时间。 *本款产品内不含任何巧克力、可可成分，其中独特黑巧质感源于熟普茶底与牛乳的融合",
+    "descLabels": [
+     {
+      "labelId": "1235330605299687425",
+      "labelName": "太阳",
+      "labelStyle": "IMAGE",
+      "sequence": 110,
+      "backgroundColor": "",
+      "fontColor": "",
+      "labelImage": "https://images.qmai.cn/s49006/2026/03/02/b83b25b481d17da23e.png"
+     },
+     {
+      "labelId": "1235330688544190464",
+      "labelName": "早系列",
+      "labelStyle": "TEXT",
+      "sequence": 111,
+      "backgroundColor": "#F8F3E6",
+      "fontColor": "#8A6620",
+      "labelImage": ""
+     }
+    ],
+    "memberDiscounted": false,
+    "showPriceStart": false,
+    "defaultTradePrice": "18.00",
+    "defaultSalePrice": "18.00",
+    "imageUrlList": [
+     "https://images.qmai.cn/s49006/2026/09/14/ec1a7ee85fb8894912.jpg"
+    ],
+    "stockLimit": true,
+    "stock": 19998,
+    "status": 1,
+    "saleOut": false,
+    "sequence": 2,
+    "directPurchase": false,
+    "inSalePeriod": true,
+    "hasExtra": false,
+    "skuIdList": [
+     "1200041961247682560",
+     "1232802525132251137"
+    ]
+   }
+  ]
+ },
+ {
+  "menuCategoryId": "1223243188104818689",
+  "menuCategoryName": "茶特调",
+  "categoryDesc": "",
+  "banner": "",
+  "top": false,
+  "icon": "https://static.chagee.com/cdn-tools-transfer/goods/prod/menu/default.png",
+  "sequence": 10,
+  "spuList": [
+   {
+    "spuId": "1307378304845709312",
+    "name": "桂馥兰香冰酿",
+    "spuType": "stand",
+    "showTypeList": [
+     "group"
+    ],
+    "description": "主要成分：桂花乌龙茶 、牛乳、酒酿 精选福建乌龙与广西桂花拼配的桂花乌龙茶底，融合优质牛乳与湖北孝感非遗米酿，乌龙茶醇厚，桂花清雅甜香，自然发酵的米甜层层释放，甘润绵长。风里飘来桂花香的时候，喝这杯刚刚好。 *产品含米酿，请搅拌均匀后饮用。 *产品含微量酒精（≤0.15%vol），未成年人、孕妇、哺乳期女性、驾驶人员、酒精过敏及易感人群不建议饮用。",
+    "descLabels": [
+     {
+      "labelId": "1308905404870344705",
+      "labelName": "含微量酒精",
+      "labelStyle": "TEXT",
+      "sequence": 1,
+      "backgroundColor": "#F8F3E6",
+      "fontColor": "#8A6620",
+      "labelImage": ""
+     },
+     {
+      "labelId": "1241743778668224548",
+      "labelName": "晚系列icon",
+      "labelStyle": "IMAGE",
+      "sequence": 4,
+      "backgroundColor": "",
+      "fontColor": "",
+      "labelImage": "https://images.qmai.cn/s49006/2026/03/20/b4a1b9ca3603e35366.png"
+     }
+    ],
+    "memberDiscounted": false,
+    "showPriceStart": true,
+    "defaultTradePrice": "18.00",
+    "defaultSalePrice": "18.00",
+    "imageUrlList": [
+     "https://images.qmai.cn/s49006/2026/09/21/70c9451eb98905535d.jpg"
+    ],
+    "stockLimit": true,
+    "stock": 19998,
+    "status": 1,
+    "saleOut": false,
+    "sequence": 1,
+    "directPurchase": false,
+    "inSalePeriod": true,
+    "hasExtra": true,
+    "skuIdList": [
+     "1307378304858292225",
+     "1307378304858292227"
+    ]
+   },
+   {
+    "spuId": "1307378832733589505",
+    "name": "桂馥芭乐冰酿",
+    "spuType": "stand",
+    "showTypeList": [
+     "group"
+    ],
+    "description": "主要成分：桂花乌龙茶、牛乳、芭乐浆、酒酿 精选福建乌龙与广西桂花拼配的桂花乌龙茶底，融合优质牛乳、鲜榨芭乐浆与湖北孝感非遗米酿。入口芭乐果香清新绵密，中调乌龙茶醇厚甘润，清爽不腻，尾韵桂花甜香与米酿甘甜层层交织。 *产品含米酿，请搅拌均匀后饮用。 *产品含微量酒精（≤0.15%vol），未成年人、孕妇、哺乳期女性、驾驶人员、酒精过敏及易感人群不建议饮用。",
+    "descLabels": [
+     {
+      "labelId": "1308905404870344705",
+      "labelName": "含微量酒精",
+      "labelStyle": "TEXT",
+      "sequence": 1,
+      "backgroundColor": "#F8F3E6",
+      "fontColor": "#8A6620",
+      "labelImage": ""
+     },
+     {
+      "labelId": "1241743778668224548",
+      "labelName": "晚系列icon",
+      "labelStyle": "IMAGE",
+      "sequence": 4,
+      "backgroundColor": "",
+      "fontColor": "",
+      "labelImage": "https://images.qmai.cn/s49006/2026/03/20/b4a1b9ca3603e35366.png"
+     }
+    ],
+    "memberDiscounted": false,
+    "showPriceStart": true,
+    "defaultTradePrice": "18.00",
+    "defaultSalePrice": "18.00",
+    "imageUrlList": [
+     "https://images.qmai.cn/s49006/2026/09/21/ba868b44c4cc34b016.jpg"
+    ],
+    "stockLimit": true,
+    "stock": 19998,
+    "status": 1,
+    "saleOut": false,
+    "sequence": 2,
+    "directPurchase": false,
+    "inSalePeriod": true,
+    "hasExtra": true,
+    "skuIdList": [
+     "1307378832746172417",
+     "1307378832750366721"
+    ]
+   },
+   {
+    "spuId": "1307379964495310848",
+    "name": "桂馥秋梨冰奶",
+    "spuType": "stand",
+    "showTypeList": [
+     "group"
+    ],
+    "description": "主要成分：桂花乌龙茶、茉莉雪芽、库尔勒梨汁、牛乳、芝士奶盖、焦糖浆、鲜梨片 精选茉莉雪芽与桂花乌龙双茶拼配，融合库尔勒梨的细腻清甜，搭配优质牛乳，顶部芝士奶盖覆上焦糖浆和鲜切梨片。入口茉莉花香携着梨汁的清冽，中调乌龙茶醇厚甘润，尾韵桂花幽香伴奶香绵长，鲜梨片脆嫩多汁，增添口感层次。喝一口，便遇见了秋天。",
+    "descLabels": [
+     {
+      "labelId": "1241743778668224548",
+      "labelName": "晚系列icon",
+      "labelStyle": "IMAGE",
+      "sequence": 4,
+      "backgroundColor": "",
+      "fontColor": "",
+      "labelImage": "https://images.qmai.cn/s49006/2026/03/20/b4a1b9ca3603e35366.png"
+     }
+    ],
+    "memberDiscounted": false,
+    "showPriceStart": false,
+    "defaultTradePrice": "21.00",
+    "defaultSalePrice": "21.00",
+    "imageUrlList": [
+     "https://images.qmai.cn/s49006/2026/09/21/e1e990027e16a5e79c.jpg"
+    ],
+    "stockLimit": true,
+    "stock": 9999,
+    "status": 1,
+    "saleOut": false,
+    "sequence": 3,
+    "directPurchase": false,
+    "inSalePeriod": true,
+    "hasExtra": false,
+    "skuIdList": [
+     "1307379964507893761"
+    ]
+   },
+   {
+    "spuId": "1298600362111414272",
+    "name": "一骑红尘冰酿",
+    "spuType": "stand",
+    "showTypeList": [
+     "group"
+    ],
+    "description": "主要成分：荔枝红茶、牛奶、酒酿 采用斯里兰卡锡兰红茶与福建小种红茶拼配，融入湖北孝感非遗米酿和优质牛乳，荔枝果香与锡兰花香交织，米酿颗颗饱满，嚼得到的软糯香甜。 *限定包材用完即止，请以门店实际出品为准。 *产品含米酿，请搅拌均匀后饮用。 *产品含微量酒精（≤0.15%vol），未成年人、孕妇、哺乳期女性、驾驶人员、酒精过敏及易感人群不建议饮用。",
+    "descLabels": [
+     {
+      "labelId": "1308905404870344705",
+      "labelName": "含微量酒精",
+      "labelStyle": "TEXT",
+      "sequence": 1,
+      "backgroundColor": "#F8F3E6",
+      "fontColor": "#8A6620",
+      "labelImage": ""
+     }
+    ],
+    "memberDiscounted": false,
+    "showPriceStart": true,
+    "defaultTradePrice": "18.00",
+    "defaultSalePrice": "18.00",
+    "imageUrlList": [
+     "https://images.qmai.cn/s49006/2026/09/14/f3d2a4f99eb5770e7a.jpg"
+    ],
+    "stockLimit": true,
+    "stock": 19998,
+    "status": 1,
+    "saleOut": false,
+    "sequence": 4,
+    "directPurchase": false,
+    "inSalePeriod": true,
+    "hasExtra": false,
+    "skuIdList": [
+     "1298600362132385793",
+     "1298600362144968705"
+    ]
+   },
+   {
+    "spuId": "1298601199387373568",
+    "name": "花田乌龙冰酿",
+    "spuType": "stand",
+    "showTypeList": [
+     "group"
+    ],
+    "description": "主要成分：蜜桃乌龙茶、水蜜桃汁、牛奶、酒酿 选用闽南金观音，真实水蜜桃汁入茶，融入湖北孝感非遗米酿和优质牛乳，乌龙茶醇厚回甘，桃香自然纯粹，米酿颗颗饱满，嚼得到的软糯香甜。 *限定包材用完即止，请以门店实际出品为准。 *产品含米酿，请搅拌均匀后饮用。 *产品含微量酒精（≤0.15%vol），未成年人、孕妇、哺乳期女性、驾驶人员、酒精过敏及易感人群不建议饮用。",
+    "descLabels": [
+     {
+      "labelId": "1308905404870344705",
+      "labelName": "含微量酒精",
+      "labelStyle": "TEXT",
+      "sequence": 1,
+      "backgroundColor": "#F8F3E6",
+      "fontColor": "#8A6620",
+      "labelImage": ""
+     }
+    ],
+    "memberDiscounted": false,
+    "showPriceStart": true,
+    "defaultTradePrice": "18.00",
+    "defaultSalePrice": "18.00",
+    "imageUrlList": [
+     "https://images.qmai.cn/s49006/2026/09/14/90af9ba1c54c50283a.jpg"
+    ],
+    "stockLimit": true,
+    "stock": 19998,
+    "status": 1,
+    "saleOut": false,
+    "sequence": 5,
+    "directPurchase": false,
+    "inSalePeriod": true,
+    "hasExtra": false,
+    "skuIdList": [
+     "1298601199404150785",
+     "1298601199412539393"
+    ]
+   },
+   {
+    "spuId": "1282304499661189121",
+    "name": "轻因·伯牙柠檬奶",
+    "spuType": "stand",
+    "showTypeList": [
+     "group"
+    ],
+    "description": "主要成分：茉莉雪芽、香水柠檬、芝士轻乳、优质牛乳、香柠芝士云顶 以茉莉雪芽为清透茶底，手捣萃取新鲜柠檬皮油，瞬间点亮悠长茶汤。当茉莉的清雅、鲜奶的醇香与柠檬的清爽灵动交织，再覆上香柠芝士云顶。层层递进，清甜回甘。 【温馨提示】因外送受产品特点及天气状况的影响，可能与堂食产品存在细微差异，敬请谅解。 *奶盖易融，为保证最佳风味与口感，建议及时饮用，并倾斜杯身大口直饮。饮品中可能含有香柠皮沉淀，可放心饮用。 *本产品制作方式特性，此款不支持去冰，敬请谅解。",
+    "descLabels": [
+     {
+      "labelId": "1241743778668224548",
+      "labelName": "晚系列icon",
+      "labelStyle": "IMAGE",
+      "sequence": 4,
+      "backgroundColor": "",
+      "fontColor": "",
+      "labelImage": "https://images.qmai.cn/s49006/2026/03/20/b4a1b9ca3603e35366.png"
+     },
+     {
+      "labelId": "1109189447136395265",
+      "labelName": "轻咖啡因",
+      "labelStyle": "TEXT",
+      "sequence": 102,
+      "backgroundColor": "#F8F3E6",
+      "fontColor": "#8A6620",
+      "labelImage": ""
+     }
+    ],
+    "memberDiscounted": false,
+    "showPriceStart": false,
+    "defaultTradePrice": "19.00",
+    "defaultSalePrice": "19.00",
+    "imageUrlList": [
+     "https://images.qmai.cn/s49006/2026/09/14/60ead610acdc72fc28.jpg"
+    ],
+    "stockLimit": true,
+    "stock": 9999,
+    "status": 1,
+    "saleOut": false,
+    "sequence": 8,
+    "directPurchase": false,
+    "inSalePeriod": true,
+    "hasExtra": false,
+    "skuIdList": [
+     "1282304499673772032"
+    ]
+   },
+   {
+    "spuId": "1270702090075148288",
+    "name": "轻因·糯青山柠檬奶",
+    "spuType": "stand",
+    "showTypeList": [
+     "group"
+    ],
+    "description": "主要成分：珑珠绿茶、香水柠檬、芝士轻乳、优质牛乳、香柠芝士云顶 以糯香绿茶为基调，现捣柠檬皮迸发的清爽柠檬香瞬间点亮茶汤。糯米香、鲜奶醇与柠檬香交织，覆上绵密柠檬芝士云顶，轻盈柔和，回甘悠长。 【温馨提示】因外送受产品特点及天气状况的影响，可能与堂食产品存在细微差异，敬请谅解。 *奶盖易融，为保证最佳风味与口感，建议及时饮用，并倾斜杯身大口直饮。 *本产品制作方式特性，此款不支持去冰，敬请谅解。 *图片仅供参考，请以实际出杯为准。",
+    "descLabels": [
+     {
+      "labelId": "1241743778668224548",
+      "labelName": "晚系列icon",
+      "labelStyle": "IMAGE",
+      "sequence": 4,
+      "backgroundColor": "",
+      "fontColor": "",
+      "labelImage": "https://images.qmai.cn/s49006/2026/03/20/b4a1b9ca3603e35366.png"
+     },
+     {
+      "labelId": "1109189447136395265",
+      "labelName": "轻咖啡因",
+      "labelStyle": "TEXT",
+      "sequence": 102,
+      "backgroundColor": "#F8F3E6",
+      "fontColor": "#8A6620",
+      "labelImage": ""
+     }
+    ],
+    "memberDiscounted": false,
+    "showPriceStart": false,
+    "defaultTradePrice": "18.00",
+    "defaultSalePrice": "18.00",
+    "imageUrlList": [
+     "https://images.qmai.cn/s49006/2026/09/14/c960b3cc1e3a66e4b9.jpg"
+    ],
+    "stockLimit": true,
+    "stock": 9999,
+    "status": 1,
+    "saleOut": false,
+    "sequence": 9,
+    "directPurchase": false,
+    "inSalePeriod": true,
+    "hasExtra": false,
+    "skuIdList": [
+     "1270702090083536897"
+    ]
+   },
+   {
+    "spuId": "1254130561119088641",
+    "name": "橘柚荷龙井⎡浙江限定⎦",
+    "spuType": "stand",
+    "showTypeList": [
+     "group"
+    ],
+    "description": "主要成分：荷香龙井，苹果橘柚果汁，香水柠檬 茶底甄选浙江越州产区龙井春茶，拼配淡雅清香的荷叶，创意汇入苹果橘柚汁，苹果的温柔甜香，将柚子的微苦高香与橘子的平实甜润自然缝合。整杯入口时，前调荷香与柠檬香气高扬，滋味酸甜适中，中调柠檬的香甜与橘柚果汁的清新协调，尾段龙井茶香回甘明显。",
+    "memberDiscounted": false,
+    "showPriceStart": false,
+    "defaultTradePrice": "16.00",
+    "defaultSalePrice": "16.00",
+    "imageUrlList": [
+     "https://images.qmai.cn/s49006/2026/04/24/b4be0cc0a2f494acc9.jpg"
+    ],
+    "stockLimit": true,
+    "stock": 9999,
+    "status": 1,
+    "saleOut": false,
+    "sequence": 10,
+    "directPurchase": false,
+    "inSalePeriod": true,
+    "hasExtra": false,
+    "skuIdList": [
+     "1254130561144254464"
+    ],
+    "promotionPrice": "14.08",
+    "promotion": [
+     {
+      "promotionId": "1279477112192954369",
+      "promotionType": 2,
+      "bizType": 5,
+      "promotionTagText": "会员价",
+      "biggestDiscount": true,
+      "discountAmount": "1.92",
+      "activityType": 5
+     }
+    ]
+   },
+   {
+    "spuId": "1270701535198568449",
+    "name": "轻因·雾红尘柠檬奶",
+    "spuType": "stand",
+    "showTypeList": [
+     "group"
+    ],
+    "description": "主要成分：大红袍、锡兰红茶、香水柠檬、芝士轻乳、优质牛乳、香柠芝士云顶 岩韵大红袍碰撞锡兰红茶，岩韵深沉，锡兰高扬。柠檬皮的活泼果香破茧而出，穿透醇厚乳感，在茶汤的加持下，呈现出一种宛如香水般的轻透果香，层次分明。 【温馨提示】因外送受产品特点及天气状况的影响，可能与堂食产品存在细微差异，敬请谅解。 *奶盖易融，为保证最佳风味与口感，建议及时饮用，并倾斜杯身大口直饮。 *本产品制作方式特性，此款不支持去冰，敬请谅解。 *图片仅供参考，请以实际出杯为准。",
+    "descLabels": [
+     {
+      "labelId": "1241743778668224548",
+      "labelName": "晚系列icon",
+      "labelStyle": "IMAGE",
+      "sequence": 4,
+      "backgroundColor": "",
+      "fontColor": "",
+      "labelImage": "https://images.qmai.cn/s49006/2026/03/20/b4a1b9ca3603e35366.png"
+     },
+     {
+      "labelId": "1109189447136395265",
+      "labelName": "轻咖啡因",
+      "labelStyle": "TEXT",
+      "sequence": 102,
+      "backgroundColor": "#F8F3E6",
+      "fontColor": "#8A6620",
+      "labelImage": ""
+     }
+    ],
+    "memberDiscounted": false,
+    "showPriceStart": false,
+    "defaultTradePrice": "18.00",
+    "defaultSalePrice": "18.00",
+    "imageUrlList": [
+     "https://images.qmai.cn/s49006/2026/09/14/f00c6b04b91c8b8249.jpg"
+    ],
+    "stockLimit": true,
+    "stock": 9999,
+    "status": 1,
+    "saleOut": false,
+    "sequence": 11,
+    "directPurchase": false,
+    "inSalePeriod": true,
+    "hasExtra": false,
+    "skuIdList": [
+     "1270701535206957241"
+    ]
+   },
+   {
+    "spuId": "1249405530021134336",
+    "name": "小森林柚子",
+    "spuType": "stand",
+    "showTypeList": [
+     "group"
+    ],
+    "description": "主要成分：茉莉雪芽、青苹果柚子汁 甄选一级烘青绿茶与横州茉莉鲜花，平均六次窨制后使茶花风味平衡。搭配王林青苹果与清冽柚汁，前调苹果甜润，激发饱满柚香，爽净通透；中调茉莉花香轻盈跃出，呈现茶、花、果自然交织的平衡口感。入口利落不酸涩，尾调柚子香气与茶香久久萦绕，口感清爽，带来小森林般的自然清鲜。 *产品含天然果肉成分，底部或有少量果肉成分沉淀，属正常现象。请搅拌均匀后饮用。",
+    "memberDiscounted": false,
+    "showPriceStart": false,
+    "defaultTradePrice": "18.00",
+    "defaultSalePrice": "18.00",
+    "imageUrlList": [
+     "https://images.qmai.cn/s49006/2026/05/26/3dd87ec7626322d1d8.jpg"
+    ],
+    "stockLimit": true,
+    "stock": 9999,
+    "status": 1,
+    "saleOut": false,
+    "sequence": 12,
+    "directPurchase": false,
+    "inSalePeriod": true,
+    "hasExtra": false,
+    "skuIdList": [
+     "1249405530033717249"
+    ],
+    "promotionPrice": "15.84",
+    "promotion": [
+     {
+      "promotionId": "1279477112192954369",
+      "promotionType": 2,
+      "bizType": 5,
+      "promotionTagText": "会员价",
+      "biggestDiscount": true,
+      "discountAmount": "2.16",
+      "activityType": 5
+     }
+    ]
+   }
+  ]
+ },
+ {
+  "menuCategoryId": "640212425815109632",
+  "menuCategoryName": "活力轻果茶",
+  "categoryDesc": "",
+  "banner": "",
+  "top": false,
+  "icon": "https://static.chagee.com/cdn-tools-transfer/goods/prod/menu/640212425815109632.png",
+  "sequence": 12,
+  "spuList": [
+   {
+    "spuId": "1142830264156524544",
+    "name": "醉红尘",
+    "spuType": "stand",
+    "showTypeList": [
+     "group"
+    ],
+    "description": "入口荔枝与柠檬自然的清甜气息率先展开，紧接着红茶特有的麦芽香、焦糖香悠悠散开，与荔枝、柠檬的果香巧妙交织，果香四溢，滋味酸甜。如选择加入气泡，口感更加立体，更添清爽。 【不另外加糖】选项：酸涩不甜，请根据个人喜好选择 *本产品制作方式特性，此款不支持去冰，敬请谅解。 *产品打开后，建议在30分钟内饮用完毕，口感更佳",
+    "memberDiscounted": false,
+    "showPriceStart": true,
+    "defaultTradePrice": "18.00",
+    "defaultSalePrice": "18.00",
+    "imageUrlList": [
+     "https://images.qmai.cn/s49006/2026/09/14/d7aa9b4d97120ddd20.jpg"
+    ],
+    "stockLimit": true,
+    "stock": 9999,
+    "status": 1,
+    "saleOut": false,
+    "sequence": 1,
+    "directPurchase": false,
+    "inSalePeriod": true,
+    "hasExtra": true,
+    "skuIdList": [
+     "1144240023036440577"
+    ]
+   },
+   {
+    "spuId": "1253292834069934081",
+    "name": "粉芭乐",
+    "spuType": "stand",
+    "showTypeList": [
+     "group"
+    ],
+    "description": "主要成分：茉莉雪芽、香水柠檬、芭乐汁 精选广西横州市茉莉鲜花窨制的茉莉雪芽，加入红心芭乐汁，带出层次丰富的热带果香。香水柠檬的加入不仅增添了明亮的酸度，更平衡了整体的甜味，每一口都能感受到多重果香与茶香的美妙融合。 【不另外加糖】选项：酸涩不甜，请根据个人喜好选择 *本产品制作方式特性，此款不支持去冰，敬请谅解。 *产品打开后，建议在30分钟内饮用完毕，口感更佳",
+    "descLabels": [
+     {
+      "labelId": "1241743778668224548",
+      "labelName": "晚系列icon",
+      "labelStyle": "IMAGE",
+      "sequence": 4,
+      "backgroundColor": "",
+      "fontColor": "",
+      "labelImage": "https://images.qmai.cn/s49006/2026/03/20/b4a1b9ca3603e35366.png"
+     }
+    ],
+    "memberDiscounted": false,
+    "showPriceStart": true,
+    "defaultTradePrice": "20.00",
+    "defaultSalePrice": "20.00",
+    "imageUrlList": [
+     "https://images.qmai.cn/s49006/2026/09/14/efc78d54275abbe932.jpg"
+    ],
+    "stockLimit": true,
+    "stock": 9999,
+    "status": 1,
+    "saleOut": false,
+    "sequence": 2,
+    "directPurchase": false,
+    "inSalePeriod": true,
+    "hasExtra": true,
+    "skuIdList": [
+     "1253292834082516992"
+    ]
+   },
+   {
+    "spuId": "670336812278927361",
+    "name": "千峰翠",
+    "spuType": "stand",
+    "showTypeList": [
+     "group"
+    ],
+    "description": "主要成分：茉莉雪芽、香水柠檬 甄选福建、四川、云南三地一级烘青绿茶，搭配广西横州茉莉鲜花，平均窨次达六窨，茶汤翠亮茶感清新，茉莉花香鲜灵雅致。鲜灵茉莉花香与酸甜柠檬满口交织融合，将夏日的清爽与芬芳尽数饮下，每一口都是清新淡雅的茶韵与明快果香的完美碰撞，沁人心脾。 【到店制作】选项：为保证品质，加气泡选项默认到店做。到店后请联系伙伴确认产品开始制作，请您耐心等待。 【不另外加糖】选项：酸涩不甜，请根据个人喜好选择 *产品含气泡久置易消散，建议到手尽快品尝",
+    "memberDiscounted": true,
+    "showPriceStart": true,
+    "defaultTradePrice": "18.00",
+    "defaultSalePrice": "18.00",
+    "imageUrlList": [
+     "https://images.qmai.cn/s49006/2026/09/14/080ffed2d7edf7fbbb.jpg"
+    ],
+    "stockLimit": true,
+    "stock": 9999,
+    "status": 1,
+    "saleOut": false,
+    "sequence": 3,
+    "directPurchase": false,
+    "inSalePeriod": true,
+    "hasExtra": true,
+    "skuIdList": [
+     "670351750535905281"
+    ]
+   },
+   {
+    "spuId": "1137398692104212480",
+    "name": "七里香",
+    "spuType": "stand",
+    "showTypeList": [
+     "group"
+    ],
+    "description": "主要成分：珑珠绿茶、香水柠檬 带有独特糯米香的珑珠绿茶，香水柠檬的清新酸度与馥郁的糯米香气形成绝妙平衡，如选择气泡加入，口感会变得更加立体，每一口都能感受到糯米的绵长香味、柠檬的明亮酸甜与气泡的轻盈口感。 【到店制作】选项：为保证品质，加气泡选项默认到店做。到店后请联系伙伴确认产品开始制作，请您耐心等待。 【不另外加糖】选项：酸涩不甜，请根据个人喜好选择 *产品含气泡久置易消散，建议到手尽快品尝",
+    "memberDiscounted": false,
+    "showPriceStart": true,
+    "defaultTradePrice": "18.00",
+    "defaultSalePrice": "18.00",
+    "imageUrlList": [
+     "https://images.qmai.cn/s49006/2026/09/14/c9c88afdb5d4a82ce4.jpg"
+    ],
+    "stockLimit": true,
+    "stock": 9999,
+    "status": 1,
+    "saleOut": false,
+    "sequence": 4,
+    "directPurchase": false,
+    "inSalePeriod": true,
+    "hasExtra": true,
+    "skuIdList": [
+     "1137398692112601089"
+    ]
+   },
+   {
+    "spuId": "625390649092390913",
+    "name": "橙香四季",
+    "spuType": "stand",
+    "showTypeList": [
+     "group"
+    ],
+    "description": "甄选福建、四川、云南三地一级烘青绿茶，搭配广西横州茉莉鲜花，平均窨次达六窨，使得茶香与茉莉花香相得益彰，茉莉花香鲜灵悠扬。在馥郁茶底之上，融入香气四溢的橙片与清新香水柠檬，一口入喉，先是鲜灵茉莉与清透茶香在舌尖绽放，随即橙香包裹柠檬的清爽层层递进，满口橙香与花香交织，层次丰富，自然清新。",
+    "descLabels": [
+     {
+      "labelId": "1241743778668224548",
+      "labelName": "晚系列icon",
+      "labelStyle": "IMAGE",
+      "sequence": 4,
+      "backgroundColor": "",
+      "fontColor": "",
+      "labelImage": "https://images.qmai.cn/s49006/2026/03/20/b4a1b9ca3603e35366.png"
+     }
+    ],
+    "memberDiscounted": true,
+    "showPriceStart": true,
+    "defaultTradePrice": "20.00",
+    "defaultSalePrice": "20.00",
+    "imageUrlList": [
+     "https://images.qmai.cn/s49006/2026/09/14/e2305f61d75013ef28.jpg"
+    ],
+    "stockLimit": true,
+    "stock": 9999,
+    "status": 1,
+    "saleOut": false,
+    "sequence": 5,
+    "directPurchase": false,
+    "inSalePeriod": true,
+    "hasExtra": true,
+    "skuIdList": [
+     "678351968804065280"
+    ]
+   },
+   {
+    "spuId": "670336463270912001",
+    "name": "琥珀光",
+    "spuType": "stand",
+    "showTypeList": [
+     "group"
+    ],
+    "description": "甄选一级奇兰拼配水仙的大红袍茶叶，定制化焙火工艺，充分激发大红袍茶叶的焙火香和岩骨花香，和香水柠檬香气完美结合。",
+    "descLabels": [
+     {
+      "labelId": "1241743778668224548",
+      "labelName": "晚系列icon",
+      "labelStyle": "IMAGE",
+      "sequence": 4,
+      "backgroundColor": "",
+      "fontColor": "",
+      "labelImage": "https://images.qmai.cn/s49006/2026/03/20/b4a1b9ca3603e35366.png"
+     }
+    ],
+    "memberDiscounted": true,
+    "showPriceStart": true,
+    "defaultTradePrice": "18.00",
+    "defaultSalePrice": "18.00",
+    "imageUrlList": [
+     "https://images.qmai.cn/s49006/2026/09/14/8304aa85772e827836.jpg"
+    ],
+    "stockLimit": true,
+    "stock": 9999,
+    "status": 1,
+    "saleOut": false,
+    "sequence": 6,
+    "directPurchase": false,
+    "inSalePeriod": true,
+    "hasExtra": true,
+    "skuIdList": [
+     "670352354251452416"
+    ]
+   }
+  ]
+ },
+ {
+  "menuCategoryId": "640212530039382017",
+  "menuCategoryName": "远山鲜沏篇",
+  "categoryDesc": "",
+  "banner": "",
+  "top": false,
+  "icon": "https://static.chagee.com/cdn-tools-transfer/goods/prod/menu/640212530039382017.png",
+  "sequence": 13,
+  "spuList": [
+   {
+    "spuId": "1200042392577355776",
+    "name": "归云南",
+    "spuType": "stand",
+    "showTypeList": [
+     "group"
+    ],
+    "description": "甄选云南冰岛与勐海产区的云南大叶种，经60日足时渥堆与不少于五年陈化。茶汤褐红，陈香浓郁；入口是冰岛熟普标志性的冰糖甜韵与勐海熟普的醇厚底蕴，二者交融，回味悠长。 *主要成分：云南熟普 *热饮温度较高，小心烫口，建议直饮。",
+    "memberDiscounted": false,
+    "showPriceStart": false,
+    "defaultTradePrice": "14.00",
+    "defaultSalePrice": "14.00",
+    "imageUrlList": [
+     "https://images.qmai.cn/s49006/2026/09/14/22ca2a721cf0e5c3b1.jpg"
+    ],
+    "stockLimit": true,
+    "stock": 9999,
+    "status": 1,
+    "saleOut": false,
+    "sequence": 1,
+    "directPurchase": false,
+    "inSalePeriod": true,
+    "hasExtra": false,
+    "skuIdList": [
+     "1200042392602521601"
+    ],
+    "promotionPrice": "9.90",
+    "promotion": [
+     {
+      "promotionId": "1300128017988878337",
+      "promotionType": 2,
+      "bizType": 5,
+      "promotionTagText": "会员限时享",
+      "biggestDiscount": true,
+      "discountAmount": "4.10",
+      "activityType": 5
+     }
+    ]
+   },
+   {
+    "spuId": "640223571699871745",
+    "name": "酌红袍",
+    "spuType": "stand",
+    "showTypeList": [
+     "group"
+    ],
+    "description": "甄选一级奇兰拼配水仙的大红袍茶叶，定制化焙火工艺，充分激发大红袍茶叶的焙火香和岩骨花香。岩韵明显，回味绵长不绝。",
+    "memberDiscounted": false,
+    "showPriceStart": true,
+    "defaultTradePrice": "14.00",
+    "defaultSalePrice": "14.00",
+    "imageUrlList": [
+     "https://images.qmai.cn/s49006/2026/09/14/d80010238d8dca84ab.jpg"
+    ],
+    "stockLimit": true,
+    "stock": 9999,
+    "status": 1,
+    "saleOut": false,
+    "sequence": 3,
+    "directPurchase": false,
+    "inSalePeriod": true,
+    "hasExtra": true,
+    "skuIdList": [
+     "822208324060839936"
+    ],
+    "promotionPrice": "9.90",
+    "promotion": [
+     {
+      "promotionId": "1300128017988878337",
+      "promotionType": 2,
+      "bizType": 5,
+      "promotionTagText": "会员限时享",
+      "biggestDiscount": true,
+      "discountAmount": "4.10",
+      "activityType": 5
+     }
+    ]
+   },
+   {
+    "spuId": "1019653869022654465",
+    "name": "花田坞",
+    "spuType": "stand",
+    "showTypeList": [
+     "group"
+    ],
+    "description": "茶底升级，选用闽南金观音，真实水蜜桃汁入茶，乌龙茶醇厚回甘，桃香自然纯粹，巧妙融合，天然健康。 *主要成分：蜜桃乌龙、糖 *温馨提示：本品茶底含有水蜜桃成分，请消费者根据自身情况酌情选择。 *「去冰」选项仅指去除杯中的冰块，而非提供常温饮品",
+    "memberDiscounted": false,
+    "showPriceStart": false,
+    "defaultTradePrice": "13.00",
+    "defaultSalePrice": "13.00",
+    "imageUrlList": [
+     "https://images.qmai.cn/s49006/2026/07/20/61707d880fa8790dd7.jpg"
+    ],
+    "stockLimit": true,
+    "stock": 9999,
+    "status": 1,
+    "saleOut": false,
+    "sequence": 4,
+    "directPurchase": false,
+    "inSalePeriod": true,
+    "hasExtra": false,
+    "skuIdList": [
+     "1019653869056208896"
+    ],
+    "promotionPrice": "9.90",
+    "promotion": [
+     {
+      "promotionId": "1300128017988878337",
+      "promotionType": 2,
+      "bizType": 5,
+      "promotionTagText": "会员限时享",
+      "biggestDiscount": true,
+      "discountAmount": "3.10",
+      "activityType": 5
+     }
+    ]
+   },
+   {
+    "spuId": "640223789849878529",
+    "name": "云中绿",
+    "spuType": "stand",
+    "showTypeList": [
+     "group"
+    ],
+    "description": "以云南尖叶种茶青为原材料烘制而成，汤色黄绿，味道醇浓，并具有独特的糯米清香口感，香味长久，回味无穷。 *主要成分：云南糯米香绿茶 *「去冰」选项仅指去除杯中的冰块，而非提供常温饮品",
+    "memberDiscounted": false,
+    "showPriceStart": true,
+    "defaultTradePrice": "12.00",
+    "defaultSalePrice": "12.00",
+    "imageUrlList": [
+     "https://images.qmai.cn/s49006/2026/07/20/faa89e42fada2808d3.jpg"
+    ],
+    "stockLimit": true,
+    "stock": 9999,
+    "status": 1,
+    "saleOut": false,
+    "sequence": 5,
+    "directPurchase": false,
+    "inSalePeriod": true,
+    "hasExtra": true,
+    "skuIdList": [
+     "822180584843722753"
+    ],
+    "promotionPrice": "9.90",
+    "promotion": [
+     {
+      "promotionId": "1300128017988878337",
+      "promotionType": 2,
+      "bizType": 5,
+      "promotionTagText": "会员限时享",
+      "biggestDiscount": true,
+      "discountAmount": "2.10",
+      "activityType": 5
+     }
+    ]
+   },
+   {
+    "spuId": "889131901087068160",
+    "name": "折桂令",
+    "spuType": "stand",
+    "showTypeList": [
+     "group"
+    ],
+    "description": "多重福建乌龙拼配，搭配广西金桂与丹桂，经多段慢焙与七道做花工艺，激发多层次茶香与纯净持久的桂花香。层次丰富，前调桂香清新，中调甜香萦绕，后调茶韵淡雅。 *主要成分：桂花乌龙",
+    "memberDiscounted": false,
+    "showPriceStart": false,
+    "defaultTradePrice": "14.00",
+    "defaultSalePrice": "14.00",
+    "imageUrlList": [
+     "https://images.qmai.cn/s49006/2026/09/14/8fd900e0f3b601e62f.jpg"
+    ],
+    "stockLimit": true,
+    "stock": 9999,
+    "status": 1,
+    "saleOut": false,
+    "sequence": 6,
+    "directPurchase": false,
+    "inSalePeriod": true,
+    "hasExtra": false,
+    "skuIdList": [
+     "889131901112233985"
+    ],
+    "promotionPrice": "9.90",
+    "promotion": [
+     {
+      "promotionId": "1300128017988878337",
+      "promotionType": 2,
+      "bizType": 5,
+      "promotionTagText": "会员限时享",
+      "biggestDiscount": true,
+      "discountAmount": "4.10",
+      "activityType": 5
+     }
+    ]
+   }
+  ]
+ },
+ {
+  "menuCategoryId": "1071854304830541825",
+  "menuCategoryName": "区域限定套餐",
+  "categoryDesc": "",
+  "banner": "",
+  "top": false,
+  "icon": "https://static.chagee.com/cdn-tools-transfer/goods/prod/menu/1071854304830541825.png",
+  "sequence": 14,
+  "spuList": [
+   {
+    "spuId": "1213065022819434497",
+    "name": "「桂馥兰香系列」双杯套餐",
+    "spuType": "combo",
+    "showTypeList": [],
+    "description": "购买2杯桂馥兰香系列饮品（桂馥兰香大杯/桂子飘飘中杯），赠桂馥兰香系列香挂1个。 *部分门店无桂子飘飘供应，套餐可选商品以门店实际供应情况为准。 *周边数量有限，先到先得，赠完即止。 *按需消费，禁止浪费食物。图片仅供参考，以实际为准。",
+    "memberDiscounted": false,
+    "showPriceStart": true,
+    "defaultTradePrice": "0.00",
+    "defaultSalePrice": "0.00",
+    "showPrice": "40.00",
+    "imageUrlList": [
+     "https://images.qmai.cn/s49006/2026/01/04/fe7fca8b85e5285da2.jpg"
+    ],
+    "stockLimit": true,
+    "stock": 9999,
+    "status": 1,
+    "saleOut": false,
+    "sequence": 1,
+    "directPurchase": false,
+    "inSalePeriod": true,
+    "hasExtra": false,
+    "skuIdList": [
+     "1213065022832017408"
+    ]
+   },
+   {
+    "spuId": "1271140223931568128",
+    "name": "茶特调·摇摇沙系列周边套餐",
+    "spuType": "combo",
+    "showTypeList": [],
+    "memberDiscounted": false,
+    "showPriceStart": true,
+    "defaultTradePrice": "0.00",
+    "defaultSalePrice": "0.00",
+    "showPrice": "36.00",
+    "imageUrlList": [
+     "https://images.qmai.cn/s49006/2026/06/09/a486a66b1d969e5ab6.jpg"
+    ],
+    "stockLimit": true,
+    "stock": 9999,
+    "status": 1,
+    "saleOut": false,
+    "sequence": 2,
+    "directPurchase": false,
+    "inSalePeriod": true,
+    "hasExtra": false,
+    "skuIdList": [
+     "1271140223939956737"
+    ]
+   }
+  ]
+ },
+ {
+  "menuCategoryId": "626368833355059200",
+  "menuCategoryName": "小料登台",
+  "categoryDesc": "",
+  "banner": "",
+  "top": false,
+  "icon": "https://static.chagee.com/cdn-tools-transfer/goods/prod/menu/626368833355059200.png",
+  "sequence": 15,
+  "spuList": [
+   {
+    "spuId": "1039907015201492993",
+    "name": "碧根果碎",
+    "spuType": "extra",
+    "showTypeList": [],
+    "description": "碧根果碎",
+    "memberDiscounted": false,
+    "showPriceStart": false,
+    "defaultTradePrice": "3.00",
+    "defaultSalePrice": "3.00",
+    "imageUrlList": [
+     "https://images.qmai.cn/s49006/2024/09/09/5b4aeafc44bf3bc0e9.jpg"
+    ],
+    "stockLimit": true,
+    "stock": 756,
+    "status": 1,
+    "saleOut": false,
+    "sequence": 1,
+    "directPurchase": false,
+    "inSalePeriod": true,
+    "hasExtra": false,
+    "skuIdList": [
+     "1039907015214075904"
+    ]
+   },
+   {
+    "spuId": "1039906842272276481",
+    "name": "香草奶油雪顶",
+    "spuType": "extra",
+    "showTypeList": [],
+    "description": "动物奶油打制，香草风味，绵密丝滑",
+    "memberDiscounted": false,
+    "showPriceStart": false,
+    "defaultTradePrice": "5.00",
+    "defaultSalePrice": "5.00",
+    "imageUrlList": [
+     "https://images.qmai.cn/s49006/2024/09/09/0340a1d513a2a8b83c.jpg"
+    ],
+    "stockLimit": true,
+    "stock": 8582,
+    "status": 1,
+    "saleOut": false,
+    "sequence": 2,
+    "directPurchase": false,
+    "inSalePeriod": true,
+    "hasExtra": false,
+    "skuIdList": [
+     "1039906842280665088"
+    ]
+   }
+  ]
+ },
+ {
+  "menuCategoryId": "937079476661837825",
+  "menuCategoryName": "保温袋",
+  "categoryDesc": "",
+  "banner": "",
+  "top": false,
+  "icon": "https://static.chagee.com/cdn-tools-transfer/goods/prod/menu/937079476661837825.png",
+  "sequence": 16,
+  "spuList": [
+   {
+    "spuId": "804413428764561408",
+    "name": "单杯保温袋",
+    "spuType": "stand",
+    "showTypeList": [],
+    "memberDiscounted": false,
+    "showPriceStart": false,
+    "defaultTradePrice": "1.00",
+    "defaultSalePrice": "1.00",
+    "imageUrlList": [
+     "https://images.qmai.cn/s49006/2024/11/14/dd09715568e308c31e.jpg"
+    ],
+    "stockLimit": true,
+    "stock": 9957,
+    "status": 1,
+    "saleOut": false,
+    "sequence": 1,
+    "directPurchase": true,
+    "inSalePeriod": true,
+    "hasExtra": false,
+    "skuIdList": [
+     "804413428772950017"
+    ]
+   },
+   {
+    "spuId": "804413759510044673",
+    "name": "双杯保温袋",
+    "spuType": "stand",
+    "showTypeList": [],
+    "memberDiscounted": false,
+    "showPriceStart": false,
+    "defaultTradePrice": "2.00",
+    "defaultSalePrice": "2.00",
+    "imageUrlList": [
+     "https://images.qmai.cn/s49006/2024/11/14/d33a1d7f92333059ce.jpg"
+    ],
+    "stockLimit": true,
+    "stock": 9974,
+    "status": 1,
+    "saleOut": false,
+    "sequence": 2,
+    "directPurchase": true,
+    "inSalePeriod": true,
+    "hasExtra": false,
+    "skuIdList": [
+     "804413759518433280"
+    ]
+   },
+   {
+    "spuId": "873285278327341057",
+    "name": "四杯保温袋",
+    "spuType": "stand",
+    "showTypeList": [],
+    "memberDiscounted": false,
+    "showPriceStart": false,
+    "defaultTradePrice": "4.00",
+    "defaultSalePrice": "4.00",
+    "imageUrlList": [
+     "https://images.qmai.cn/s49006/2024/11/14/7ea36b2da8966d2c00.jpg"
+    ],
+    "stockLimit": true,
+    "stock": 9986,
+    "status": 1,
+    "saleOut": false,
+    "sequence": 3,
+    "directPurchase": true,
+    "inSalePeriod": true,
+    "hasExtra": false,
+    "skuIdList": [
+     "873285278339923968"
+    ]
+   }
+  ]
+ },
+ {
+  "menuCategoryId": "870631597707927552",
+  "menuCategoryName": " 自报家门",
+  "categoryDesc": "",
+  "banner": "",
+  "top": false,
+  "icon": "https://static.chagee.com/cdn-tools-transfer/goods/prod/menu/default.png",
+  "sequence": 21,
+  "spuList": [
+   {
+    "spuId": "910834025920917505",
+    "name": "厉行节俭，反对浪费",
+    "spuType": "show",
+    "showTypeList": [
+     "show"
+    ],
+    "description": "珍惜一茶一叶，按需适量点单",
+    "memberDiscounted": false,
+    "showPriceStart": false,
+    "defaultTradePrice": "0.00",
+    "defaultSalePrice": "0.00",
+    "imageUrlList": [
+     "https://images.qmai.cn/s49006/2024/09/30/302e03f35e7fdd3e19.png"
+    ],
+    "stockLimit": true,
+    "stock": 9999,
+    "status": 1,
+    "saleOut": false,
+    "sequence": 1,
+    "directPurchase": false,
+    "inSalePeriod": true,
+    "hasExtra": false,
+    "skuIdList": [
+     "910834026327764992"
+    ]
+   },
+   {
+    "spuId": "896915204894285825",
+    "name": "热量值说明",
+    "spuType": "show",
+    "showTypeList": [
+     "show"
+    ],
+    "description": "「低负担专区」产品热量数据，规格均为 (中杯、标准冰、不另外加糖) *热量数据及营养成分数据根据霸王茶姬产品程序手册的标准，由国家认可的实验室—华测检测测定后得出 *您所购买的产品，有可能因原料批次、产地和供应季节，生产加工工艺和门店制作过程，实际供应份量的不同有所差异，数据仅供茶友参考。 **参考食物热量数据引用于薄荷健康(可食用部分克重：半颗牛油果≈75g、1个橙子≈200g、7颗栗子≈55g、7颗冬枣≈111g、半个黄桃≈180g、3个奇异果≈180g (此次数据更新时间为2023年8月)",
+    "memberDiscounted": false,
+    "showPriceStart": false,
+    "defaultTradePrice": "0.00",
+    "defaultSalePrice": "0.00",
+    "imageUrlList": [
+     "https://images.qmai.cn/s49006/2024/09/30/9da3331b8446f54eb2.png"
+    ],
+    "stockLimit": true,
+    "stock": 9999,
+    "status": 1,
+    "saleOut": false,
+    "sequence": 2,
+    "directPurchase": false,
+    "inSalePeriod": true,
+    "hasExtra": false,
+    "skuIdList": [
+     "896915204923645952"
+    ]
+   },
+   {
+    "spuId": "870634503760814081",
+    "name": "绵密茶沫",
+    "spuType": "show",
+    "showTypeList": [
+     "show"
+    ],
+    "description": "我们研发优化了手作滤茶台，用于过滤有粗制茶沫的纯茶茶汤（除冷泡茶外），茶汤顶部因此而形成一层绵密的泡沫，倾倒泡沫至最后一滴，仍肉眼可见有大量的泡沫附在杯壁，形成犹如精致红酒般的“挂杯现象”；茶沫和茶汤口感更为细腻，让你在喝茶时，首先通过泡沫的绵密气泡嗅到茶香，再品尝细致紧密的泡沫与茶融合的奇趣口感。",
+    "memberDiscounted": false,
+    "showPriceStart": false,
+    "defaultTradePrice": "0.00",
+    "defaultSalePrice": "0.00",
+    "imageUrlList": [
+     "https://images.qmai.cn/s49006/2024/09/30/5ee172c257297967ed.png"
+    ],
+    "stockLimit": true,
+    "stock": 9999,
+    "status": 1,
+    "saleOut": false,
+    "sequence": 3,
+    "directPurchase": false,
+    "inSalePeriod": true,
+    "hasExtra": false,
+    "skuIdList": [
+     "870634503773396992"
+    ]
+   },
+   {
+    "spuId": "870634387373072384",
+    "name": "远山原叶",
+    "spuType": "show",
+    "showTypeList": [
+     "show"
+    ],
+    "description": "我们每一杯产品坚持使用原叶好茶，茶山直采，拒绝使用茶渣/茶粉。",
+    "memberDiscounted": false,
+    "showPriceStart": false,
+    "defaultTradePrice": "0.00",
+    "defaultSalePrice": "0.00",
+    "imageUrlList": [
+     "https://images.qmai.cn/s49006/2024/09/30/69945a8750f63b5b96.png"
+    ],
+    "stockLimit": true,
+    "stock": 9999,
+    "status": 1,
+    "saleOut": false,
+    "sequence": 4,
+    "directPurchase": false,
+    "inSalePeriod": true,
+    "hasExtra": false,
+    "skuIdList": [
+     "870634387742171167"
+    ]
+   },
+   {
+    "spuId": "870634307156262913",
+    "name": "PLA可降解吸管",
+    "spuType": "show",
+    "showTypeList": [
+     "show"
+    ],
+    "description": "1）我们不主动提供一次性餐具，推荐你使用环保的PLA可降解吸管；2）热饮建议通过直饮杯盖饮用，请尽量较少打包；3）纸巾按需取用，拒绝浪费；4）我们倡导光杯行动，拒绝浪费，喝的刚刚好，才是最大的满足。",
+    "memberDiscounted": false,
+    "showPriceStart": false,
+    "defaultTradePrice": "0.00",
+    "defaultSalePrice": "0.00",
+    "imageUrlList": [
+     "https://images.qmai.cn/s49006/2024/09/30/39cd27aca352d27bba.png"
+    ],
+    "stockLimit": true,
+    "stock": 9999,
+    "status": 1,
+    "saleOut": false,
+    "sequence": 5,
+    "directPurchase": false,
+    "inSalePeriod": true,
+    "hasExtra": false,
+    "skuIdList": [
+     "870634307164651520"
+    ]
+   },
+   {
+    "spuId": "870634156454182912",
+    "name": "优质牛乳",
+    "spuType": "show",
+    "showTypeList": [
+     "show"
+    ],
+    "description": "我们的乳制品均根据各个区域水质差异选择不同合作伙伴，如川渝江浙沪等区与味全牛乳达成合作协议，云南则是新希望鲜奶，广西是当地人从小喝到大的皇氏鲜奶。我们承诺，绝不使用奶粉冲泡，认真对待每一杯奶茶。",
+    "memberDiscounted": false,
+    "showPriceStart": false,
+    "defaultTradePrice": "0.00",
+    "defaultSalePrice": "0.00",
+    "imageUrlList": [
+     "https://images.qmai.cn/s49006/2024/09/30/07f606de7e45777b0f.png"
+    ],
+    "stockLimit": true,
+    "stock": 9999,
+    "status": 1,
+    "saleOut": false,
+    "sequence": 6,
+    "directPurchase": false,
+    "inSalePeriod": true,
+    "hasExtra": false,
+    "skuIdList": [
+     "870634156462571521"
+    ]
+   },
+   {
+    "spuId": "870633446169731072",
+    "name": "茶友须知",
+    "spuType": "show",
+    "showTypeList": [
+     "show"
+    ],
+    "description": "1）芝士奶盖/香草奶油雪顶等配料为手工现打，建议现点现取现饮，出品后等待时间过长可能导致芝士下沉、雪顶融化、和茶混合等现象；2）冰沙类饮品可能出现融化现象。请茶友周知。3）【0热量·0卡糖】【低GI·D-阿洛酮糖】：婴幼儿、孕妇和哺乳期妇女不宜食用",
+    "memberDiscounted": false,
+    "showPriceStart": false,
+    "defaultTradePrice": "0.00",
+    "defaultSalePrice": "0.00",
+    "imageUrlList": [
+     "https://images.qmai.cn/s49006/2024/09/30/ac64eac7914aab0dee.png"
+    ],
+    "stockLimit": true,
+    "stock": 9999,
+    "status": 1,
+    "saleOut": false,
+    "sequence": 7,
+    "directPurchase": false,
+    "inSalePeriod": true,
+    "hasExtra": false,
+    "skuIdList": [
+     "870633446182313985"
+    ]
+   },
+   {
+    "spuId": "870633258197843969",
+    "name": "不满意就重做",
+    "spuType": "show",
+    "showTypeList": [
+     "show"
+    ],
+    "description": "如果出现以下问题：1）没封好杯口，茶汤洒了；2）茶味不够浓，或者太浓；3）出单不及时，奶油化了；4）冰沙不够细，口感不好；等等...请您立刻联系店长重做（反馈电话：4008788359），我们将无条件为你优先重做。谢谢你的理解和支持。",
+    "memberDiscounted": false,
+    "showPriceStart": false,
+    "defaultTradePrice": "0.00",
+    "defaultSalePrice": "0.00",
+    "imageUrlList": [
+     "https://images.qmai.cn/s49006/2024/09/30/2d3bade95f4db01357.png"
+    ],
+    "stockLimit": true,
+    "stock": 9999,
+    "status": 1,
+    "saleOut": false,
+    "sequence": 8,
+    "directPurchase": false,
+    "inSalePeriod": true,
+    "hasExtra": false,
+    "skuIdList": [
+     "870633258214621184"
+    ]
+   },
+   {
+    "spuId": "870633086487040000",
+    "name": "霸王茶姬",
+    "spuType": "show",
+    "showTypeList": [
+     "show"
+    ],
+    "description": "我们是来自世界茶叶故乡云南的新中式国风茶饮，坚持传承茶马古道精神，将中国文化带向世界，成为东方符号。以东方茶，会世界友 ，全球门店数已突破6500+家，荣登国风茶饮全国门店数榜首品牌。",
+    "memberDiscounted": false,
+    "showPriceStart": false,
+    "defaultTradePrice": "0.00",
+    "defaultSalePrice": "0.00",
+    "imageUrlList": [
+     "https://images.qmai.cn/s49006/2024/09/30/ee30f0c4ab1ced96fb.png"
+    ],
+    "stockLimit": true,
+    "stock": 9999,
+    "status": 1,
+    "saleOut": false,
+    "sequence": 9,
+    "directPurchase": false,
+    "inSalePeriod": true,
+    "hasExtra": false,
+    "skuIdList": [
+     "870633086495428609"
+    ]
+   },
+   {
+    "spuId": "644565857078382593",
+    "name": "过敏原提示",
+    "spuType": "show",
+    "showTypeList": [
+     "show"
+    ],
+    "description": "1）部分饮品中含有乳制品、芒果、大麦、坚果等致敏物，请酌情选择；2）部分饮品中含有果肉、坚果碎等颗粒物，老人、儿童、孕妇请谨慎饮用，请勿大力吸入；3）所有茶类饮品皆含咖啡因，如对咖啡因过敏，请谨慎选择。4）轻因·伯牙绝弦、轻因·伯牙鲜沏产品原料含白木香叶，孕妇、哺乳期妇女、婴幼儿及白木香叶过敏人群不宜饮用。",
+    "memberDiscounted": false,
+    "showPriceStart": false,
+    "defaultTradePrice": "0.00",
+    "defaultSalePrice": "0.00",
+    "imageUrlList": [
+     "https://images.qmai.cn/s49006/2024/09/30/2a34218ddb6fadaf2f.png"
+    ],
+    "stockLimit": true,
+    "stock": 9999,
+    "status": 1,
+    "saleOut": false,
+    "sequence": 10,
+    "directPurchase": false,
+    "inSalePeriod": true,
+    "hasExtra": false,
+    "skuIdList": [
+     "644565857086771200"
+    ]
+   },
+   {
+    "spuId": "685815942868914177",
+    "name": "三品管",
+    "spuType": "show",
+    "showTypeList": [
+     "show"
+    ],
+    "description": "原叶鲜奶茶推荐使用三品管！尽管它长得很像搅拌棒，但不是！三品管可以让茶汤流速变慢，让奶茶的香气在口腔中停留时间变长。使用三品管，打开新体验～",
+    "memberDiscounted": false,
+    "showPriceStart": false,
+    "defaultTradePrice": "0.00",
+    "defaultSalePrice": "0.00",
+    "imageUrlList": [
+     "https://images.qmai.cn/s49006/2024/09/30/7ee598337b9d05354b.png"
+    ],
+    "stockLimit": true,
+    "stock": 9999,
+    "status": 1,
+    "saleOut": false,
+    "sequence": 11,
+    "directPurchase": false,
+    "inSalePeriod": true,
+    "hasExtra": false,
+    "skuIdList": [
+     "685815942894080000"
+    ]
+   },
+   {
+    "spuId": "1208073002045870865",
+    "name": "营养分级说明",
+    "spuType": "show",
+    "showTypeList": [
+     "show"
+    ],
+    "description": "霸王茶姬作为上海市卫生健康委员会组织的第一批「上海市营养健康指导工作」试点单位 *「营养选择」标识（试用）分级由上海市疾病预防控制中心制定，参考国内外标准、考虑饮品营养成分分布及人群饮料摄入情况，据饮品中非乳源性糖、饱和脂肪、反式脂肪、非糖甜味剂含量对饮品进行综合分级，分为ABCD四级。分级从A到D级，其推荐程度递减，期待通过这种简单易懂的标识帮助消费者更快速、简单地选择更健康的饮品。 *菜单标示营养分级/热量标注产品规格：原叶鲜奶茶以中杯、冷、不另外加糖规格评级；轻果茶以不另外加糖评级；远山鲜沏篇以不另外加糖评级。 *上述营养成分数据根据霸王茶姬产品程序手册的标准出品，由国家认可的实验室—-华测检测测定后得出。（此次数据更新时间为 2025年12月） *您所购买的产品，有可能因原料批次、产地和供应季节，生产加工工艺和门店制作过程，实际供应份量的不同有所差异，数据仅供茶友参考。",
+    "memberDiscounted": false,
+    "showPriceStart": false,
+    "defaultTradePrice": "0.00",
+    "defaultSalePrice": "0.00",
+    "imageUrlList": [
+     "https://images.qmai.cn/s49006/2025/12/17/a224c5a1b0adb866bf.png"
+    ],
+    "stockLimit": true,
+    "stock": 9999,
+    "status": 1,
+    "saleOut": false,
+    "sequence": 12,
+    "directPurchase": false,
+    "inSalePeriod": true,
+    "hasExtra": false,
+    "skuIdList": [
+     "1208073002054258688"
+    ]
+   },
+   {
+    "spuId": "1276552819768467457",
+    "name": "轻因系列说明",
+    "spuType": "show",
+    "showTypeList": [
+     "show"
+    ],
+    "description": "「轻因系列」产品为咖啡因含量低于100mg/杯的霸王茶姬产品，规格以标准出品计算，即点单默认规格选择。 *咖啡因数据由国家认可的第三方实验室检测测定后出具，具体检测报告可通过霸王茶姬【健康计算器】查阅。 *您所购买的产品，有可能因原料批次、产地和供应季节，生产加工工艺和门店制作过程，实际供应份量的不同有所差异，数据仅供茶友参考。",
+    "memberDiscounted": false,
+    "showPriceStart": false,
+    "defaultTradePrice": "0.00",
+    "defaultSalePrice": "0.00",
+    "imageUrlList": [
+     "https://images.qmai.cn/s49006/2026/06/24/6aae21cffedb9345cb.jpg"
+    ],
+    "stockLimit": true,
+    "stock": 9999,
+    "status": 1,
+    "saleOut": false,
+    "sequence": 13,
+    "directPurchase": false,
+    "inSalePeriod": true,
+    "hasExtra": false,
+    "skuIdList": [
+     "1276552819781050368"
+    ]
+   }
+  ]
+ }
+]

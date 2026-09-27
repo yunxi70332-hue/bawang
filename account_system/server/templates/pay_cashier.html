@@ -1,0 +1,739 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="format-detection" content="telephone=no">
+<title>霸王茶姬 · 收银台</title>
+<!--
+  H5 收银台「套壳页」：极简展示（金额/倒计时/状态）+ 跳转支付宝官方收银台 + 支付后回看取餐码。
+  纯静态单页零构建；接口约定（token 取自 location.pathname，形如 /pay/<token>）：
+    GET  /pay/{token}/info               订单/金额/券抵扣/order_str/alipay_cashier_url
+    GET  /pay/{token}/status             支付状态轮询（2s，hidden 暂停，5 连败降频 10s）
+    POST /pay/{token}/remint             重铸支付串（成功后整页刷新）
+    POST /pay/{token}/switch-full-price  券差额单切换原价单 → 跳 new_h5_url
+  安全约束：后端字段一律 textContent 渲染，禁止拼进 innerHTML。
+-->
+<style>
+  :root {
+    --green: #0F6B3E;
+    --green-2: #1E7A4A;
+    --bg: #F2F5F1;
+    --text: #22322A;
+    --muted: #8A9A90;
+    --line: #E4EAE5;
+    --red: #C0392B;
+  }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: system-ui, -apple-system, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+    -webkit-font-smoothing: antialiased;
+    line-height: 1.5;
+  }
+  button { font-family: inherit; }
+  .hidden { display: none !important; }
+  .wrap { max-width: 480px; margin: 0 auto; padding: 20px 14px 32px; }
+
+  /* ---------- 头部 ---------- */
+  .head { text-align: center; padding-top: 6px; }
+  .brand {
+    font-size: 24px; font-weight: 800; letter-spacing: .38em;
+    color: var(--green); text-indent: .38em; /* 抵消末字符字距，保证视觉居中 */
+  }
+  .brand-sub { font-size: 11px; letter-spacing: .3em; text-indent: .3em; color: var(--muted); margin-top: 2px; }
+  .store { font-size: 15px; color: #4A5A50; margin-top: 10px; word-break: break-all; }
+  .pill {
+    display: inline-block; font-size: 12px; line-height: 1; padding: 5px 13px;
+    border-radius: 999px; margin-top: 9px; vertical-align: middle;
+  }
+  .pill-issued { background: #E7F2EB; color: var(--green); }
+  .pill-paid   { background: var(--green); color: #fff; }
+  .pill-end    { background: #ECEFEA; color: #7A8780; }
+
+  /* ---------- 网络降频提示 ---------- */
+  .netbar {
+    display: none; margin-top: 12px; padding: 8px 12px; border-radius: 10px;
+    background: #FDEDEC; color: var(--red); font-size: 12px; text-align: center;
+  }
+  .netbar.on { display: block; }
+
+  /* ---------- 卡片 ---------- */
+  .card {
+    background: #fff; border-radius: 16px; padding: 20px 18px; margin-top: 14px;
+    box-shadow: 0 4px 16px rgba(23, 58, 40, .06);
+  }
+
+  /* ---------- 金额卡 ---------- */
+  .goods { font-size: 13px; color: var(--muted); text-align: center; word-break: break-all; }
+  .amt { font-size: 44px; font-weight: 700; color: var(--green); text-align: center; margin: 8px 0 2px; }
+  .amt-note { font-size: 12px; color: var(--muted); text-align: center; }
+  .rows { margin-top: 14px; border-top: 1px dashed var(--line); padding-top: 13px; display: grid; gap: 9px; }
+  .row { display: flex; justify-content: space-between; gap: 12px; font-size: 14px; }
+  .row .k { color: var(--muted); flex-shrink: 0; }
+  .row .v { color: var(--text); font-weight: 500; text-align: right; word-break: break-all; }
+  .row .v.coupon { color: var(--green); }
+
+  /* ---------- 倒计时 ---------- */
+  .cd-card { text-align: center; }
+  .cd-label { font-size: 12px; color: var(--muted); letter-spacing: 3px; }
+  .cd {
+    font-size: 32px; font-weight: 700; margin-top: 4px;
+    font-variant-numeric: tabular-nums; color: var(--text);
+  }
+  .cd-warn { color: var(--red); animation: breath 1.3s ease-in-out infinite; }
+  @keyframes breath { 0%, 100% { opacity: 1; } 50% { opacity: .4; } }
+  .closed-title { font-size: 16px; font-weight: 600; color: var(--red); text-align: center; }
+  .closed-desc { font-size: 12px; color: var(--muted); text-align: center; margin-top: 4px; }
+  .closed-btns { margin-top: 12px; }
+
+  /* ---------- 按钮 ---------- */
+  .btn {
+    display: block; width: 100%; border: none; border-radius: 12px;
+    padding: 13px 16px; font-size: 16px; font-weight: 600; cursor: pointer;
+    transition: transform .06s ease;
+  }
+  .btn:active { transform: scale(.985); }
+  .btn[disabled] { opacity: .6; cursor: default; }
+  .btn-primary { background: linear-gradient(135deg, var(--green), var(--green-2)); color: #fff; }
+  .btn-outline { background: #fff; color: var(--green); border: 1.5px solid var(--green); }
+
+  /* ---------- 支付操作区 ---------- */
+  .pay-card { display: grid; gap: 10px; }
+  .hint { font-size: 12px; color: #96A49B; text-align: center; line-height: 1.7; }
+  .copyline {
+    background: none; border: none; color: var(--green); font-size: 13px;
+    text-decoration: underline; padding: 4px 8px; cursor: pointer; justify-self: center;
+  }
+
+  /* ---------- 二维码（桌面） ---------- */
+  .qr-card { display: none; text-align: center; }
+  @media (min-width: 720px) { .qr-card { display: block; } }
+  .qr-box {
+    display: inline-block; padding: 10px; background: #fff;
+    border: 1px solid var(--line); border-radius: 12px;
+  }
+  .qr-box img, .qr-box canvas { display: block; }
+  .qr-cap { font-size: 12px; color: var(--muted); margin-top: 10px; }
+
+  /* ---------- 取餐码 ---------- */
+  .pickup-card { background: linear-gradient(180deg, #F2F8F4, #FFFFFF); border: 1px solid #DCEAE1; }
+  .p-title { font-size: 13px; color: var(--muted); text-align: center; letter-spacing: 2px; }
+  .pno {
+    font-size: 46px; font-weight: 800; color: var(--green); text-align: center;
+    letter-spacing: 10px; text-indent: 10px; margin: 8px 0 2px;
+    font-variant-numeric: tabular-nums; word-break: break-all;
+  }
+  .psub { font-size: 14px; color: #4A5A50; text-align: center; }
+  .pwait { font-size: 15px; color: #4A5A50; text-align: center; padding: 12px 0; animation: breath 1.6s ease-in-out infinite; }
+
+  /* ---------- 原价支付入口 ---------- */
+  .fp-line { text-align: center; margin-top: 2px; }
+  .btn-text {
+    background: none; border: none; color: #7A8780; font-size: 13px;
+    text-decoration: underline; cursor: pointer; padding: 6px;
+  }
+
+  /* ---------- 终态（取消/过期） ---------- */
+  .end-card { text-align: center; }
+  .end-ico {
+    width: 56px; height: 56px; border-radius: 50%; margin: 4px auto 12px;
+    display: flex; align-items: center; justify-content: center; background: #F0F2EF;
+  }
+  .end-ico.warn { background: #FDEDEC; }
+  .etitle { font-size: 17px; font-weight: 600; }
+  .edesc { font-size: 13px; color: var(--muted); margin-top: 6px; line-height: 1.7; }
+
+  /* ---------- 页脚 ---------- */
+  .foot {
+    margin-top: 18px; font-size: 11px; color: #A7B2AB;
+    line-height: 1.9; word-break: break-all; text-align: center;
+  }
+
+  /* ---------- 链接无效 ---------- */
+  .invalid-ico {
+    width: 56px; height: 56px; border-radius: 50%; margin: 4px auto 12px;
+    display: flex; align-items: center; justify-content: center; background: #FDEDEC;
+  }
+  .invalid-title { font-size: 17px; font-weight: 600; text-align: center; }
+  .invalid-desc { font-size: 13px; color: var(--muted); text-align: center; margin-top: 6px; }
+
+  /* ---------- 弹层 ---------- */
+  .modal { position: fixed; inset: 0; z-index: 60; display: flex; align-items: center; justify-content: center; padding: 24px; }
+  .m-mask { position: absolute; inset: 0; background: rgba(16, 28, 22, .45); }
+  .m-card { position: relative; background: #fff; border-radius: 16px; padding: 22px 20px; width: 100%; max-width: 320px; }
+  .m-title { font-size: 16px; font-weight: 600; text-align: center; }
+  .m-text { font-size: 13px; color: #5A6A60; line-height: 1.7; margin: 12px 0 18px; text-align: center; }
+  .m-btns { display: flex; gap: 10px; }
+  .m-btns .btn { padding: 11px 10px; font-size: 15px; }
+  .m-cancel { background: #F0F2EF; color: #4A5A50; }
+  .m-err { font-size: 12px; color: var(--red); text-align: center; margin-top: 10px; word-break: break-all; }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <!-- 头部：字标 + 门店 + 状态 -->
+  <header class="head" id="appHead">
+    <div class="brand">CHAGEE</div>
+    <div class="brand-sub">霸王茶姬 · 现代东方茶</div>
+    <div class="store" id="storeName">—</div>
+    <span class="pill pill-issued" id="statusTag">加载中</span>
+  </header>
+
+  <!-- 网络降频提示 -->
+  <div class="netbar" id="netbar">网络不稳定，已降低刷新频率重试中…</div>
+
+  <!-- 主内容（info 拉取失败时整体隐藏） -->
+  <main id="app" class="hidden">
+
+    <!-- 金额卡 -->
+    <section class="card">
+      <div class="goods" id="goodsDesc"></div>
+      <div class="amt" id="payAmount">¥0.00</div>
+      <div class="amt-note">应付金额</div>
+      <div class="rows">
+        <div class="row"><span class="k">订单总额</span><span class="v" id="totalAmount">¥0.00</span></div>
+        <div class="row hidden" id="couponRow">
+          <span class="k">券抵扣<span id="couponName"></span></span>
+          <span class="v coupon" id="deduction">-¥0.00</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- 倒计时卡 -->
+    <section class="card cd-card hidden" id="countdownCard">
+      <div id="cdWrap">
+        <div class="cd-label">支付剩余时间</div>
+        <div class="cd" id="cdValue">--:--</div>
+      </div>
+      <div id="closedBox" class="hidden">
+        <div class="closed-title">支付窗口已关闭</div>
+        <div class="closed-desc">可重新获取支付串继续支付</div>
+        <div class="closed-btns">
+          <button type="button" class="btn btn-outline" id="btnRemint">重新获取支付串</button>
+          <div class="m-err hidden" id="remintErr"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 支付操作区（待支付态） -->
+    <section class="card pay-card hidden" id="payBox">
+      <button type="button" class="btn btn-primary" id="btnCashier">打开支付宝收银台</button>
+      <div class="hint hidden" id="cashierHint">在浏览器中登录支付宝完成付款，支付后返回本页查看取餐码</div>
+      <button type="button" class="btn btn-outline" id="btnApp">拉起支付宝App</button>
+      <button type="button" class="copyline" id="btnCopy">复制支付串</button>
+      <div class="hint">未安装支付宝或拉起失败时：复制支付串 → 支付宝扫一扫 → 相册/粘贴</div>
+    </section>
+
+    <!-- 二维码（桌面显示，CSS 控制） -->
+    <section class="card qr-card hidden" id="qrCard">
+      <div class="qr-box" id="qr"></div>
+      <div class="qr-cap">手机扫码打开本收银台</div>
+    </section>
+
+    <!-- 取餐码卡（已支付态） -->
+    <section class="card pickup-card hidden" id="pickupCard">
+      <div class="p-title">取 餐 码</div>
+      <div id="pickupNoWrap" class="hidden">
+        <div class="pno" id="pickupNo"></div>
+        <div class="psub">请凭此码取餐</div>
+      </div>
+      <div id="pickupPending" class="pwait hidden">支付成功，取餐码生成中…</div>
+    </section>
+
+    <!-- 原价支付入口（券差额单） -->
+    <section class="fp-line hidden" id="fullPriceBox">
+      <button type="button" class="btn-text" id="btnFullPrice">不想用券？按原价重新支付</button>
+    </section>
+
+    <!-- 终态（取消/过期） -->
+    <section class="card end-card hidden" id="endCard">
+      <div class="end-ico" id="endIco">
+        <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#7A8780" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="12" r="9"></circle><polyline points="12 7 12 12 15.5 14"></polyline>
+        </svg>
+      </div>
+      <div class="etitle" id="endTitle"></div>
+      <div class="edesc" id="endDesc"></div>
+    </section>
+
+    <!-- 页脚 -->
+    <footer class="foot">
+      <div>订单号：<span id="fOrderNo">-</span></div>
+      <div>商户单号：<span id="fOutTrade">-</span></div>
+      <div>支付单号：<span id="fPayNo">-</span></div>
+    </footer>
+  </main>
+
+  <!-- 链接无效友好页 -->
+  <section class="card hidden" id="invalidPage">
+    <div class="invalid-ico">
+      <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#C0392B" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"></path>
+        <line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line>
+      </svg>
+    </div>
+    <div class="invalid-title">支付链接无效或已过期</div>
+    <div class="invalid-desc">请刷新重试，或联系店员重新获取支付链接</div>
+  </section>
+
+</div>
+
+<!-- 原价切换确认弹层 -->
+<div class="modal hidden" id="modal" role="dialog" aria-modal="true">
+  <div class="m-mask" id="mMask"></div>
+  <div class="m-card">
+    <div class="m-title">按原价重新支付？</div>
+    <div class="m-text">将取消当前订单并退还优惠券，按原价 <span id="mAmount">¥0.00</span> 重新下单。</div>
+    <div class="m-btns">
+      <button type="button" class="btn m-cancel" id="mCancel">取消</button>
+      <button type="button" class="btn btn-primary" id="mOk">确认切换</button>
+    </div>
+    <div class="m-err hidden" id="mErr"></div>
+  </div>
+</div>
+
+<script src="/static/qrcode.min.js"></script>
+<script>
+(function () {
+  "use strict";
+
+  /* ---------- 基础工具 ---------- */
+  var $ = function (id) { return document.getElementById(id); };
+
+  var el = {
+    head: $("appHead"), app: $("app"), invalid: $("invalidPage"),
+    storeName: $("storeName"), statusTag: $("statusTag"), netbar: $("netbar"),
+    goodsDesc: $("goodsDesc"), payAmount: $("payAmount"), totalAmount: $("totalAmount"),
+    couponRow: $("couponRow"), couponName: $("couponName"), deduction: $("deduction"),
+    countdownCard: $("countdownCard"), cdWrap: $("cdWrap"), cdValue: $("cdValue"),
+    closedBox: $("closedBox"), btnRemint: $("btnRemint"), remintErr: $("remintErr"),
+    payBox: $("payBox"), btnCashier: $("btnCashier"), cashierHint: $("cashierHint"),
+    btnApp: $("btnApp"), btnCopy: $("btnCopy"),
+    qrCard: $("qrCard"), qr: $("qr"),
+    pickupCard: $("pickupCard"), pickupNoWrap: $("pickupNoWrap"),
+    pickupNo: $("pickupNo"), pickupPending: $("pickupPending"),
+    fullPriceBox: $("fullPriceBox"), btnFullPrice: $("btnFullPrice"),
+    endCard: $("endCard"), endIco: $("endIco"), endTitle: $("endTitle"), endDesc: $("endDesc"),
+    fOrderNo: $("fOrderNo"), fOutTrade: $("fOutTrade"), fPayNo: $("fPayNo"),
+    modal: $("modal"), mMask: $("mMask"), mAmount: $("mAmount"),
+    mCancel: $("mCancel"), mOk: $("mOk"), mErr: $("mErr")
+  };
+
+  function show(node) { node.classList.remove("hidden"); }
+  function hide(node) { node.classList.add("hidden"); }
+
+  var BASE = location.pathname.replace(/\/+$/, "");
+
+  function isMobileLike() {
+    var touch = ("ontouchstart" in window) || (navigator.maxTouchPoints || 0) > 0;
+    var narrow = window.matchMedia("(max-width: 640px)").matches;
+    return touch || narrow;
+  }
+
+  function pad(n) { return (n < 10 ? "0" : "") + n; }
+  function fmtSec(s) {
+    s = Math.max(0, s | 0);
+    var h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60), sec = s % 60;
+    return h > 0 ? (h + ":" + pad(m) + ":" + pad(sec)) : (pad(m) + ":" + pad(sec));
+  }
+
+  async function fetchJSON(url, opts) {
+    var r = await fetch(url, opts || {});
+    if (!r.ok) {
+      var msg = "HTTP " + r.status;
+      try {
+        var j = await r.json();
+        if (j && j.detail) msg = (typeof j.detail === "string") ? j.detail : JSON.stringify(j.detail);
+      } catch (_) { /* 非 JSON 错误体，保留 HTTP 状态码文案 */ }
+      var err = new Error(msg);
+      err.status = r.status;
+      throw err;
+    }
+    return r.json();
+  }
+
+  async function copyText(text) {
+    try {
+      await navigator.clipboard.writeText(text);
+      return true;
+    } catch (_) {
+      /* 非安全上下文（http 内网）或权限拒绝 → execCommand 降级 */
+      try {
+        var ta = document.createElement("textarea");
+        ta.value = text;
+        ta.setAttribute("readonly", "readonly");
+        ta.style.position = "fixed";
+        ta.style.top = "-9999px";
+        document.body.appendChild(ta);
+        ta.focus(); ta.select();
+        var ok = false;
+        try { ok = document.execCommand("copy"); } catch (_) { ok = false; }
+        document.body.removeChild(ta);
+        return ok;
+      } catch (_) { return false; }
+    }
+  }
+
+  /* ---------- 全局状态 ---------- */
+  var state = {
+    info: null,
+    remaining: 0,
+    pollMode: null,      // 'status' | 'pickup'
+    pollStopped: true,
+    failCount: 0,
+    pollMs: 2000,
+    timer: null,         // 轮询 setTimeout 句柄
+    ticker: null,        // 倒计时 setInterval 句柄
+    qrMade: false
+  };
+
+  function stopTicker() {
+    if (state.ticker) { clearInterval(state.ticker); state.ticker = null; }
+  }
+  function startTicker() {
+    stopTicker();
+    state.ticker = setInterval(function () {
+      if (state.remaining > 0) {
+        state.remaining -= 1;
+        updateCountdownUI();
+        if (state.remaining <= 0) {
+          stopTicker();
+          if (state.info && state.info.status === "issued") {
+            showClosed();
+            state.pollStopped = true; /* 倒计时归零：停止状态轮询 */
+          }
+        }
+      }
+    }, 1000);
+  }
+  function updateCountdownUI() {
+    el.cdValue.textContent = fmtSec(state.remaining);
+    if (state.remaining <= 120) el.cdValue.classList.add("cd-warn");
+    else el.cdValue.classList.remove("cd-warn");
+  }
+  function showClosed() {
+    hide(el.cdWrap);
+    show(el.closedBox);
+  }
+
+  function showNet() { el.netbar.classList.add("on"); }
+  function hideNet() { el.netbar.classList.remove("on"); }
+
+  function setStatusTag(status, label) {
+    el.statusTag.textContent = label || status || "";
+    el.statusTag.className = "pill " +
+      (status === "issued" ? "pill-issued" : status === "paid" ? "pill-paid" : "pill-end");
+  }
+
+  /* ---------- 渲染（后端字段一律 textContent） ---------- */
+  function render(info) {
+    state.info = info;
+    stopTicker();
+
+    el.storeName.textContent = info.store_name || "霸王茶姬";
+    setStatusTag(info.status, info.status_label);
+
+    el.goodsDesc.textContent = info.goods_desc || "";
+    el.payAmount.textContent = "\u00A5" + (info.pay_amount || "0.00");
+    el.totalAmount.textContent = "\u00A5" + (info.total_amount || "0.00");
+
+    var hasCoupon = info.mode === "partial" && !!info.coupon_code;
+    if (hasCoupon) {
+      el.couponName.textContent = info.coupon_name ? ("（" + info.coupon_name + "）") : "";
+      el.deduction.textContent = "-\u00A5" + (info.deduction || "0.00");
+      show(el.couponRow);
+    } else {
+      hide(el.couponRow);
+    }
+
+    el.fOrderNo.textContent = info.order_no || "-";
+    el.fOutTrade.textContent = info.out_trade_no || "-";
+    el.fPayNo.textContent = info.pay_no || "-";
+
+    hide(el.countdownCard); hide(el.payBox); hide(el.qrCard);
+    hide(el.pickupCard); hide(el.fullPriceBox); hide(el.endCard);
+
+    if (info.status === "issued") {
+      renderIssued(info);
+    } else if (info.status === "paid") {
+      renderPaid(info);
+    } else {
+      renderEnd(info.status);
+    }
+  }
+
+  function renderIssued(info) {
+    /* 倒计时 */
+    state.remaining = Math.max(0, info.remaining_seconds | 0);
+    show(el.countdownCard);
+    if (state.remaining <= 0) {
+      hide(el.cdWrap); show(el.closedBox);
+    } else {
+      show(el.cdWrap); hide(el.closedBox);
+      updateCountdownUI();
+      startTicker();
+    }
+
+    /* 支付操作区：cashier_url 缺失时「拉起App」升为主按钮 */
+    var url = info.alipay_cashier_url || "";
+    if (url) {
+      el.btnCashier.className = "btn btn-primary";
+      show(el.btnCashier); show(el.cashierHint);
+      el.btnApp.className = "btn btn-outline";
+    } else {
+      hide(el.btnCashier); hide(el.cashierHint);
+      el.btnApp.className = "btn btn-primary";
+    }
+    show(el.payBox);
+
+    /* 原价切换入口 */
+    if (info.can_switch_full_price) {
+      el.btnFullPrice.textContent = "不想用券？按原价 \u00A5" + (info.total_amount || "") + " 重新支付";
+      show(el.fullPriceBox);
+    }
+
+    /* 桌面二维码（窄屏由 CSS 隐藏；库缺失时也隐藏） */
+    if (typeof QRCode !== "undefined") {
+      ensureQR(info.portal_url || location.href);
+      show(el.qrCard);
+    }
+  }
+
+  function ensureQR(text) {
+    if (state.qrMade || !text) return;
+    try {
+      new QRCode(el.qr, {
+        text: text, width: 148, height: 148,
+        correctLevel: QRCode.CorrectLevel.M
+      });
+      state.qrMade = true;
+    } catch (_) {
+      hide(el.qrCard);
+    }
+  }
+
+  function renderPaid(info) {
+    if (info.pickup_no) {
+      el.pickupNo.textContent = info.pickup_no;
+      show(el.pickupNoWrap); hide(el.pickupPending);
+    } else {
+      hide(el.pickupNoWrap); show(el.pickupPending);
+    }
+    show(el.pickupCard);
+  }
+
+  function renderPaidPendingOnly() {
+    hide(el.payBox); hide(el.countdownCard); hide(el.fullPriceBox);
+    hide(el.qrCard); hide(el.endCard);
+    hide(el.pickupNoWrap); show(el.pickupPending);
+    show(el.pickupCard);
+    setStatusTag("paid", "已支付");
+  }
+
+  function renderEnd(status) {
+    var expired = status === "expired";
+    el.endTitle.textContent = expired ? "支付窗口已过" : "订单已取消";
+    el.endDesc.textContent = expired ? "可在管理端续付" : "如仍需购买，请联系店员重新下单";
+    el.endIco.className = "end-ico" + (expired ? " warn" : "");
+    show(el.endCard);
+  }
+
+  /* ---------- 轮询（2s；hidden 暂停；5 连败降频 10s） ---------- */
+  function schedulePoll(delay) {
+    if (state.pollStopped || document.hidden) return;
+    if (state.timer) clearTimeout(state.timer);
+    state.timer = setTimeout(pollLoop, (typeof delay === "number") ? delay : state.pollMs);
+  }
+
+  async function pollLoop() {
+    try {
+      await pollOnce();
+      state.failCount = 0;
+      state.pollMs = 2000;
+      hideNet();
+    } catch (_) {
+      state.failCount += 1;
+      if (state.failCount >= 5) {
+        state.pollMs = 10000;
+        showNet();
+      }
+    }
+    schedulePoll();
+  }
+
+  async function pollOnce() {
+    if (state.pollMode === "pickup") return pollPickup();
+    return pollStatus();
+  }
+
+  async function pollStatus() {
+    var d = await fetchJSON(BASE + "/status");
+    setStatusTag(d.status, d.status_label);
+
+    if (d.status === "paid") {
+      await onPaid();
+      return;
+    }
+    if (d.status === "cancelled" || d.status === "expired") {
+      var merged = {};
+      if (state.info) { Object.keys(state.info).forEach(function (k) { merged[k] = state.info[k]; }); }
+      merged.status = d.status;
+      merged.status_label = d.status_label;
+      render(merged);
+      state.pollStopped = true;
+      return;
+    }
+    /* issued：服务器倒计时只下调同步（防本地漂移） */
+    var rs = (typeof d.remaining_seconds === "number") ? d.remaining_seconds : null;
+    if (rs !== null && rs <= 0) {
+      state.remaining = 0;
+      updateCountdownUI();
+      stopTicker(); showClosed();
+      state.pollStopped = true;
+      return;
+    }
+    if (rs !== null && rs < state.remaining) {
+      state.remaining = rs;
+      updateCountdownUI();
+    }
+  }
+
+  async function onPaid() {
+    /* 跃迁 paid：停倒计时/停状态轮询，拉一次 info 刷取餐码 */
+    stopTicker();
+    state.pollStopped = true;
+    var info = null;
+    try { info = await fetchJSON(BASE + "/info"); } catch (_) { info = null; }
+    if (info) render(info);
+    else renderPaidPendingOnly();
+    if (!info || !info.pickup_no) {
+      state.pollMode = "pickup";
+      state.pollStopped = false;
+      state.failCount = 0;
+      state.pollMs = 2000;
+      schedulePoll(2000);
+    }
+  }
+
+  async function pollPickup() {
+    var info = await fetchJSON(BASE + "/info");
+    if (info.pickup_no || (info.status && info.status !== "paid")) {
+      render(info);
+      state.pollStopped = true;
+    }
+  }
+
+  document.addEventListener("visibilitychange", function () {
+    if (document.hidden) {
+      if (state.timer) { clearTimeout(state.timer); state.timer = null; }
+    } else if (!state.pollStopped) {
+      state.failCount = 0;
+      state.pollMs = 2000;
+      schedulePoll(400); /* 回前台立刻补一轮，快速追上页面隐藏期间的变化 */
+    }
+  });
+
+  /* ---------- 交互：打开收银台 / 拉起App / 复制 ---------- */
+  el.btnCashier.addEventListener("click", function () {
+    var url = state.info && state.info.alipay_cashier_url;
+    if (!url) return;
+    if (isMobileLike()) {
+      /* 移动端：同窗口跳转；先记返回地址便于支付后回到本壳页 */
+      try { localStorage.setItem("chagee_pay_return", (state.info.portal_url || location.href)); } catch (_) {}
+      location.href = url;
+    } else {
+      /* 桌面：新标签打开收银台，壳页留在原地继续轮询 */
+      window.open(url, "_blank");
+    }
+  });
+
+  el.btnApp.addEventListener("click", function () {
+    var orderStr = state.info && state.info.order_str;
+    if (!orderStr) return;
+    location.href = "alipays://platformapi/startapp?saId=10000007&orderStr=" + encodeURIComponent(orderStr);
+  });
+
+  el.btnCopy.addEventListener("click", async function () {
+    var orderStr = state.info && state.info.order_str;
+    if (!orderStr) return;
+    var ok = await copyText(orderStr);
+    var old = "复制支付串";
+    el.btnCopy.textContent = ok ? "已复制" : "复制失败，请重试";
+    setTimeout(function () { el.btnCopy.textContent = old; }, 2000);
+  });
+
+  /* ---------- 交互：重新获取支付串（remint） ---------- */
+  el.btnRemint.addEventListener("click", async function () {
+    el.btnRemint.disabled = true;
+    el.btnRemint.textContent = "正在重新获取…";
+    hide(el.remintErr);
+    try {
+      await fetchJSON(BASE + "/remint", { method: "POST" });
+      location.reload(); /* 重铸成功：整页刷新拿新倒计时/新支付串 */
+    } catch (e) {
+      el.btnRemint.disabled = false;
+      el.btnRemint.textContent = "重新获取支付串";
+      el.remintErr.textContent = "重铸失败：" + (e && e.message ? e.message : "请稍后重试");
+      show(el.remintErr);
+    }
+  });
+
+  /* ---------- 交互：原价切换（自绘 confirm 弹层） ---------- */
+  el.btnFullPrice.addEventListener("click", function () {
+    el.mAmount.textContent = "\u00A5" + ((state.info && state.info.total_amount) || "0.00");
+    hide(el.mErr);
+    el.mOk.disabled = false;
+    el.mOk.textContent = "确认切换";
+    show(el.modal);
+  });
+  function closeModal() { hide(el.modal); }
+  el.mCancel.addEventListener("click", closeModal);
+  el.mMask.addEventListener("click", closeModal);
+
+  el.mOk.addEventListener("click", async function () {
+    el.mOk.disabled = true;
+    el.mOk.textContent = "切换中…";
+    hide(el.mErr);
+    try {
+      var r = await fetchJSON(BASE + "/switch-full-price", { method: "POST" });
+      var u = r && r.new_h5_url;
+      if (!u) throw new Error("返回数据缺少 new_h5_url");
+      location.href = u;
+    } catch (e) {
+      el.mOk.disabled = false;
+      el.mOk.textContent = "确认切换";
+      el.mErr.textContent = "切换失败：" + (e && e.message ? e.message : "请稍后重试");
+      show(el.mErr);
+    }
+  });
+
+  /* ---------- 启动 ---------- */
+  (async function init() {
+    try {
+      var info = await fetchJSON(BASE + "/info");
+      show(el.app);
+      render(info);
+      if (info.status === "issued" && state.remaining > 0) {
+        state.pollMode = "status";
+        state.pollStopped = false;
+        schedulePoll(2000);
+      } else if (info.status === "paid" && !info.pickup_no) {
+        state.pollMode = "pickup";
+        state.pollStopped = false;
+        schedulePoll(2000);
+      }
+    } catch (_) {
+      /* 404 / 410 / 网络失败 → 友好无效页 */
+      hide(el.app);
+      show(el.invalid);
+      setStatusTag("invalid", "链接无效");
+    }
+  })();
+})();
+</script>
+</body>
+</html>

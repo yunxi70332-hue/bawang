@@ -1,0 +1,18 @@
+{
+  "root": "E:\\霸王茶姬\\so_analysis\\blutter_out",
+  "libapp": {
+    "path": "E:\\霸王茶姬\\so_analysis\\native\\arm64-v8a\\libapp.so",
+    "sha256": "8b4aa0dd6dc15ec8380e402bfdb251941678c5b7830ee5a9200822857da5edd7",
+    "bytes": 12911520
+  },
+  "missing": [],
+  "dart_file_count": 1845,
+  "anchors": {
+    "ChageeInterceptor": true,
+    "buildEncryptedDataFromOriginal": true,
+    "decryptFieldsInResponse": true,
+    "MYLoginService": true,
+    "_callOneClickLoginAPI": true
+  },
+  "ok": true
+}

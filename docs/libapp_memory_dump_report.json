@@ -1,0 +1,35 @@
+{
+  "pid": "13771",
+  "mode": "apk-direct",
+  "disk_path": "/data/app/~~Af09VW_NYfAeYLTgNmyfPQ==/com.chagee.application.cn-QbCCZCQu1gpcEA4MyEl8fw==/base.apk",
+  "disk_sha256": "8b4aa0dd6dc15ec8380e402bfdb251941678c5b7830ee5a9200822857da5edd7",
+  "static_sha256": "8b4aa0dd6dc15ec8380e402bfdb251941678c5b7830ee5a9200822857da5edd7",
+  "disk_matches_static": true,
+  "regions": [
+    {
+      "mem_start": "0x7afa646000",
+      "lib_file_offset": "0x0",
+      "length": 4984832,
+      "pages": 1217,
+      "pages_matching_file": 1217
+    },
+    {
+      "mem_start": "0x7afab16000",
+      "lib_file_offset": "0x4d0000",
+      "length": 7815168,
+      "pages": 1908,
+      "pages_matching_file": 1908
+    },
+    {
+      "mem_start": "0x7afb296000",
+      "lib_file_offset": "0xc50000",
+      "length": 928,
+      "pages": 0,
+      "pages_matching_file": 0
+    }
+  ],
+  "total_pages": 3125,
+  "matched_pages": 3125,
+  "match_ratio": 1.0,
+  "dump_file": "capture\\libapp_mem_13771_20260922_151519.bin"
+}

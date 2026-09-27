@@ -1,0 +1,119 @@
+:root {
+  --tea-900: #14332a;
+  --tea-800: #1b433c;
+  --tea-700: #215e4c;
+  --tea-600: #2a6e59;
+  --tea-500: #3d8b72;
+  --tea-300: #9cc8b8;
+  --tea-100: #e8f3ee;
+  --cream: #f6f8f7;
+  --ink: #22302c;
+  --muted: #7a8a84;
+  --card-shadow: 0 1px 3px rgba(20, 51, 42, 0.07), 0 6px 18px rgba(20, 51, 42, 0.05);
+}
+
+/* 品牌色注入 Element Plus */
+.el-button--primary {
+  --el-button-bg-color: var(--tea-600);
+  --el-button-border-color: var(--tea-600);
+  --el-button-hover-bg-color: var(--tea-700);
+  --el-button-hover-border-color: var(--tea-700);
+  --el-button-active-bg-color: var(--tea-800);
+  --el-button-active-border-color: var(--tea-800);
+}
+
+html,
+body,
+#app {
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  font-family: 'PingFang SC', 'HarmonyOS Sans SC', 'Microsoft YaHei', 'Segoe UI', system-ui, sans-serif;
+  color: var(--ink);
+  background: var(--cream);
+  -webkit-font-smoothing: antialiased;
+}
+
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-thumb {
+  background: #c7d4ce;
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #a8bbb2;
+}
+
+.page-card {
+  background: #fff;
+  border-radius: 14px;
+  box-shadow: var(--card-shadow);
+  padding: 20px;
+}
+
+.page-title {
+  font-size: 20px;
+  font-weight: 600;
+  margin: 0 0 4px;
+}
+
+.page-subtitle {
+  color: var(--muted);
+  font-size: 13px;
+  margin: 0 0 18px;
+}
+
+.stat-card {
+  border-radius: 14px;
+  padding: 18px 20px;
+  color: #fff;
+  position: relative;
+  overflow: hidden;
+}
+.stat-card .stat-value {
+  font-size: 30px;
+  font-weight: 700;
+  line-height: 1.2;
+}
+.stat-card .stat-label {
+  font-size: 13px;
+  opacity: 0.92;
+}
+.stat-card .stat-icon {
+  position: absolute;
+  right: 14px;
+  top: 14px;
+  font-size: 40px;
+  opacity: 0.22;
+}
+
+.mono {
+  font-family: 'JetBrains Mono', Consolas, 'Courier New', monospace;
+  font-size: 12px;
+}
+
+.fade-enter-active,
+.fade-leave-active {
+  transition: opacity 0.18s ease;
+}
+.fade-enter-from,
+.fade-leave-to {
+  opacity: 0;
+}
+
+.el-table {
+  --el-table-header-bg-color: var(--tea-100);
+  --el-table-header-text-color: var(--tea-800);
+}
+
+.el-drawer__header {
+  margin-bottom: 0;
+  padding: 18px 20px;
+  border-bottom: 1px solid #edf2f0;
+  color: var(--tea-800);
+  font-weight: 600;
+}

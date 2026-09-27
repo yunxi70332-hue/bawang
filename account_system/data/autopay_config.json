@@ -1,0 +1,14 @@
+{
+  "session_cookies": {},
+  "pay_password_hint": "H5 收银台若需密码将失败并返回 needs_interaction（本系统永不持有支付密码）",
+  "enable_network": false,
+  "enabled": false,
+  "cashier": {
+    "session": "RZZFB000tXXHTyNxf0TbFfXfhu1xlVmobilecashierRZZFB00",
+    "utdid": "ard6vj24ouoDAPwfC0RN0/hz",
+    "tid": "2e80dd74198790910ee488e446e945e319c838fd490f3d80dcddeae2fe3827aa"
+  },
+  "user_agent": "Mozilla/5.0 (Linux; Android 10; HUAWEI NXT-AL10 Build/QD4A.200805.003; wv) AppleWebKit/537.36 (KHTML, like Gecko) Version/4.0 Chrome/119.0.6045.134 Mobile Safari/537.36",
+  "h5pay_client_id": "",
+  "_note": "时效定案（2026-09-27）：cashier 三元组为云手机 mobilegw 铸造的设备级凭证，仅捕获后的短窗内可复用——过期后收银台返回「你的访问已超时」(mobileclientgw-42-9246)。enabled=false 已停用静态构造；需浏览器直付时：云手机 App 内拉起支付 → 抓到新 cashierRoutePay 链接 → POST /api/ops/accounts/{id}/orders/{order_no}/cashier-url 回填该单（短窗内有效）。enable_network 保持 false：alipay_autopay 只读探测默认零网络。"
+}

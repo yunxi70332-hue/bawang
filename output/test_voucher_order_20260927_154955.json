@@ -1,0 +1,353 @@
+{
+  "meta": {
+    "script": "test_voucher_order_flow.py",
+    "script_version": "1.0.0",
+    "started_at": "2026-09-27 15:49:51",
+    "finished_at": "2026-09-27 15:49:55",
+    "python": "3.12.13",
+    "argv": {
+      "drink": "青青糯山",
+      "random": false,
+      "account_id": null,
+      "store_no": "CN08121",
+      "cancel_pending": true,
+      "wait_minutes": 15,
+      "archive_dir": null
+    },
+    "account": {
+      "id": 2,
+      "label": "1",
+      "nickname": "19926070",
+      "phone": "199****0332",
+      "status": "online",
+      "token_fingerprint": "eyJhbGciOiJSUzI1...len=608"
+    },
+    "store": {
+      "store_no": "CN08121",
+      "store_name": "广东佛山顺德龙江沃达百货店"
+    }
+  },
+  "steps": [
+    {
+      "ts": "2026-09-27 15:49:53.284",
+      "name": "前置-账号加载",
+      "request": {
+        "account_id": "(auto:首个online)"
+      },
+      "response": {
+        "id": 2,
+        "label": "1",
+        "nickname": "19926070",
+        "phone": "199****0332",
+        "customer_id": "1193099363",
+        "status": "online",
+        "token_fingerprint": "eyJhbGciOiJSUzI1...len=608"
+      }
+    },
+    {
+      "ts": "2026-09-27 15:49:53.685",
+      "name": "前置-待支付检查",
+      "request": {
+        "tabType": "today",
+        "orderType": "1",
+        "channelCode": "android"
+      },
+      "response": {
+        "today_orders": 0,
+        "pending_total": 0,
+        "handled": [],
+        "blocked": []
+      }
+    },
+    {
+      "ts": "2026-09-27 15:49:54.835",
+      "name": "选品-菜单+SPU",
+      "request": {
+        "storeNo": "CN08121",
+        "saleType": "1",
+        "saleChannel": "2"
+      },
+      "response": {
+        "categories": 9,
+        "spu_total": 43,
+        "onsale": 43,
+        "pick": "关键词「青青糯山」命中 1 个，取首个",
+        "spu": {
+          "spuId": "640215811876831233",
+          "name": "青青糯山",
+          "stock": 19998,
+          "saleOut": false
+        }
+      }
+    },
+    {
+      "ts": "2026-09-27 15:49:54.835",
+      "name": "选品-SKU",
+      "request": {
+        "spuId": "640215811876831233",
+        "storeNo": "CN08121"
+      },
+      "response": {
+        "skuId": "655441178728091650",
+        "itemSkuId": "1113574504790253568",
+        "salePrice": "18.00",
+        "stock": 9999,
+        "specOptionInfos": [
+          {
+            "specOptionId": "653599312273510402",
+            "specOptionName": "大杯",
+            "specId": "653599312273510400",
+            "specName": "杯型",
+            "sequence": 1,
+            "globalSequence": 1
+          }
+        ],
+        "attributeList": [
+          {
+            "attributeId": "745317722624679942",
+            "attributeName": " 温度",
+            "attributeOptionId": "745317722624679945",
+            "attributeOptionName": "标准冰"
+          },
+          {
+            "attributeId": "623882672850116609",
+            "attributeName": "甜度",
+            "attributeOptionId": "623882672850116614",
+            "attributeOptionName": "标准糖"
+          }
+        ],
+        "goods_desc": "青青糯山 x1（大杯）"
+      }
+    },
+    {
+      "ts": "2026-09-27 15:49:55.914",
+      "name": "试算-calculatePrice",
+      "request": {
+        "skuInfo": {
+          "spuId": "640215811876831233",
+          "skuId": "655441178728091650",
+          "num": 1,
+          "salePrice": "18.00",
+          "specList": [
+            {
+              "specId": "653599312273510400",
+              "specOptionId": "653599312273510402",
+              "specOptionName": "大杯"
+            }
+          ],
+          "attributeList": [
+            {
+              "attributeId": "745317722624679942",
+              "attributeName": " 温度",
+              "attributeOptionId": "745317722624679945",
+              "attributeOptionName": "标准冰"
+            },
+            {
+              "attributeId": "623882672850116609",
+              "attributeName": "甜度",
+              "attributeOptionId": "623882672850116614",
+              "attributeOptionName": "标准糖"
+            }
+          ]
+        },
+        "storeNo": "CN08121"
+      },
+      "response": {
+        "totalGoodsItemPrice": "18.00",
+        "totalTradePrice": "18.00",
+        "raw_keys": [
+          "skuId",
+          "spuId",
+          "spuType",
+          "totalDiscountAmount",
+          "totalGoodsItemDiscountAmount",
+          "totalGoodsItemPrice",
+          "totalGoodsPaymentDiscountAmount",
+          "totalSalePrice",
+          "totalTradePrice",
+          "totalWrappingPrice"
+        ]
+      }
+    },
+    {
+      "ts": "2026-09-27 15:49:55.914",
+      "name": "试算-settlePrice(无券)",
+      "request": {
+        "goods": {
+          "skuId": "655441178728091650",
+          "quantity": 1
+        },
+        "coupon": null,
+        "recommendCoupon": true
+      },
+      "response": {
+        "totalTradePrice": "18",
+        "buyerRealPrice": "18",
+        "availableCouponCount": 0,
+        "confirmOrderKey": "202609270749550010068879363",
+        "raw": {
+          "confirmOrderKey": "202609270749550010068879363",
+          "totalBuyNum": 1,
+          "orderGroupList": [
+            {
+              "orderId": "100001",
+              "goodsList": [
+                {
+                  "spuId": "640215811876831233",
+                  "spuType": "stand",
+                  "skuId": "655441178728091650",
+                  "skuName": "青青糯山",
+                  "skuImage": "https://images.qmai.cn/s49006/2026/09/15/cb7f608404bc31b507.jpg",
+                  "buyNum": 1,
+                  "specList": [
+                    {
+                      "specId": "653599312273510400",
+                      "specOptionId": "653599312273510402",
+                      "specOptionName": "大杯"
+                    }
+                  ],
+                  "attributeList": [
+                    {
+                      "attributeId": "745317722624679942",
+                      "attributeName": " 温度",
+                      "attributeOptionId": "745317722624679945",
+                      "attributeOptionName": "标准冰"
+                    },
+                    {
+                      "attributeId": "623882672850116609",
+                      "attributeName": "甜度",
+                      "attributeOptionId": "623882672850116614",
+                      "attributeOptionName": "标准糖"
+                    }
+                  ],
+                  "uniqueKey": "7cbfc171-7a60-408b-b97d-b70dab68f376",
+                  "salePrice": "18",
+                  "tradeGoodsType": 1,
+                  "itemId": "200001",
+                  "totalItemAmount": "18",
+                  "totalItemDiscountedAmount": "18",
+                  "discountList": [],
+                  "tagList": [],
+                  "nutritionInfo": {
+                    "energyValue": "274",
+                    "energyUnit": "kcal/杯",
+                    "energyLevel": "C"
+                  }
+                }
+              ],
+              "discountList": [],
+              "tradeFundInfo": {
+                "totalOriginPrice": "18",
+                "totalSalePrice": "18",
+                "totalMarketPrice": "0",
+                "totalTradePrice": "18",
+                "totalGoodsItemPrice": "18",
+                "totalFreightPrice": "0",
+                "totalRealFreightPrice": "0",
+                "totalPackagePrice": "0",
+                "totalRealPackagePrice": "0",
+                "totalExtraGoodsPrice": "0",
+                "buyerRealPrice": "18",
+                "totalDiscountAmount": "0",
+                "totalGoodsItemDiscountAmount": "0",
+                "totalGoodsPaymentDiscountAmount": "0",
+                "totalFreightDiscountAmount": "0",
+                "totalPackageDiscountAmount": "0",
+                "totalCouponDiscountAmount": "",
+                "totalActivityDiscountAmount": ""
+              }
+            }
+          ],
+          "discountList": [],
+          "availableDiscountList": [],
+          "assetInfo": {
+            "userCouponInfo": {
+              "unavailableCouponList": [
+                {
+                  "couponCode": "1310040224399572992",
+                  "templateNo": "1308729219809923072",
+                  "templateName": "【D】10次卡轻因不扰眠系列7选1-直播",
+                  "status": 10,
+                  "bizType": 9,
+                  "benefitText": "免10杯",
+                  "useStartTime": 1790267517000,
+                  "useEndTime": 1792943999000,
+                  "thresholdTips": "可分多次核销",
+                  "currencyCode": "CNY",
+                  "currency": "¥或元",
+                  "canDiscount": false,
+                  "unavailableReason": "达不到使用门槛",
+                  "selected": false
+                },
+                {
+                  "couponCode": "1310040328640544769",
+                  "templateNo": "1308729219809923072",
+                  "templateName": "【D】10次卡轻因不扰眠系列7选1-直播",
+                  "status": 10,
+                  "bizType": 9,
+                  "benefitText": "免10杯",
+                  "useStartTime": 1790267546000,
+                  "useEndTime": 1792943999000,
+                  "thresholdTips": "可分多次核销",
+                  "currencyCode": "CNY",
+                  "currency": "¥或元",
+                  "canDiscount": false,
+                  "unavailableReason": "达不到使用门槛",
+                  "selected": false
+                }
+              ]
+            }
+          },
+          "tradeFundInfo": {
+            "totalOriginPrice": "18",
+            "totalSalePrice": "18",
+            "totalMarketPrice": "0",
+            "totalTradePrice": "18",
+            "totalGoodsItemPrice": "18",
+            "totalFreightPrice": "0",
+            "totalRealFreightPrice": "0",
+            "totalPackagePrice": "0",
+            "totalRealPackagePrice": "0",
+            "totalExtraGoodsPrice": "0",
+            "buyerRealPrice": "18",
+            "totalDiscountAmount": "0",
+            "totalGoodsItemDiscountAmount": "0",
+            "totalGoodsPaymentDiscountAmount": "0",
+            "totalFreightDiscountAmount": "0",
+            "totalPackageDiscountAmount": "0",
+            "totalCouponDiscountAmount": "0",
+            "totalActivityDiscountAmount": "0",
+            "packageFeeInfo": {
+              "packageName": "保温袋",
+              "packageRemark": "保温保冷，锁住新鲜口感",
+              "required": false,
+              "amount": "1"
+            }
+          },
+          "channelMapping": {
+            "tradeChannelCode": "09",
+            "storeChannelCode": "android",
+            "storeBusinessType": 1,
+            "goodsChannelType": 2,
+            "goodsSaleType": 1
+          }
+        }
+      }
+    },
+    {
+      "ts": "2026-09-27 15:49:55.914",
+      "name": "试算-选券",
+      "request": {
+        "available": 0
+      },
+      "response": {
+        "chosen": null,
+        "note": "试算可用券 0 张，均不可用/已过期/未达门槛"
+      }
+    }
+  ],
+  "timeline": [],
+  "events_snapshot": [],
+  "assertions": [],
+  "verdict": "aborted"
+}

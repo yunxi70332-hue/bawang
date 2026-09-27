@@ -1,0 +1,9 @@
+{
+  "env": "release",
+  "token": "eyJhbGciOiJSUzI1NiJ9.eyJzdWIiOiIxMTkwMDE4MjUwIiwiaXNzIjoidXNlcl9zZXJ2ZXIiLCJpYXQiOjE3OTAxNTYxMjMsImV4cCI6MTc5Mjc0ODEyMywibG9naW5Db2RlIjoiZTgzYTUxMjhmMjhkNzQ1ODE5OTAxMmVkMmYyN2Q1ODMiLCJzY2VuZSI6ImN1c3RvbWVyIiwibmV3VXNlciI6MCwib3MiOiJhbmRyb2lkIiwiY2hhbm5lbCI6IkFQUCJ9.BVNAwQyxl3n8qv95ZLiog7LE16UalZaqx75hrElOEmtb7XWqYesAADjYNRWW-9uf4UeFQY5_5Byw5oa76mCoA_T84ZeII9N3qIz2s-kOYtj7y0ro7OTMhk98lPAY3gTxUkre2-FfSK3yieeOZEKKBvbpaguUpvAR6-Kde4UWrVeiSSkLNUjMiqti9cOXO9BDeZfc-3wssn1Ig0O35XONS3gk_Qt2Q4rd7XvHUMeH4idZnJluvzJMCMBcArplLwp0AFUemdgp3UXwWv5ZmD6CDpupJ2FmHuj1O-6yqONCAwtA3oxxscR3pm6--jskcsPfQNEQxDRpJTiazjHgn_jfUA",
+  "token_len": 608,
+  "sk": "ZjczNDYwMjJjMmQ1N2M4MQ==",
+  "uuid": "029a1add-a99d-5fc5-a6bc-d046755108d3",
+  "saved_at": "re-exported from device SP after app login",
+  "source": "device"
+}
