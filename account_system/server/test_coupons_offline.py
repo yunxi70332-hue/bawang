@@ -23,6 +23,8 @@ os.environ["CHAGEE_RECONCILE_INTERVAL_SECONDS"] = "0"
 os.environ["CHAGEE_PAYWATCH_INTERVAL_SECONDS"] = "0"
 # 禁用 frida 收银台铸造（pay_link_payload_with_session 会触发）：离线环境杜绝真触云手机
 os.environ["CHAGEE_MINT_ENABLED"] = "0"
+# 禁用跨进程状态广播（mark_session 收口会触发）：离线环境杜绝真发 HTTP 到 8010
+os.environ["CHAGEE_PAY_BROADCAST_ENABLED"] = "0"
 # 日志隔离：oplog 日志库与文本日志均指向测试路径，避免污染生产 data/logs/
 os.environ["CHAGEE_OPLOG_DB"] = os.path.join(BASE, "..", "data", "test_coupons_oplog.db")
 os.environ["CHAGEE_LOG_DIR"] = os.path.join(BASE, "..", "data", "test_logs")

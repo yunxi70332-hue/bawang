@@ -1,6 +1,7 @@
 import axios from 'axios'
 import { ElMessage } from 'element-plus'
 import router from '../router'
+import { calibrate } from '../utils/clock'
 
 const http = axios.create({ baseURL: '/', timeout: 30000 })
 
@@ -11,7 +12,13 @@ http.interceptors.request.use((cfg) => {
 })
 
 http.interceptors.response.use(
-  (res) => res.data,
+  (res) => {
+    // 服务器时钟校准：响应体（一层或 data 包一层）携带 server_time（epoch ms）即刷新全局偏移，
+    // 之后所有倒计时经 utils/clock.nowMs() 取时，消除客户端时钟漂移
+    const st = res?.data?.server_time ?? res?.data?.data?.server_time ?? res?.server_time
+    if (st) calibrate(st)
+    return res.data
+  },
   (err) => {
     const status = err.response?.status
     if (status === 401) {

@@ -6,40 +6,52 @@ JWT；pay_token（secrets.token_urlsafe(32)，43 字符随机）本身就是足�
   GET  /pay/{token}                  收银台页面（templates/pay_cashier.html）
   GET  /pay/{token}/info             订单/金额/券抵扣/支付串 展示数据（记 page_opened 事件）
   GET  /pay/{token}/status           支付状态轮询（2s 节流远程探针，跃迁联动回写/回滚）
+  GET  /pay/{token}/events           SSE 状态流（sync 心跳 + paid/cancelled/expired 终态即闭流）
   POST /pay/{token}/remint           续付重铸支付串（token 不变）
   POST /pay/{token}/switch-full-price 券差额单 → 原价单（取消旧单原价重下）
+
+另有进程内通知端点（仅收银台进程挂载，见 internal_router）：
+  POST /internal/broadcast           主 API → 收银台的会话状态变更通知（X-Internal-Token 鉴权）
 
 异常兜底：协议层错误统一 502 带中文说明；SessionExpiredError 把账号置 expired 并记
 session_expired 事件（与主 API 行为一致，无请求上下文所以走事件流而非审计日志）。
 """
 
+import asyncio
+import json
 import logging
+import secrets
+import threading
 import time
 from datetime import datetime
 from pathlib import Path
 
 from fastapi import APIRouter, Depends, HTTPException, Request
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, StreamingResponse
+from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
-from database import get_db
-from models import (PAY_SESSION_STATUS_LABELS, ChageeAccount, CouponRecord, OrderRecord, PayAttempt,
-                    PaySession)
+from database import SessionLocal, get_db
+from models import (PAY_SESSION_STATUS_LABELS, ChageeAccount, CouponRecord, OrderRecord, PaySession)
 from oplog import log_op
 from security import client_ip
 from services import chagee_bridge as bridge
+from services import pay_broadcast
 from services.pay_session import (
     EVENT_ORDER_CANCELLED, EVENT_PAGE_OPENED, EVENT_PAID_DETECTED, EVENT_PICKUP_FETCHED,
     EVENT_PROBE, EVENT_ROLLED_BACK, EVENT_SESSION_EXPIRED, ORDER_STATUS_LABELS, PaySessionError,
-    build_h5_url, deduction_amount, ensure_pay_session, get_by_token, is_active, mark_session,
-    record_event, remaining_seconds, switch_order_to_full_price, token_prefix,
-    upsert_order_record,
+    build_h5_url, deduction_amount, ensure_pay_session, get_by_order_no, get_by_token, is_active,
+    mark_session, pay_deadline_ts, record_event, remaining_seconds, server_now_ms,
+    switch_order_to_full_price, token_prefix, upsert_order_record,
 )
 from services.order_reconcile import rollback_coupon_usage
 
 logger = logging.getLogger(__name__)
 
 pay_router = APIRouter(prefix="/pay", tags=["pay-portal"])
+# 主 API → 收银台进程的内部通知端点（不挂在 /pay 前缀下：不是公开收银台面，
+# 仅 127.0.0.1 进程间调用 + X-Internal-Token 鉴权；由 pay_portal.py 单独挂载）
+internal_router = APIRouter(prefix="/internal", tags=["pay-portal-internal"])
 
 # 收银台页面：前端子代理将替换该文件；路由只做静态分发，模板缺失时给出可诊断的 503
 TEMPLATE_PATH = Path(__file__).resolve().parent.parent / "templates" / "pay_cashier.html"
@@ -107,11 +119,12 @@ def _info_payload(db: Session, sess: PaySession) -> dict:
     coupon = None
     if sess.coupon_code:
         coupon = db.query(CouponRecord).filter(CouponRecord.coupon_code == sess.coupon_code).first()
-    attempt = (db.query(PayAttempt).filter(PayAttempt.pay_session_id == sess.id)
-                 .order_by(PayAttempt.id.desc()).first())
-    # expire_at 优先取最近一次铸造的支付宝原文（String），缺失回退本地截止时间
-    expire_at = (attempt.expire_at if attempt and attempt.expire_at else
-                 (sess.pay_deadline.strftime("%Y-%m-%d %H:%M:%S") if sess.pay_deadline else ""))
+    # expire_at 统一取**钳制后**的 pay_deadline（与 remaining_seconds/pay_deadline_ts 同源）；
+    # 此前取 PayAttempt 的支付宝 time_expire 原文（下单+30min），比官方 10min autoCancel 窗
+    # 长出的 20 分钟里会「页面倒计时未走完、茶姬侧已取消」，与倒计时自相矛盾
+    # （2026-09-28 时间戳同步改造定案，契约 docs/pay_timesync_design_20260928.md）
+    expire_at = (sess.pay_deadline.strftime("%Y-%m-%d %H:%M:%S")
+                 if sess.pay_deadline else None)
     return {
         "order_no": sess.order_no,
         "store_name": (rec.store_name if rec else "") or "",
@@ -128,6 +141,9 @@ def _info_payload(db: Session, sess: PaySession) -> dict:
         "out_trade_no": sess.out_trade_no,
         "expire_at": expire_at,
         "remaining_seconds": remaining_seconds(sess),
+        # 时间戳同步契约：server_time 做时钟偏移校正，pay_deadline_ts 做绝对时间倒计时锚点
+        "server_time": server_now_ms(),
+        "pay_deadline_ts": pay_deadline_ts(sess),
         "order_str": sess.order_str,
         # 套壳跳转目标：官方收银台 URL（可空——凭证缺失/构造失败时页面自动降级）
         "alipay_cashier_url": sess.alipay_cashier_url or "",
@@ -162,6 +178,9 @@ def pay_status(token: str, db: Session = Depends(get_db)):
         "pay_amount": sess.pay_amount,
         "pickup_no": sess.pickup_no or "",
         "remaining_seconds": remaining_seconds(sess),
+        # 时间戳同步契约（与 /info 同源）：每次轮询都刷新权威时钟锚点
+        "server_time": server_now_ms(),
+        "pay_deadline_ts": pay_deadline_ts(sess),
         "paid_at": sess.paid_at,
     }
 
@@ -301,3 +320,217 @@ def pay_switch_full_price(token: str, db: Session = Depends(get_db)):
            params={"new_order_no": result.get("new_order_no")
                    if isinstance(result, dict) else None})
     return result
+
+
+# ---------------- SSE 实时状态流（/pay/{token}/events） ----------------
+# 事件协议（契约 docs/pay_timesync_design_20260928.md，壳页按此实现）：
+#   连接建立即推 event: sync（data 含权威时钟锚点，前端据此做偏移校正）；
+#   状态跃迁推对应事件：paid / cancelled / expired（data 结构同 sync），推完关闭流；
+#   issued 态下每 5s 推 sync 兼作心跳（兼探活，代理/浏览器闲置断链可被及时发现）。
+# 跨进程联动：主 API（8000）侧 mark_session 收口后经 pay_broadcast POST /internal/broadcast
+# 通知本进程 _publish；通知丢失（进程重启窗口/网络抖动）由 1s 兜底轮询比对
+# (status, pay_deadline_ts) 变化补推——两层保证，通知只是加速器不是关键路径。
+
+# 进程内连接注册表：order_no → 该单所有订阅队列（多端同开一单各自独立收流）
+_sse_subs: dict[str, set[asyncio.Queue]] = {}
+_sse_lock = threading.Lock()
+# 上次已推送的会话指纹（order_no → (status, pay_deadline_ts)）：兜底轮询的变化比对基准
+_sse_last_seen: dict[str, tuple] = {}
+_sse_loop: asyncio.AbstractEventLoop | None = None   # 主事件循环（线程侧投递经它落回 loop）
+_sse_reconciler: asyncio.Task | None = None          # 兜底轮询 task（无订阅时退出，标志复位）
+
+_SSE_TERMINAL = ("paid", "cancelled", "expired")    # 终态：推完对应事件即关闭流
+_SSE_HEARTBEAT = 5.0                                 # issued 态 sync 心跳间隔（秒）
+_SSE_POLL = 1.0                                      # 兜底轮询间隔（秒）
+
+
+def _sse_data(sess: PaySession) -> dict:
+    """SSE 事件 data 载荷（sync 与终态事件同构——前端一个解析器通吃）。"""
+    return {"server_time": server_now_ms(),
+            "pay_deadline_ts": pay_deadline_ts(sess),
+            "status": sess.status,
+            "remaining_seconds": remaining_seconds(sess)}
+
+
+def _sse_frame(event: str, data: dict) -> str:
+    """data → SSE 帧（event: xxx + 单行 JSON data，标准 text/event-stream 格式）。"""
+    return (f"event: {event}\n"
+            f"data: {json.dumps(data, ensure_ascii=False, separators=(',', ':'))}\n\n")
+
+
+def _sse_snapshot(order_no: str) -> dict | None:
+    """独立短事务查会话当前态 → 事件载荷（会话不存在返回 None；不借用请求级 db——
+    广播路由与兜底轮询都在请求生命周期/事件循环之外，必须自管会话）。"""
+    with SessionLocal() as db:
+        sess = get_by_order_no(db, order_no)
+        return _sse_data(sess) if sess else None
+
+
+def _sse_query_batch(order_nos: list[str]) -> list[tuple[str, dict | None]]:
+    """兜底轮询的批量查询（to_thread 里跑的同步函数，独立短事务一次查完）。"""
+    out: list[tuple[str, dict | None]] = []
+    with SessionLocal() as db:
+        for order_no in order_nos:
+            sess = get_by_order_no(db, order_no)
+            out.append((order_no, _sse_data(sess) if sess else None))
+    return out
+
+
+def _publish(order_no: str, event: str, data: dict, *, close: bool = False) -> None:
+    """向该单全部订阅队列投递事件。
+
+    线程边界：/internal/broadcast 是同步路由（线程池线程），队列属主是主事件循环——
+    必须经 loop.call_soon_threadsafe 落回 loop 线程再 put（loop 内调用同样安全）。
+    同时刷新 _sse_last_seen（兜底轮询据此去重，避免广播成功后 1s 内重复推）。
+    """
+    loop = _sse_loop
+    if loop is None:
+        return
+    item = {"event": event, "data": data, "close": close}
+    with _sse_lock:
+        queues = list(_sse_subs.get(order_no) or ())
+        _sse_last_seen[order_no] = (data.get("status"), data.get("pay_deadline_ts"))
+    for q in queues:
+        try:
+            loop.call_soon_threadsafe(q.put_nowait, item)
+        except Exception:
+            # 队列所属 loop 已关（进程停机窗口）：丢弃即可，订阅侧会随断流自清理
+            logger.debug("SSE 队列投递失败（忽略）order_no=%s event=%s", order_no, event)
+
+
+async def _sse_reconciler_loop() -> None:
+    """兜底轮询：每 1s 查订阅单会话状态，与 _sse_last_seen 比对，变化即推对应事件。
+
+    为什么必须有：notify_session_change 是 fire-and-forget（丢通知/主 API 重启窗口/
+    requests 未装），轮询比对是最终一致的保底；查询走 asyncio.to_thread 不阻塞事件循环
+    （同步 SQLAlchemy 会话绝不能在 loop 线程里跑长查询）。无订阅时退出并复位标志，
+    下个 /events 连接重新拉起（空闲零开销）。"""
+    global _sse_reconciler
+    try:
+        while True:
+            await asyncio.sleep(_SSE_POLL)
+            with _sse_lock:
+                order_nos = list(_sse_subs.keys())
+                if not order_nos:
+                    break
+            try:
+                rows = await asyncio.to_thread(_sse_query_batch, order_nos)
+            except Exception:
+                logger.debug("SSE 兜底轮询查询失败（下轮再试）", exc_info=True)
+                continue
+            for order_no, data in rows:
+                if data is None:
+                    continue   # 会话已删（测试清扫等）：不推事件，等订阅自然断开
+                with _sse_lock:
+                    if _sse_last_seen.get(order_no) == (data.get("status"),
+                                                       data.get("pay_deadline_ts")):
+                        continue
+                status = data.get("status")
+                if status in _SSE_TERMINAL:
+                    _publish(order_no, status, data, close=True)
+                else:
+                    _publish(order_no, "sync", data)
+    finally:
+        with _sse_lock:
+            for order_no in list(_sse_subs):
+                if not _sse_subs.get(order_no):
+                    _sse_subs.pop(order_no, None)
+                    _sse_last_seen.pop(order_no, None)
+        _sse_reconciler = None
+
+
+def _ensure_sse_runtime() -> None:
+    """SSE 运行时装配（首个 /events 请求时调用，须在事件循环线程内）：
+    记录主 loop 引用（_publish 线程侧投递用）并拉起兜底轮询 task（幂等）。"""
+    global _sse_loop, _sse_reconciler
+    _sse_loop = asyncio.get_running_loop()
+    if _sse_reconciler is None or _sse_reconciler.done():
+        _sse_reconciler = asyncio.create_task(_sse_reconciler_loop())
+
+
+@pay_router.get("/{token}/events")
+async def pay_events(token: str, db: Session = Depends(get_db)):
+    """SSE 状态流：连接即推 sync（时钟锚点），状态跃迁推终态事件后关闭流。
+
+    async 路由（本文件唯一的 async 端点）：SSE 长连接必须挂在事件循环上， StreamingResponse
+    的 generator 与订阅队列同 loop；db 仅用于入口的 token 校验与首包载荷，流期间查询
+    全部走兜底轮询的独立短事务——绝不把请求级会话拖进分钟级长连接。"""
+    sess = get_by_token(db, token)
+    if not sess:
+        raise HTTPException(404, "支付链接不存在")
+    order_no = sess.order_no
+    initial = _sse_data(sess)   # 首包在响应开流前取好，generator 不再触碰请求级 db/ORM 对象
+    terminal_at_connect = sess.status in _SSE_TERMINAL
+    _ensure_sse_runtime()
+    queue: asyncio.Queue = asyncio.Queue()
+    with _sse_lock:
+        _sse_subs.setdefault(order_no, set()).add(queue)
+        _sse_last_seen.setdefault(order_no, (initial.get("status"),
+                                             initial.get("pay_deadline_ts")))
+
+    async def stream():
+        try:
+            yield _sse_frame("sync", initial)
+            if terminal_at_connect:
+                # 连上即终态（支付完成/已取消后才打开页面）：补推终态事件后直接闭流
+                yield _sse_frame(initial["status"], initial)
+                return
+            while True:
+                # 空闲 _SSE_HEARTBEAT 秒即推一帧 sync 兼作心跳（wait_for 超时不消费队列，
+                # 真事件总是优先送达；心跳兼作代理/浏览器的探活帧防静默断链）
+                try:
+                    item = await asyncio.wait_for(queue.get(), timeout=_SSE_HEARTBEAT)
+                except asyncio.TimeoutError:
+                    data = await asyncio.to_thread(_sse_snapshot, order_no)
+                    if data is None:
+                        return   # 会话已被清扫：闭流让前端走 /info 兜底
+                    yield _sse_frame("sync", data)
+                    with _sse_lock:
+                        _sse_last_seen[order_no] = (data.get("status"),
+                                                    data.get("pay_deadline_ts"))
+                    continue
+                yield _sse_frame(item["event"], item["data"])
+                if item.get("close"):
+                    return
+        except asyncio.CancelledError:
+            raise   # 客户端断开：向上抛出走 finally 清理注册
+        finally:
+            with _sse_lock:
+                queues = _sse_subs.get(order_no)
+                if queues is not None:
+                    queues.discard(queue)
+                    if not queues:
+                        _sse_subs.pop(order_no, None)
+                        _sse_last_seen.pop(order_no, None)
+
+    return StreamingResponse(stream(), media_type="text/event-stream",
+                             headers={"Cache-Control": "no-cache",
+                                      "X-Accel-Buffering": "no"})
+
+
+class _BroadcastRequest(BaseModel):
+    """主 API → 收银台通知体（pay_broadcast.notify_session_change 的对端契约）。"""
+    order_no: str
+    status: str
+
+
+@internal_router.post("/broadcast")
+def internal_broadcast(body: _BroadcastRequest, request: Request):
+    """主 API → 收银台进程的会话状态变更通知（mark_session 收口后自动调用）。
+
+    鉴权：X-Internal-Token 与 data/internal_broadcast.secret 比对（双进程同机同文件）。
+    注意以**库里最新状态**为准分派事件（而非请求体声称的 status）：通知是尽力而为的
+    加速信号，库态才是唯一事实源——迟到的旧通知不会把终态倒拨回 issued。
+    同步 def 路由（线程池执行）：_publish 内部经 loop.call_soon_threadsafe 落回主循环。"""
+    presented = (request.headers.get("x-internal-token") or "").strip()
+    expected = pay_broadcast.load_internal_secret()
+    if not expected or not secrets.compare_digest(presented.encode("utf-8"),
+                                                  expected.encode("utf-8")):
+        raise HTTPException(401, "internal token 校验失败")
+    data = _sse_snapshot(body.order_no)
+    if data is None:
+        raise HTTPException(404, "支付会话不存在")
+    status = data.get("status") or "issued"
+    event = status if status in _SSE_TERMINAL else "sync"
+    _publish(body.order_no, event, data, close=event != "sync")
+    return {"ok": True, "order_no": body.order_no, "status": status, "event": event}

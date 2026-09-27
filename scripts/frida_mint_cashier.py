@@ -34,9 +34,30 @@ REPO = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO))  # 可选 --order-no 时读系统库
 sys.path.insert(0, str(REPO / "scripts"))  # 兄弟模块（extract_cashier_link）在任意导入路径下可达
 
-# 云手机环境锚点（2026-09-27 实证可用；服务端/测试经函数参数覆盖）
+# 云手机环境锚点（服务端/测试经函数参数覆盖）
 ADB = r"C:\platform-tools\adb.exe"
-DEV = "125.109.27.7:58445"
+
+
+def _detect_dev() -> str:
+    """云手机地址会变（2026-09-27→28 一夜从 125.109.27.7 换到 39.174.221.6）：
+    优先环境变量 CLOUDPHONE_SERIAL，否则自动取 adb 在线设备。"""
+    import os
+    serial = os.environ.get("CLOUDPHONE_SERIAL", "").strip()
+    if serial:
+        return serial
+    try:
+        out = subprocess.run([ADB, "devices"], capture_output=True, text=True,
+                             timeout=8).stdout or ""
+        devs = [l.split("\t")[0] for l in out.splitlines()
+                if "\tdevice" in l and not l.startswith("List")]
+        if devs:
+            return devs[0]
+    except Exception:
+        pass
+    return "125.109.27.7:58445"
+
+
+DEV = _detect_dev()
 FRIDA_HOST = "127.0.0.1:27042"
 PACKAGE = "com.chagee.application.cn"
 # webview_devtools socket → 本地转发端口起点（与 capture_cashier_devtools.py 同端口段约定）

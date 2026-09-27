@@ -31,9 +31,9 @@ from services.order_reconcile import (
     RECONCILE_GRACE_SECONDS, reconcile_expired_pending_orders, reconcile_order, rollback_coupon_usage,
 )
 from services.pay_session import (
-    EVENT_CASHIER_UPDATED, PaySessionError, build_h5_url, clamp_pay_deadline,
-    get_by_order_no, pay_link_payload_with_session, record_event,
-    switch_order_to_full_price, token_prefix,
+    EVENT_CASHIER_UPDATED, EVENT_ORDER_CANCELLED, PaySessionError, build_h5_url,
+    clamp_pay_deadline, get_by_order_no, mark_session, pay_link_payload_with_session,
+    record_event, switch_order_to_full_price, token_prefix,
 )
 
 router = APIRouter(prefix="/api/ops/accounts/{account_id}/orders", tags=["orders"])
@@ -304,6 +304,9 @@ def _pay_link_payload(link, db: Session | None = None, account_id: int | None = 
             "pay_window_seconds": PAY_WINDOW_SECONDS,
             "order_str": link.order_str,
             "h5_url": None,
+            # 时间戳同步契约：无会话（token 为空场景）无权威锚点，两字段 None
+            "server_time": None,
+            "pay_deadline_ts": None,
             "note": "支付宝侧扣款不在纯协议范围：人工模式请用手机完成支付；自动模式为实验性",
         }
     payload.update(extra)
@@ -673,6 +676,16 @@ def order_cancel(account_id: int, order_no: str, request: Request,
             coupon_rolled_back = rollback_coupon_usage(db, order.coupon_code, order_no,
                                                         operator=user.username)
     db.commit()
+    # 支付会话联动（2026-09-28 取消链路漏洞修复）：此前只置 OrderRecord=7+券回滚，
+    # PaySession 停在 issued——H5 收银台倒计时照走、watcher 继续探针已取消的单。
+    # mark_session CAS 置 cancelled（无会话/已终态返回 False 静默），成功才记事件
+    # （事件数与状态迁移严格一对一，与探针/watcher 同口径）；跨进程 SSE 通知由
+    # mark_session 内部自动发出。
+    sess = get_by_order_no(db, order_no)
+    if mark_session(db, order_no, "cancelled"):
+        record_event(db, order_no, token_prefix(sess.pay_token) if sess else "",
+                     EVENT_ORDER_CANCELLED,
+                     {"source": "manual-cancel", "operator": user.username})
     log_audit(db, request, user, "feature.order_cancel", f"{account.label}#{account.id}",
               {"order_no": order_no, "experimental": True})
     log_op(action="feature.order_cancel", actor=user.username,

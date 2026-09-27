@@ -15,6 +15,7 @@ sys.path.insert(0, BASE)
 os.environ["CHAGEE_RECONCILE_INTERVAL_SECONDS"] = "0"
 os.environ["CHAGEE_PAYWATCH_INTERVAL_SECONDS"] = "0"
 os.environ["CHAGEE_MINT_ENABLED"] = "0"
+os.environ["CHAGEE_PAY_BROADCAST_ENABLED"] = "0"   # 离线禁发跨进程广播（mark_session 会触发）
 os.environ["CHAGEE_OPLOG_DB"] = os.path.join(BASE, "..", "data", "test_mint_oplog.db")
 os.environ["CHAGEE_LOG_DIR"] = os.path.join(BASE, "..", "data", "test_logs")
 

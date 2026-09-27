@@ -27,6 +27,7 @@ from sqlalchemy.orm import Session
 from models import OrderRecord, PayAttempt, PayEventLog, PaySession
 from oplog import log_op
 from services import chagee_bridge as bridge
+from services import pay_broadcast
 from services.order_reconcile import RECONCILE_GRACE_SECONDS, rollback_coupon_usage
 
 logger = logging.getLogger(__name__)
@@ -93,6 +94,23 @@ def clamp_pay_deadline(deadline, order_created_at: datetime | None = None) -> da
     if dl is None:
         return official
     return min(dl, official)
+
+
+def server_now_ms() -> int:
+    """服务器权威时间（epoch ms）。双进程同机同源，前端用它做时钟偏移校正：
+    offset = server_time − Date.now()，倒计时一律按 pay_deadline_ts − (Date.now()+offset) 计算。"""
+    return int(time.time() * 1000)
+
+
+def pay_deadline_ts(sess) -> int | None:
+    """支付截止的 epoch ms（钳制后 pay_deadline），下发前端做绝对时间倒计时。
+
+    为什么用绝对时间戳而非 remaining_seconds 单打天下：remaining 是响应落地的瞬间快照，
+    网络往返/页面渲染延迟都会吃掉它；绝对锚点 + 前端本地时钟校正才能保证多端一致。
+    无截止时间返回 None（前端自行处理无窗场景）。"""
+    if not sess or not sess.pay_deadline:
+        return None
+    return int(sess.pay_deadline.timestamp() * 1000)
 
 
 def token_prefix(token: str) -> str:
@@ -245,6 +263,14 @@ def mark_session(db: Session, order_no: str, status: str, **fields) -> bool:
                 if k in _SESSION_WRITABLE and v is not None:
                     setattr(sess, k, v)
     db.commit()
+    # 跨进程联动：收口成功（本方 CAS 赢家）即广播给收银台进程的 SSE 订阅者。
+    # paid/cancelled/expired 均通知；fire-and-forget——通知失败只 debug（收银台 1s
+    # 兜底轮询会补），绝不影响状态收口主流程
+    try:
+        pay_broadcast.notify_session_change(order_no, status)
+    except Exception:
+        logger.debug("支付会话状态广播异常（忽略）order_no=%s status=%s",
+                     order_no, status, exc_info=True)
     return True
 
 
@@ -371,8 +397,12 @@ def pay_link_payload_with_session(db: Session, link, account_id: int,
         trigger_mint(db, link.order_no)
     except Exception:
         logger.warning("触发收银台铸造失败（忽略）order_no=%s", link.order_no, exc_info=True)
-    return build_pay_payload(link, token=sess.pay_token,
-                             alipay_cashier=sess.alipay_cashier_url or None)
+    payload = build_pay_payload(link, token=sess.pay_token,
+                                alipay_cashier=sess.alipay_cashier_url or None)
+    # 时间戳同步契约（docs/pay_timesync_design_20260928.md）：绝对锚点下发，前端做时钟校正
+    payload.update({"server_time": server_now_ms(),
+                    "pay_deadline_ts": pay_deadline_ts(sess)})
+    return payload
 
 
 # ---------------- OrderRecord 低耦合 upsert（payportal / 重下流程共用） ----------------
@@ -518,7 +548,10 @@ def switch_order_to_full_price(db: Session, account, order: OrderRecord, *,
                                 alipay_cashier=sess.alipay_cashier_url or None)
     payload.update({"old_order_no": old_order_no, "new_order_no": link.order_no,
                     "new_h5_url": payload.get("h5_url"),
-                    "coupon_rolled_back": rolled_back, "cancel_response": cancel_resp})
+                    "coupon_rolled_back": rolled_back, "cancel_response": cancel_resp,
+                    # 时间戳同步契约：新会话的绝对锚点（壳页跳新链接前就能校准时钟）
+                    "server_time": server_now_ms(),
+                    "pay_deadline_ts": pay_deadline_ts(sess)})
     log_op("order.switch_full_price", actor=operator, target=old_order_no,
            params={"old_order_no": old_order_no, "new_order_no": link.order_no,
                    "coupon_rolled_back": rolled_back})

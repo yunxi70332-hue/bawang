@@ -13,7 +13,7 @@ import os
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 
-from routers.payportal import pay_router
+from routers.payportal import internal_router, pay_router
 from log_setup import setup_logging
 from oplog import init_oplog, install_request_middleware, log_op
 from seed import init_db
@@ -22,6 +22,9 @@ app = FastAPI(title="霸王茶姬 H5 收银台", version="1.0.0",
               docs_url=None, redoc_url=None, openapi_url=None)   # 公开端点：关文档面
 
 app.include_router(pay_router)
+# 主 API → 本进程的内部通知端点（/internal/broadcast，X-Internal-Token 鉴权）：
+# 收口状态变更的 SSE 实时分发入口，仅 127.0.0.1 进程间调用，不属于公开收银台面
+app.include_router(internal_router)
 # H5 侧请求同样进全局日志，process=pay-portal
 install_request_middleware(app)
 

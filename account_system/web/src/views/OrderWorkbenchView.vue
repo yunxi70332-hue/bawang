@@ -272,7 +272,7 @@
             <el-descriptions-item label="应付金额">
               <span class="price pay-big">¥{{ result.pay_amount ?? result.total_amount }}</span>
             </el-descriptions-item>
-            <el-descriptions-item label="支付截止">{{ fmtTime(result.expire_at) }}</el-descriptions-item>
+            <el-descriptions-item label="支付截止">{{ payDeadlineText }}</el-descriptions-item>
           </el-descriptions>
           <div class="pay-countdown-wrap">
             <div class="pickup-label">支付窗口剩余</div>
@@ -461,6 +461,7 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import { CopyDocument, InfoFilled, Refresh, WarningFilled } from '@element-plus/icons-vue'
 import { apiAccounts, apiOps } from '../api'
 import { fmtCountdown, fmtTime, orderStatusTag } from '../utils/format'
+import { nowMs } from '../utils/clock'
 
 const router = useRouter()
 
@@ -525,6 +526,8 @@ const createBusy = ref(false)
 const result = ref(null)
 const payLeft = ref(0)
 const payExpired = ref(false)
+/* 支付截止绝对锚点（epoch ms，服务端钳制后 pay_deadline_ts；倒计时由它与校准时钟推算，不随续付重置） */
+const payDeadlineTs = ref(0)
 const payMode = ref('manual')
 const continueBusy = ref(false)
 const autoBusy = ref(false)
@@ -562,6 +565,15 @@ const est = computed(() => {
   return { amount: null, approximate: true, scenario: '' }
 })
 const isZeroPay = computed(() => est.value.amount != null && Number(est.value.amount) === 0)
+/* 支付截止展示：优先用服务端钳制锚点 payDeadlineTs（本地 HH:mm:ss），回退旧字段 expire_at 文本 */
+const payDeadlineText = computed(() => {
+  if (Number(payDeadlineTs.value) > 0) {
+    const d = new Date(payDeadlineTs.value)
+    const p = (n) => String(n).padStart(2, '0')
+    return `${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}`
+  }
+  return fmtTime(result.value?.expire_at)
+})
 
 /* ---------------- 初始化 ---------------- */
 onMounted(async () => {
@@ -748,7 +760,7 @@ function startDraftCountdown(expiresAt) {
   const end = new Date(String(expiresAt).replace(' ', 'T')).getTime()
   if (!Number.isFinite(end)) return
   const tick = () => {
-    draftLeft.value = Math.floor((end - Date.now()) / 1000)
+    draftLeft.value = Math.floor((end - nowMs()) / 1000)
     if (draftLeft.value <= 0) {
       draftLeft.value = 0
       draftExpired.value = true
@@ -781,7 +793,10 @@ async function doCreate() {
     if (res.result === 'zero') {
       ElMessage.success(`下单成功，取餐码 ${res.pickup_no || '—'}`)
     } else {
-      payLeft.value = Number(res.pay_window_seconds || 600)
+      // 优先取服务端钳制后的支付截止绝对锚点（epoch ms，= 下单+10min，响应携带 server_time 已校准时钟）；
+      // 无该字段时回退按窗口秒数从校准时钟推算
+      const deadline = Number(res.pay_deadline_ts)
+      payDeadlineTs.value = deadline > 0 ? deadline : nowMs() + Number(res.pay_window_seconds || 600) * 1000
       payExpired.value = false
       startPayTimer()
       ElMessage.success('订单已创建，请在支付窗口内完成支付')
@@ -791,18 +806,23 @@ async function doCreate() {
   }
 }
 
+/* 支付倒计时：绝对时间法 —— 每秒用「截止锚点 - 校准时钟」重算剩余，杜绝累计漂移与续付重置；
+ * 与后端钳制语义（pay_deadline 锚定下单时刻）一致，客户端时钟偏移由 utils/clock 全局校正 */
 function startPayTimer() {
   stopPayTimer()
-  payTimer = setInterval(() => {
-    payLeft.value -= 1
+  if (!(Number(payDeadlineTs.value) > 0)) return // 无截止锚点不启动（正常差额单不会出现）
+  const tick = () => {
+    payLeft.value = Math.max(0, Math.round((payDeadlineTs.value - nowMs()) / 1000))
     if (payLeft.value <= 0) {
       payLeft.value = 0
       payExpired.value = true
       stopPayTimer()
       stopPolling()
-      ElMessage.warning('支付窗口已过期，订单可能已被取消；可尝试重新生成支付串或到取餐查询页核实')
+      ElMessage.warning('支付窗口已过期，订单已自动取消；可到取餐查询页核实订单状态')
     }
-  }, 1000)
+  }
+  tick()
+  payTimer = setInterval(tick, 1000)
 }
 
 /* ---------------- 结果面板：支付操作 ---------------- */
@@ -811,10 +831,13 @@ async function regenPayStr() {
   try {
     const res = await apiOps.orderContinuePay(accountId.value, result.value.order_no)
     result.value = { ...result.value, ...res }
-    payLeft.value = Number(res.pay_window_seconds || 600)
-    payExpired.value = false
+    // 续付不重置支付窗口：截止锚定下单时刻（后端钳制，continue-pay 返回的 pay_deadline_ts 不变或更小）。
+    // 仅当响应携带有效 pay_deadline_ts 时更新锚点，无该字段则维持原值 —— 倒计时自然不漂移
+    const deadline = Number(res.pay_deadline_ts)
+    if (deadline > 0) payDeadlineTs.value = deadline
+    payExpired.value = false // 续付会重新 issued，复位过期标记
     startPayTimer()
-    ElMessage.success('已重新生成支付串，支付窗口已重置')
+    ElMessage.success('已重新生成支付串（支付截止不重置，仍以下单时刻为准）')
   } finally {
     continueBusy.value = false
   }
@@ -923,6 +946,7 @@ function clearResult() {
   payMode.value = 'manual'
   payExpired.value = false
   payLeft.value = 0
+  payDeadlineTs.value = 0
   autoResult.value = null
   autoConfigNote.value = ''
   paidStatus.value = null

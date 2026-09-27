@@ -128,6 +128,19 @@ def reconcile_order(db: Session, order: OrderRecord, account: ChageeAccount,
                 # 券回滚失败（异常）时整体 rollback 并向上抛出，由调用方记 skipped
                 rollback_coupon_usage(db, order.coupon_code, order.order_no, operator=operator)
             db.commit()
+            # 支付会话联动（2026-09-28 取消链路漏洞修复）：此前只置订单 7+券回滚，
+            # PaySession 停在 issued——H5 收银台倒计时照走、pay watcher 继续探已取消单。
+            # mark_session CAS 置 cancelled（无会话/已终态返回 False 静默），成功才记
+            # order_cancelled 事件（事件数与状态迁移一对一）；跨进程 SSE 通知由
+            # mark_session 内部自动发出。延迟 import：pay_session 模块级反向依赖本模块
+            from services.pay_session import (
+                EVENT_ORDER_CANCELLED, get_by_order_no, mark_session, record_event, token_prefix,
+            )
+            if mark_session(db, order.order_no, "cancelled"):
+                sess = get_by_order_no(db, order.order_no)
+                record_event(db, order.order_no,
+                             token_prefix(sess.pay_token) if sess else "",
+                             EVENT_ORDER_CANCELLED, {"source": "reconcile", "order_status": 7})
             log_op("order.reconcile", actor=operator, target=order.order_no,
                    result="cancelled_rolled_back",
                    params={"coupon": order.coupon_code or None})

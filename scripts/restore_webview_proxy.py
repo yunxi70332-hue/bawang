@@ -15,6 +15,7 @@ LinkProperties 全部无代理，清 WebView 数据无效——代理配置在 A
 停止：Ctrl+C（退出时自动 adb reverse --remove tcp:8080）
 """
 import argparse
+import os
 import select
 import socket
 import subprocess
@@ -25,7 +26,28 @@ from collections import Counter
 from datetime import datetime
 
 ADB = r"C:\platform-tools\adb.exe"
-DEV = "125.109.27.7:58445"
+
+
+def _detect_dev() -> str:
+    """云手机地址会变（2026-09-27→28 一夜从 125.109.27.7 换到 39.174.221.6）：
+    优先环境变量 CLOUDPHONE_SERIAL，否则自动取 adb 在线设备。"""
+    serial = os.environ.get("CLOUDPHONE_SERIAL", "").strip()
+    if serial:
+        return serial
+    try:
+        out = subprocess.run([ADB, "devices"], capture_output=True, text=True,
+                             timeout=8).stdout or ""
+        devs = [l.split("\t")[0] for l in out.splitlines()
+                if "\tdevice" in l and not l.startswith("List")]
+        if devs:
+            return devs[0]
+    except Exception:
+        pass
+    return "125.109.27.7:58445"
+
+
+DEV = _detect_dev()
+MITM_STATIC = int(os.environ.get("MITM_STATIC_PORT", "0"))  # >0 时 static.chagee.com 的 CONNECT 引到 127.0.0.1:该端口
 hosts = Counter()
 lock = threading.Lock()
 
@@ -75,7 +97,11 @@ def handle(client):
                 log(f"[tunnel] {target}")
             # 上游短超时（6s）：mclient 多 CDN 边缘节点中偶有不可达 IP，
             # 快速失败让 Chromium 重试换节点（15s 硬等会把 WebView 请求拖死，2026-09-27 实证）
-            upstream = socket.create_connection((host, int(port or 443)), timeout=6)
+            if MITM_STATIC and host == "static.chagee.com":
+                log(f"[mitm] static.chagee.com -> 127.0.0.1:{MITM_STATIC}")
+                upstream = socket.create_connection(("127.0.0.1", MITM_STATIC), timeout=6)
+            else:
+                upstream = socket.create_connection((host, int(port or 443)), timeout=6)
             upstream.setsockopt(socket.SOL_SOCKET, socket.SO_KEEPALIVE, 1)
             client.sendall(b"HTTP/1.1 200 Connection Established\r\n\r\n")
             client.settimeout(None)

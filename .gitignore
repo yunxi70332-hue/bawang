@@ -19,7 +19,7 @@ account_system/data/msp_runtime_pubkey.txt
 
 # ---- 前端 ----
 web/node_modules/
-web/dist/
+# web/dist 保持入库（基线已含 account_system/web/dist，服务器直接托管该产物）
 
 # ---- 巨型取证/安装资产（体积原因不入库；不会被代码改动波及） ----
 apk/
@@ -40,3 +40,6 @@ so_analysis/
 *.log
 .DS_Store
 Thumbs.db
+
+# 运行时账号凭证
+account_system/data/accounts/

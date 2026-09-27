@@ -274,6 +274,7 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import { Refresh } from '@element-plus/icons-vue'
 import { apiAccounts, apiOps } from '../api'
 import { fmtTime, fmtWaiting, fmtCountdown, orderStatusTag } from '../utils/format'
+import { nowMs } from '../utils/clock'
 
 // ---------- 账号 ----------
 const accounts = ref([])
@@ -302,7 +303,9 @@ const payMode = ref('manual')
 const payBusy = ref(false)
 const autoBusy = ref(false)
 const payLink = ref(null)
-const nowTs = ref(Date.now())
+// 秒表取校准后的服务器时钟（utils/clock，axios 拦截器随 server_time 持续校准），
+// 驱动 payRemainSec 对 payment_expiry_ts（服务端毫秒时间戳）的倒数，消除客户端时钟漂移
+const nowTs = ref(nowMs())
 
 // 官方收银台（后端在下单差额/pay manual/续付后异步铸造，约 10-30 秒完成）
 const cashierUrl = ref('')
@@ -477,7 +480,7 @@ async function openDetail(row) {
 // 抽屉开：启动秒表（驱动倒计时）；抽屉关：停止所有抽屉内轮询并丢弃过期支付串
 watch(drawerOpen, (open) => {
   if (open) {
-    if (!tickTimer) tickTimer = setInterval(() => { nowTs.value = Date.now() }, 1000)
+    if (!tickTimer) tickTimer = setInterval(() => { nowTs.value = nowMs() }, 1000)
   } else {
     stopTick()
     stopAutoPayPoll()

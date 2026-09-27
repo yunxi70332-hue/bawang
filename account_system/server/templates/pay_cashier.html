@@ -9,9 +9,18 @@
   H5 收银台「套壳页」：极简展示（金额/倒计时/状态）+ 跳转支付宝官方收银台 + 支付后回看取餐码。
   纯静态单页零构建；接口约定（token 取自 location.pathname，形如 /pay/<token>）：
     GET  /pay/{token}/info               订单/金额/券抵扣/order_str/alipay_cashier_url
-    GET  /pay/{token}/status             支付状态轮询（2s，hidden 暂停，5 连败降频 10s）
+                                          另含 server_time / pay_deadline_ts（epoch 毫秒，可为 null）：
+                                          前者用于校正本地钟偏移，后者为钳制后支付截止绝对锚点（与倒计时同源）
+    GET  /pay/{token}/status             支付状态轮询（SSE 存活时降频 10s 兜底、断连 2s；hidden 暂停；5 连败降频 10s）
+    GET  /pay/{token}/events             SSE 实时通道（text/event-stream）：连接即推 sync、issued 每 5s 心跳、
+                                          deadline 变化推 sync；paid/cancelled/expired 终态推完服务器闭流。
+                                          每个 data 一律 JSON：{server_time, pay_deadline_ts, status, remaining_seconds}
     POST /pay/{token}/remint             重铸支付串（成功后整页刷新）
     POST /pay/{token}/switch-full-price  券差额单切换原价单 → 跳 new_h5_url
+  倒计时为偏移法绝对时间：clockOffset = server_time − Date.now()，
+  剩余秒 = (pay_deadline_ts − (Date.now() + clockOffset)) / 1000，规避本地时钟不准与 setInterval 漂移；
+  无 pay_deadline_ts 的会话回退 remaining_seconds 计数器（兼容）。
+  双通道降级：issued 态 SSE 为主、轮询降频兜底；SSE 断线（onerror）自动退回 2s 轮询保实时，重连成功再降频。
   安全约束：后端字段一律 textContent 渲染，禁止拼进 innerHTML。
 -->
 <style>
@@ -382,14 +391,35 @@
   var state = {
     info: null,
     remaining: 0,
-    pollMode: null,      // 'status' | 'pickup'
+    clockOffset: 0,     // ms：server_time − Date.now()，本地钟 → 服务器钟的校正偏移
+    deadlineTs: null,   // epoch ms：钳制后支付截止绝对锚点（null = 无截止，回退计数器模式）
+    pollMode: null,     // 'status' | 'pickup'
     pollStopped: true,
     failCount: 0,
     pollMs: 2000,
-    timer: null,         // 轮询 setTimeout 句柄
-    ticker: null,        // 倒计时 setInterval 句柄
-    qrMade: false
+    timer: null,        // 轮询 setTimeout 句柄
+    ticker: null,       // 倒计时 setInterval 句柄
+    qrMade: false,
+    es: null,           // EventSource 句柄（issued 态实时通道）
+    sseAlive: false     // SSE 是否连通（true 时轮询降频 10s 兜底）
   };
+
+  /* ---------- 服务器权威时钟（偏移法绝对时间倒计时） ---------- */
+  /* 任何带 server_time 的响应（/info、/status、SSE 各事件）都刷新偏移与截止锚点；
+     pay_deadline_ts 仅在非 null 时覆盖（钳制后截止与倒计时严格同源，防止迟到帧把锚点倒拨） */
+  function syncClock(serverTime, deadlineTs) {
+    if (typeof serverTime === "number" && serverTime > 0) {
+      state.clockOffset = serverTime - Date.now();
+    }
+    if (typeof deadlineTs === "number" && deadlineTs > 0) {
+      state.deadlineTs = deadlineTs;
+    }
+  }
+  /* 绝对法重算剩余秒：服务器当前时刻 = Date.now() + clockOffset */
+  function recomputeRemaining() {
+    if (state.deadlineTs === null) return;
+    state.remaining = Math.max(0, Math.round((state.deadlineTs - (Date.now() + state.clockOffset)) / 1000));
+  }
 
   function stopTicker() {
     if (state.ticker) { clearInterval(state.ticker); state.ticker = null; }
@@ -397,15 +427,23 @@
   function startTicker() {
     stopTicker();
     state.ticker = setInterval(function () {
-      if (state.remaining > 0) {
+      var ticked = false;
+      if (state.deadlineTs !== null) {
+        /* 每秒按绝对时间重算：规避 setInterval 漂移、手机本地钟不准、后台节流后回前台秒级追平 */
+        recomputeRemaining();
+        ticked = true;
+      } else if (state.remaining > 0) {
+        /* 无截止锚点的兼容会话（pay_deadline_ts=null）：回退旧版纯计数器递减 */
         state.remaining -= 1;
-        updateCountdownUI();
-        if (state.remaining <= 0) {
-          stopTicker();
-          if (state.info && state.info.status === "issued") {
-            showClosed();
-            state.pollStopped = true; /* 倒计时归零：停止状态轮询 */
-          }
+        ticked = true;
+      }
+      if (!ticked) return;
+      updateCountdownUI();
+      if (state.remaining <= 0) {
+        stopTicker();
+        if (state.info && state.info.status === "issued") {
+          showClosed();
+          state.pollStopped = true; /* 倒计时归零：停止状态轮询 */
         }
       }
     }, 1000);
@@ -467,8 +505,15 @@
   }
 
   function renderIssued(info) {
-    /* 倒计时 */
-    state.remaining = Math.max(0, info.remaining_seconds | 0);
+    /* 倒计时初值：优先绝对锚点 pay_deadline_ts（/info 响应自带 server_time，一并校正偏移）；
+       无锚点（null）回退 remaining_seconds 计数器（兼容无截止会话） */
+    if (typeof info.pay_deadline_ts === "number" && info.pay_deadline_ts > 0) {
+      syncClock(info.server_time, info.pay_deadline_ts);
+      recomputeRemaining();
+    } else {
+      state.deadlineTs = null;
+      state.remaining = Math.max(0, info.remaining_seconds | 0);
+    }
     show(el.countdownCard);
     if (state.remaining <= 0) {
       hide(el.cdWrap); show(el.closedBox);
@@ -542,7 +587,7 @@
     show(el.endCard);
   }
 
-  /* ---------- 轮询（2s；hidden 暂停；5 连败降频 10s） ---------- */
+  /* ---------- 轮询兜底（SSE 断连 2s / 存活 10s；hidden 暂停；5 连败降频 10s） ---------- */
   function schedulePoll(delay) {
     if (state.pollStopped || document.hidden) return;
     if (state.timer) clearTimeout(state.timer);
@@ -553,7 +598,7 @@
     try {
       await pollOnce();
       state.failCount = 0;
-      state.pollMs = 2000;
+      state.pollMs = state.sseAlive ? 10000 : 2000; /* SSE 存活时轮询只做 10s 兜底校验，断连恢复 2s */
       hideNet();
     } catch (_) {
       state.failCount += 1;
@@ -579,33 +624,28 @@
       return;
     }
     if (d.status === "cancelled" || d.status === "expired") {
-      var merged = {};
-      if (state.info) { Object.keys(state.info).forEach(function (k) { merged[k] = state.info[k]; }); }
-      merged.status = d.status;
-      merged.status_label = d.status_label;
-      render(merged);
+      endFromCache(d.status, d.status_label);
       state.pollStopped = true;
+      closeEventSource(); /* 轮询先于 SSE 发现终态：SSE 一并收口，防其重连后重复推终态帧 */
       return;
     }
-    /* issued：服务器倒计时只下调同步（防本地漂移） */
+    /* issued：刷新权威锚点（偏移 + 截止），剩余秒交给 ticker 按绝对时间重算，不再做单向下调 */
+    syncClock(d.server_time, d.pay_deadline_ts);
     var rs = (typeof d.remaining_seconds === "number") ? d.remaining_seconds : null;
     if (rs !== null && rs <= 0) {
       state.remaining = 0;
       updateCountdownUI();
       stopTicker(); showClosed();
-      state.pollStopped = true;
+      state.pollStopped = true; /* 服务器已判超时：立即停表，不等本地钟走到零 */
       return;
-    }
-    if (rs !== null && rs < state.remaining) {
-      state.remaining = rs;
-      updateCountdownUI();
     }
   }
 
   async function onPaid() {
-    /* 跃迁 paid：停倒计时/停状态轮询，拉一次 info 刷取餐码 */
+    /* 跃迁 paid：停倒计时/停状态轮询/关 SSE（服务器推完终态会闭流，客户端同步关闭防自动重连） */
     stopTicker();
     state.pollStopped = true;
+    closeEventSource();
     var info = null;
     try { info = await fetchJSON(BASE + "/info"); } catch (_) { info = null; }
     if (info) render(info);
@@ -627,13 +667,98 @@
     }
   }
 
+  /* ---------- SSE 实时通道（/events；issued 态为主通道，轮询降频兜底） ---------- */
+  function parseSSEData(raw) {
+    try { return JSON.parse(raw); } catch (_) { return null; }
+  }
+
+  function closeEventSource() {
+    if (state.es) {
+      try { state.es.close(); } catch (_) { /* 对已断开的流 close 幂等 */ }
+      state.es = null;
+    }
+    state.sseAlive = false;
+  }
+
+  /* 终态渲染：缓存 info merge 终态后走 render → renderEnd 路径（cancelled 文案不变） */
+  function endFromCache(status, status_label) {
+    var merged = {};
+    if (state.info) { Object.keys(state.info).forEach(function (k) { merged[k] = state.info[k]; }); }
+    merged.status = status;
+    if (status_label) merged.status_label = status_label;
+    render(merged);
+  }
+
+  /* SSE 终态（服务器推完即闭流）：停表/停轮询/关流后渲染终态 */
+  function onSSEEnd(status, raw) {
+    var d = parseSSEData(raw);
+    if (d) syncClock(d.server_time, d.pay_deadline_ts);
+    state.failCount = 0;
+    hideNet();
+    stopTicker();
+    state.pollStopped = true;
+    closeEventSource(); /* 客户端同步关闭，防 EventSource 对已闭流的自动重连 */
+    endFromCache(status);
+  }
+
+  function connectEvents() {
+    if (state.es) return; /* 已连接 */
+    if (typeof EventSource === "undefined") return; /* 极老 WebView 无 SSE：纯轮询兜底 */
+    var es;
+    try { es = new EventSource(BASE + "/events"); }
+    catch (_) { return; }
+    state.es = es;
+
+    es.onopen = function () {
+      state.sseAlive = true;
+      state.pollMs = 10000; /* SSE 为主：轮询降频为 10s 兜底校验 */
+    };
+    /* 不挂 onmessage：只订阅显式事件，事件名即状态语义 */
+    es.addEventListener("sync", function (ev) {
+      var d = parseSSEData(ev.data);
+      if (!d) return;
+      syncClock(d.server_time, d.pay_deadline_ts);
+      state.failCount = 0; /* SSE 事件到达即是一次成功状态更新 */
+      hideNet();
+      /* 防心跳竞态：sync 可能在状态跃迁后迟到到达，非 issued 一律按终态口径收口 */
+      if (d.status === "paid") {
+        closeEventSource();
+        onPaid();
+      } else if (d.status === "cancelled" || d.status === "expired") {
+        onSSEEnd(d.status, null);
+      }
+    });
+    es.addEventListener("paid", function (ev) {
+      var d = parseSSEData(ev.data);
+      if (d) syncClock(d.server_time, d.pay_deadline_ts);
+      closeEventSource();
+      onPaid(); /* 复用轮询发现 paid 的同一路径：停表 + 拉 info 刷取餐码 */
+    });
+    es.addEventListener("cancelled", function (ev) { onSSEEnd("cancelled", ev.data); });
+    es.addEventListener("expired", function (ev) { onSSEEnd("expired", ev.data); });
+    es.onerror = function () {
+      /* 断线不崩溃：EventSource 自动重连，期间 sseAlive=false 让轮询恢复 2s 保实时；
+         failCount≥5 时不动 pollMs，避免冲掉轮询自身的 5 连败降频 */
+      state.sseAlive = false;
+      if (state.failCount < 5) state.pollMs = 2000;
+    };
+  }
+
   document.addEventListener("visibilitychange", function () {
     if (document.hidden) {
       if (state.timer) { clearTimeout(state.timer); state.timer = null; }
-    } else if (!state.pollStopped) {
-      state.failCount = 0;
-      state.pollMs = 2000;
-      schedulePoll(400); /* 回前台立刻补一轮，快速追上页面隐藏期间的变化 */
+    } else {
+      /* 回前台：SSE 若已被系统掐断（readyState=CLOSED 不再自动重连）则重建；
+         主动收口的场景 es 已置空，不会误重连 */
+      if (state.es && state.es.readyState === 2) {
+        closeEventSource();
+        connectEvents();
+      }
+      if (!state.pollStopped) {
+        state.failCount = 0;
+        state.pollMs = state.sseAlive ? 10000 : 2000;
+        schedulePoll(400); /* 回前台立刻补一轮，快速追上页面隐藏期间的变化 */
+      }
     }
   });
 
@@ -721,6 +846,7 @@
         state.pollMode = "status";
         state.pollStopped = false;
         schedulePoll(2000);
+        connectEvents(); /* issued：SSE 实时通道为主，轮询降频兜底 */
       } else if (info.status === "paid" && !info.pickup_no) {
         state.pollMode = "pickup";
         state.pollStopped = false;
