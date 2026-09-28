@@ -168,6 +168,11 @@
                 <el-option label="外卖" value="外卖" />
                 <el-option label="团餐" value="团餐" />
               </el-select>
+              <el-select v-if="categoryOptionsReady" v-model="archiveCategory" style="width: 150px" placeholder="成本子类">
+                <el-option label="全部子类" value="" />
+                <el-option label="未分类" :value="-1" />
+                <el-option v-for="c in costCategories" :key="c.id" :label="c.name" :value="c.id" />
+              </el-select>
               <el-button type="primary" :icon="Search" :loading="archiveLoading" @click="searchArchive">搜索档案</el-button>
               <span v-if="archiveTotal !== null" class="muted">
                 命中 {{ archiveTotal }} 张 · 可用 {{ archiveStats.effective }} / 历史 {{ archiveStats.historical }} / 试算 {{ archiveStats.settle_available }} / 已使用 {{ archiveStats.used }}
@@ -191,6 +196,23 @@
               <el-table-column label="面额" width="70" align="center">
                 <template #default="{ row }">
                   {{ row.amount_display || (row.amount ? row.amount + '元' : '—') }}
+                </template>
+              </el-table-column>
+              <el-table-column label="成本/子类" width="130">
+                <template #default="{ row }">
+                  <div class="cost-cell">
+                    <div>
+                      <span v-if="row.cost_price" class="price">¥{{ row.cost_price }}</span>
+                      <span v-else class="muted">—</span>
+                      <el-tag v-if="row.cost_source === 'fallback'" size="small" effect="plain" type="info"
+                        class="pending-tag" title="成本未配置：按 面额 × 兜底系数 估算">待定</el-tag>
+                    </div>
+                    <div>
+                      <el-tag v-if="row.cost_category_id" size="small" effect="plain"
+                        :type="bizTag(row.biz_type)">{{ row.cost_category_name }}</el-tag>
+                      <span v-else class="muted">未分类</span>
+                    </div>
+                  </div>
                 </template>
               </el-table-column>
               <el-table-column label="使用范围" width="110">
@@ -242,9 +264,16 @@
 
 <script setup>
 import { computed, onMounted, ref } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { Refresh, Search } from '@element-plus/icons-vue'
-import { apiAccounts, apiOps } from '../api'
+import { apiAccounts, apiOps, apiDecision } from '../api'
+
+const route = useRoute()
+const router = useRouter()
+
+/* 业务类型配色：paid=采购付费(橙) / free=活动免费(绿) / bank=银行渠道(蓝) / other=其他(灰) */
+const bizTag = (t) => ({ paid: 'warning', free: 'success', bank: 'primary', other: 'info' }[t] || 'info')
 
 const accounts = ref([])
 const accountId = ref(null)
@@ -299,16 +328,36 @@ const archiveLoading = ref(false)
 const archivePage = ref(1)
 const archivePageSize = 20
 
+// ---- 成本子类筛选（fail-soft：接口不可用时静默隐藏该筛选，不弹错误） ----
+const costCategories = ref([])
+const categoryOptionsReady = ref(false)
+const archiveCategory = ref('')   // ''=全部不筛 / -1=未分类 / 其他=子类 id
+
+async function loadCostCategories() {
+  try {
+    const data = await apiDecision.costCategories({ silent: true })
+    costCategories.value = data.items || []
+    categoryOptionsReady.value = true
+  } catch {
+    /* fail-soft：保持筛选隐藏，不打扰用户 */
+  }
+}
+
 async function searchArchive() {
   archiveLoading.value = true
   try {
-    const data = await apiOps.couponsSearch({
+    const params = {
       keyword: archiveKeyword.value.trim(),
       bucket: archiveBucket.value,
       scene: archiveScene.value,
       page: archivePage.value,
       page_size: archivePageSize,
-    })
+    }
+    // 子类筛选约定：'' 不传参 / -1=未分类 / 其他=子类 id（-1 由后端联调对齐）
+    if (archiveCategory.value !== '' && archiveCategory.value !== null && archiveCategory.value !== undefined) {
+      params.cost_category = archiveCategory.value
+    }
+    const data = await apiOps.couponsSearch(params)
     archiveItems.value = data.items
     archiveTotal.value = data.total
     archiveStats.value = data.stats
@@ -343,6 +392,15 @@ onMounted(async () => {
   const online = data.items.find((a) => a.status === 'online')
   if (online) accountId.value = online.id
   else if (data.items.length === 1) accountId.value = data.items[0].id
+  loadCostCategories()   // 子类筛选选项（fail-soft，不阻塞首屏）
+  // 联动入口：/ops/coupons?tab=archive&cost_category=N（来自「券成本与阈值 → 查看券」）
+  if (route.query.tab === 'archive') activeTab.value = 'archive'
+  const linkedCat = Number(route.query.cost_category)
+  if (route.query.cost_category !== undefined && route.query.cost_category !== '' && Number.isFinite(linkedCat)) {
+    archiveCategory.value = linkedCat
+    // 应用后清掉深链参数，避免 URL 与页面实际状态脱节
+    router.replace({ query: { ...route.query, tab: undefined, cost_category: undefined } })
+  }
   searchArchive()   // 档案库首屏即载入（联动全量同步后的数据）
 })
 
@@ -478,6 +536,16 @@ async function queryOne() {
 }
 .scene-tag {
   margin-right: 4px;
+}
+.cost-cell {
+  line-height: 1.7;
+}
+.cost-cell .price {
+  color: #c45656;
+  font-weight: 600;
+}
+.pending-tag {
+  margin-left: 4px;
 }
 .nick-tag {
   margin-left: 6px;

@@ -409,7 +409,8 @@ class VoucherCostRule(Base):
     """券采购成本规则：把券模板/面额映射为实际采购成本价（元，String 金额）。
     匹配链见 services/decision.resolve_cost —— enabled 规则按 priority 升序逐条：
     template_exact / template_contains / benefit_regex / coupon_prefix 四种命中方式，
-    face_value 非空须等于券面额；全部未命中按 面额×cost_fallback_ratio 保守计。"""
+    face_value 非空须等于券面额；全部未命中按 面额×cost_fallback_ratio 保守计。
+    category_id 软关联券成本子类（业务分类层，0=未分类；子类删除时回退 0）。"""
 
     __tablename__ = "voucher_cost_rules"
 
@@ -422,6 +423,29 @@ class VoucherCostRule(Base):
     priority: Mapped[int] = mapped_column(Integer, default=100)            # 越小越优先
     enabled: Mapped[bool] = mapped_column(Boolean, default=True)
     note: Mapped[str] = mapped_column(String(255), default="")
+    category_id: Mapped[int] = mapped_column(Integer, default=0)           # 关联券成本子类（0=未分类）
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.now)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.now, onupdate=datetime.now)
+
+
+class VoucherCostCategory(Base):
+    """券成本子类=业务分类层（采购付费/活动免费/银行渠道），自动归类匹配；
+    成本金额仍由 voucher_cost_rules 唯一决定。
+    归类链见 services/decision.classify_category —— enabled 子类按 priority 升序逐条，
+    四类匹配语义与 resolve_cost 完全一致（共用 _match_hit），全不命中=未分类（0）；
+    biz_type 为业务口径（paid|free|bank|other），sort 仅控展示顺序。"""
+
+    __tablename__ = "voucher_cost_categories"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    name: Mapped[str] = mapped_column(String(64), unique=True, index=True)  # 子类名称
+    biz_type: Mapped[str] = mapped_column(String(16))                       # paid|free|bank|other
+    match_type: Mapped[str] = mapped_column(String(32))                     # template_exact|template_contains|benefit_regex|coupon_prefix
+    match_value: Mapped[str] = mapped_column(String(128))                   # 匹配值（regex 时为正则）
+    priority: Mapped[int] = mapped_column(Integer, default=100)             # 越小越优先
+    enabled: Mapped[bool] = mapped_column(Boolean, default=True)
+    note: Mapped[str] = mapped_column(String(255), default="")
+    sort: Mapped[int] = mapped_column(Integer, default=0)                   # 展示排序（越小越靠前）
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.now)
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.now, onupdate=datetime.now)
 

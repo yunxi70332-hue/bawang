@@ -131,6 +131,12 @@ export const apiDecision = {
   costRuleUpdate: (id, data) => http.put(`/api/ops/decision/cost-rules/${id}`, data),
   costRuleDelete: (id) => http.delete(`/api/ops/decision/cost-rules/${id}`),
   costRuleImport: (rules) => http.post('/api/ops/decision/cost-rules/import', { rules }),
+  // 券成本子类（业务分类层：只做分类不定价，成本价仍由 cost-rules 决定；
+  // 可选 cfg 透传 axios 配置，如券档案页 fail-soft 场景传 { silent: true } 抑制全局错误弹窗）
+  costCategories: (cfg) => http.get('/api/ops/decision/cost-categories', cfg),
+  costCategoryCreate: (data) => http.post('/api/ops/decision/cost-categories', data),
+  costCategoryUpdate: (id, data) => http.put(`/api/ops/decision/cost-categories/${id}`, data),
+  costCategoryDelete: (id) => http.delete(`/api/ops/decision/cost-categories/${id}`),
   // 全局决策配置（data/decision_config.json）
   configGet: () => http.get('/api/ops/decision/config'),
   configPut: (data) => http.put('/api/ops/decision/config', data),

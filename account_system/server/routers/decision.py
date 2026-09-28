@@ -1,12 +1,15 @@
 """下单决策域路由（波2-C，契约 docs/decision_api_contract.md §5/§6）。
 
-四组职责（金额字段全 string，时间 YYYY-MM-DD HH:MM:SS，列表 {total, items}）：
-  套餐/成本规则/配置管理 —— PacketConfig（items 级联 delete-orphan 全量替换）、
-    VoucherCostRule（四类 match_type）、data/decision_config.json 读写；
+五组职责（金额字段全 string，时间 YYYY-MM-DD HH:MM:SS，列表 {total, items}）：
+  套餐/成本规则/成本子类/配置管理 —— PacketConfig（items 级联 delete-orphan 全量替换）、
+    VoucherCostRule（四类 match_type，category_id 软关联子类）、VoucherCostCategory
+    （券成本子类=业务分类层：采购付费/活动免费/银行渠道，自动归类匹配；子类只做分类
+    不做成本——成本金额仍由 voucher_cost_rules 唯一决定）、data/decision_config.json 读写；
   扫描与库存 —— POST /scan 复用 ops.coupons_sync_all 的全账号遍历语义
     （status!=disabled 且 token!=""，单账号失败不中断）拉券入 coupon_records，
-    再对全库 effective/settle_available 券跑 resolve_cost 盘点；GET /coupon-inventory
-    每张券带分型（classify_coupon）、成本（resolve_cost）与本地可用性判定；
+    再对全库 effective/settle_available 券跑 resolve_cost 盘点（by_category 子类归组）；
+    GET /coupon-inventory 每张券带分型（classify_coupon）、成本（resolve_cost）、
+    子类归类（classify_category）与本地可用性判定；
   报表/流水 —— decision_logs 聚合（成单行 = order_no 非空且 verdict=pass）与分页查询；
   decide 决策评估 —— POST /api/ops/orders/decide（完整路径挂 global_router，
     与 orders.py 双路由模式一致，权限 feature:order）：
@@ -17,6 +20,7 @@
     有效期/门槛）→ 套餐 item 券规则过滤 → rank_candidates 排序 → 阈值判定
     （套餐级 min_profit 覆盖全局）→ DecisionLog 落库（order_no 空，blocked 也写；
     成单后由 orders.order_create 凭 decision_log_id 回填，见 §6 挂钩）。
+    cost_breakdown 带 cost_category_name（选中券的子类归类，无券 ""）。
 """
 
 import logging
@@ -32,10 +36,10 @@ from sqlalchemy.orm import Session
 from audit import log_audit
 from database import get_db
 from models import (ChageeAccount, CouponRecord, DecisionLog, PacketConfig, PacketItem,
-                    SystemUser, VoucherCostRule)
+                    SystemUser, VoucherCostCategory, VoucherCostRule)
 from oplog import log_op
-from schemas import (CostRuleImportRequest, CostRuleRequest, DecideRequest,
-                     DecisionConfigRequest, PacketCreateRequest, ScanRequest)
+from schemas import (CostCategoryRequest, CostRuleImportRequest, CostRuleRequest,
+                     DecideRequest, DecisionConfigRequest, PacketCreateRequest, ScanRequest)
 from security import require_perm
 from services import chagee_bridge as bridge
 from services import decision as decision_svc
@@ -116,14 +120,33 @@ def _packet_detail(p: PacketConfig) -> dict:
     return detail
 
 
-def _cost_rule_row(r: VoucherCostRule) -> dict:
+def _cost_rule_row(r: VoucherCostRule, category_names: dict[int, str] | None = None) -> dict:
+    """成本规则行 + 子类映射（category_names={id: name}，0/缺失 → ""）。"""
+    category_id = int(r.category_id or 0)
     return {
         "id": r.id, "name": r.name, "match_type": r.match_type,
         "match_value": r.match_value, "face_value": r.face_value,
         "cost_price": r.cost_price, "priority": r.priority,
         "enabled": bool(r.enabled), "note": r.note,
+        "category_id": category_id,
+        "category_name": (category_names or {}).get(category_id, ""),
         "created_at": _fmt_dt(r.created_at), "updated_at": _fmt_dt(r.updated_at),
     }
+
+
+def _cost_category_row(c: VoucherCostCategory) -> dict:
+    return {
+        "id": c.id, "name": c.name, "biz_type": c.biz_type,
+        "match_type": c.match_type, "match_value": c.match_value,
+        "priority": c.priority, "enabled": bool(c.enabled), "note": c.note,
+        "sort": c.sort,
+        "created_at": _fmt_dt(c.created_at), "updated_at": _fmt_dt(c.updated_at),
+    }
+
+
+def _category_name_map(db: Session) -> dict[int, str]:
+    """全量子类 id → name 映射（子类表小，直接查表；cost-rules 响应拼 category_name 用）。"""
+    return {c.id: c.name for c in db.query(VoucherCostCategory).all()}
 
 
 def _log_row(r: DecisionLog) -> dict:
@@ -297,6 +320,7 @@ def _apply_cost_rule(rule: VoucherCostRule, body: CostRuleRequest) -> None:
     rule.priority = body.priority
     rule.enabled = body.enabled
     rule.note = body.note or ""
+    rule.category_id = int(body.category_id or 0)   # 软关联子类（0=未分类，不做外键校验）
 
 
 @router.get("/cost-rules")
@@ -304,7 +328,8 @@ def cost_rules_list(db: Session = Depends(get_db),
                     _: SystemUser = Depends(require_perm("decision:manage"))):
     rows = (db.query(VoucherCostRule)
               .order_by(VoucherCostRule.priority.asc(), VoucherCostRule.id.asc()).all())
-    return {"items": [_cost_rule_row(r) for r in rows]}
+    category_names = _category_name_map(db)
+    return {"items": [_cost_rule_row(r, category_names) for r in rows]}
 
 
 @router.post("/cost-rules")
@@ -317,10 +342,12 @@ def cost_rule_create(body: CostRuleRequest, request: Request,
     db.commit()
     db.refresh(rule)
     log_audit(db, request, user, "decision.cost_rule_create", f"规则#{rule.id}",
-              {"name": rule.name, "match_type": rule.match_type, "cost_price": rule.cost_price})
+              {"name": rule.name, "match_type": rule.match_type, "cost_price": rule.cost_price,
+               "category_id": rule.category_id})
     log_op(action="decision.cost_rule_create", actor=user.username, target=f"规则#{rule.id}",
-           params={"name": rule.name, "cost_price": rule.cost_price})
-    return _cost_rule_row(rule)
+           params={"name": rule.name, "cost_price": rule.cost_price,
+                   "category_id": rule.category_id})
+    return _cost_rule_row(rule, _category_name_map(db))
 
 
 @router.put("/cost-rules/{rule_id}")
@@ -334,10 +361,12 @@ def cost_rule_update(rule_id: int, body: CostRuleRequest, request: Request,
     db.commit()
     db.refresh(rule)
     log_audit(db, request, user, "decision.cost_rule_update", f"规则#{rule.id}",
-              {"name": rule.name, "cost_price": rule.cost_price})
+              {"name": rule.name, "cost_price": rule.cost_price,
+               "category_id": rule.category_id})
     log_op(action="decision.cost_rule_update", actor=user.username, target=f"规则#{rule.id}",
-           params={"name": rule.name, "cost_price": rule.cost_price})
-    return _cost_rule_row(rule)
+           params={"name": rule.name, "cost_price": rule.cost_price,
+                   "category_id": rule.category_id})
+    return _cost_rule_row(rule, _category_name_map(db))
 
 
 @router.delete("/cost-rules/{rule_id}")
@@ -359,7 +388,8 @@ def cost_rule_delete(rule_id: int, request: Request, db: Session = Depends(get_d
 def cost_rules_import(body: CostRuleImportRequest, request: Request,
                       db: Session = Depends(get_db),
                       user: SystemUser = Depends(require_perm("decision:manage"))):
-    """批量导入：逐条校验（非法条目进 errors 不中断），name 与库内重复跳过。"""
+    """批量导入：逐条校验（非法条目进 errors 不中断），name 与库内重复跳过。
+    条目字段同 CostRuleRequest（含 category_id，缺省 0=未分类）。"""
     imported, skipped, errors = 0, 0, []
     for i, raw in enumerate(body.rules or []):
         try:
@@ -383,6 +413,130 @@ def cost_rules_import(body: CostRuleImportRequest, request: Request,
     return {"imported": imported, "skipped": skipped, "errors": errors}
 
 
+# ---------------- 券成本子类 CRUD（业务分类层：只做分类，不做成本） ----------------
+
+def _check_category_body(db: Session, body: CostCategoryRequest, exclude_id: int = 0):
+    """子类请求体校验：名称唯一（重名 400）。biz_type/match_type 由 schema pattern 拦截。"""
+    name = body.name.strip()
+    if not name:
+        raise HTTPException(400, "子类名称不能为空")
+    q = db.query(VoucherCostCategory).filter(VoucherCostCategory.name == name)
+    if exclude_id:
+        q = q.filter(VoucherCostCategory.id != exclude_id)
+    if q.first():
+        raise HTTPException(400, f"子类名称「{name}」已存在")
+
+
+def _inventory_category_stats(db: Session) -> dict[int, dict]:
+    """两桶（effective+settle_available）可用券逐张 resolve_cost + classify_category 的
+    内存归组：{category_id: {"count", "face", "cost"(Decimal)}}（含 0=未分类，调用方按需
+    取舍——cost-categories 列表不展示 0 桶，scan by_category 透出全集）。
+    规则/子类/配置每请求各查一次，循环内复用（匹配为正则语义，无法下推 SQL）。"""
+    rules = db.query(VoucherCostRule).all()
+    categories = db.query(VoucherCostCategory).all()
+    cfg = decision_svc.load_config()
+    stats: dict[int, dict] = {}
+    coupons = (db.query(CouponRecord)
+                 .filter(CouponRecord.bucket.in_(("effective", "settle_available"))).all())
+    for c in coupons:
+        cat = decision_svc.classify_category(categories, c)
+        agg = stats.setdefault(cat["category_id"],
+                               {"count": 0, "face": Decimal("0"), "cost": Decimal("0")})
+        agg["count"] += 1
+        face = _to_dec_or_none(c.amount)
+        if face is not None:
+            agg["face"] += face
+        agg["cost"] += decision_svc.resolve_cost(rules, c, cfg)["cost"]
+    return stats
+
+
+@router.get("/cost-categories")
+def cost_categories_list(db: Session = Depends(get_db),
+                         _: SystemUser = Depends(require_perm("decision:manage"))):
+    """子类列表 + 两桶可用券的内存汇总（coupon_count/face_total/cost_total，逐张
+    resolve_cost+classify_category 按 category_id 归组；未命中子类的券=未分类 0，
+    不在此表显示——全集口径见 coupon-inventory / coupons/search 的 by_category）。"""
+    rows = (db.query(VoucherCostCategory)
+              .order_by(VoucherCostCategory.sort.asc(), VoucherCostCategory.priority.asc(),
+                        VoucherCostCategory.id.asc()).all())
+    stats = _inventory_category_stats(db)
+    items = []
+    for c in rows:
+        agg = stats.get(c.id, {"count": 0, "face": Decimal("0"), "cost": Decimal("0")})
+        items.append({**_cost_category_row(c),
+                      "coupon_count": agg["count"],
+                      "face_total": _money(agg["face"]),
+                      "cost_total": _money(agg["cost"])})
+    return {"items": items}
+
+
+@router.post("/cost-categories")
+def cost_category_create(body: CostCategoryRequest, request: Request,
+                         db: Session = Depends(get_db),
+                         user: SystemUser = Depends(require_perm("decision:manage"))):
+    _check_category_body(db, body)
+    category = VoucherCostCategory(
+        name=body.name.strip(), biz_type=body.biz_type,
+        match_type=body.match_type, match_value=body.match_value,
+        priority=body.priority, enabled=body.enabled,
+        note=body.note or "", sort=body.sort,
+    )
+    db.add(category)
+    db.commit()
+    db.refresh(category)
+    log_audit(db, request, user, "decision.cost_category_create", f"子类#{category.id}",
+              {"name": category.name, "biz_type": category.biz_type,
+               "match_type": category.match_type, "match_value": category.match_value})
+    log_op(action="decision.cost_category_create", actor=user.username, target=f"子类#{category.id}",
+           params={"name": category.name, "biz_type": category.biz_type})
+    return _cost_category_row(category)
+
+
+@router.put("/cost-categories/{category_id}")
+def cost_category_update(category_id: int, body: CostCategoryRequest, request: Request,
+                         db: Session = Depends(get_db),
+                         user: SystemUser = Depends(require_perm("decision:manage"))):
+    category = db.get(VoucherCostCategory, category_id)
+    if not category:
+        raise HTTPException(404, "成本子类不存在")
+    _check_category_body(db, body, exclude_id=category_id)
+    category.name = body.name.strip()
+    category.biz_type = body.biz_type
+    category.match_type = body.match_type
+    category.match_value = body.match_value
+    category.priority = body.priority
+    category.enabled = body.enabled
+    category.note = body.note or ""
+    category.sort = body.sort
+    db.commit()
+    db.refresh(category)
+    log_audit(db, request, user, "decision.cost_category_update", f"子类#{category.id}",
+              {"name": category.name, "biz_type": category.biz_type})
+    log_op(action="decision.cost_category_update", actor=user.username, target=f"子类#{category.id}",
+           params={"name": category.name, "biz_type": category.biz_type})
+    return _cost_category_row(category)
+
+
+@router.delete("/cost-categories/{category_id}")
+def cost_category_delete(category_id: int, request: Request, db: Session = Depends(get_db),
+                         user: SystemUser = Depends(require_perm("decision:manage"))):
+    category = db.get(VoucherCostCategory, category_id)
+    if not category:
+        raise HTTPException(404, "成本子类不存在")
+    name = category.name
+    # 关联规则软引用回退未分类（子类删除不连带删规则，成本链不受影响）
+    (db.query(VoucherCostRule)
+       .filter(VoucherCostRule.category_id == category_id)
+       .update({VoucherCostRule.category_id: 0}, synchronize_session=False))
+    db.delete(category)
+    db.commit()
+    log_audit(db, request, user, "decision.cost_category_delete", f"子类#{category_id}",
+              {"name": name})
+    log_op(action="decision.cost_category_delete", actor=user.username, target=f"子类#{category_id}",
+           params={"name": name})
+    return {"ok": True}
+
+
 # ---------------- 券库存扫描与盘点 ----------------
 
 @router.post("/scan")
@@ -391,7 +545,8 @@ def decision_scan(body: ScanRequest, request: Request, db: Session = Depends(get
     """券库存扫描：复用 ops.coupons_sync_all 的全账号遍历语义（status!=disabled 且
     token!=""，account_ids 可圈定范围；单账号凭证失效/协议异常不中断整体），拉取
     effective/historical 两桶券入 coupon_records 后，对全库 effective/settle_available
-    券跑 resolve_cost 成本盘点汇总。"""
+    券跑 resolve_cost 成本盘点汇总（by_category 按子类归组：count/cost_total，
+    含 0=未分类桶，金额口径与 total_cost_estimate 同为逐张 resolve_cost）。"""
     from routers.ops import _persist_coupon_records   # 延迟 import：复用 F4 落库映射
 
     q = (db.query(ChageeAccount)
@@ -424,8 +579,10 @@ def decision_scan(body: ScanRequest, request: Request, db: Session = Depends(get
         ok += 1
         _persist_coupon_records(db, account, result)   # 逐张容错，内部不抛
 
-    # 成本盘点：全库两桶可用券逐张 resolve_cost（规则匹配链 + fallback）
+    # 成本盘点：全库两桶可用券逐张 resolve_cost（规则匹配链 + fallback）+ classify_category
+    # 子类归组（子类只做分类，cost_total 的金额口径仍逐张 resolve_cost）
     rules = db.query(VoucherCostRule).all()
+    categories = db.query(VoucherCostCategory).all()
     cfg = decision_svc.load_config()
     coupons = (db.query(CouponRecord)
                  .filter(CouponRecord.bucket.in_(("effective", "settle_available"))).all())
@@ -433,6 +590,7 @@ def decision_scan(body: ScanRequest, request: Request, db: Session = Depends(get
     with_cost = unknown_cost = 0
     total_face = Decimal("0")
     total_cost = Decimal("0")
+    by_cat: dict[int, dict] = {}
     for c in coupons:
         face = _to_dec_or_none(c.amount)
         if face is not None:
@@ -443,6 +601,17 @@ def decision_scan(body: ScanRequest, request: Request, db: Session = Depends(get
             with_cost += 1
         else:
             unknown_cost += 1
+        cat = decision_svc.classify_category(categories, c)
+        agg = by_cat.setdefault(cat["category_id"],
+                                {"category_id": cat["category_id"],
+                                 "category_name": cat["category_name"],
+                                 "biz_type": cat["biz_type"],
+                                 "count": 0, "cost_total": Decimal("0")})
+        agg["count"] += 1
+        agg["cost_total"] += res["cost"]
+    by_category = [{**v, "cost_total": _money(v["cost_total"])}
+                   for v in sorted(by_cat.values(),
+                                   key=lambda x: (-x["count"], x["category_id"]))]
     summary = {
         "run_at": time.strftime("%Y-%m-%d %H:%M:%S"),
         "accounts_scanned": len(accounts), "accounts_ok": ok,
@@ -450,6 +619,7 @@ def decision_scan(body: ScanRequest, request: Request, db: Session = Depends(get
         "coupons_total": coupons_total, "coupons_with_cost": with_cost,
         "coupons_unknown_cost": unknown_cost,
         "total_face": _money(total_face), "total_cost_estimate": _money(total_cost),
+        "by_category": by_category,
     }
     log_audit(db, request, user, "decision.scan", "全账号",
               {k: summary[k] for k in ("accounts_scanned", "accounts_ok", "coupons_total",
@@ -488,7 +658,8 @@ def coupon_inventory(
     db: Session = Depends(get_db),
     _: SystemUser = Depends(require_perm("decision:manage")),
 ):
-    """券库存：coupon_records 每张带分型（classify_coupon）、成本（resolve_cost）与
+    """券库存：coupon_records 每张带分型（classify_coupon）、成本（resolve_cost）、
+    子类归类（classify_category：cost_category_id/name/biz_type，0=未分类）与
     本地可用性判定。usable 过滤依赖逐张文案/规则计算，Python 侧过滤后分页。"""
     q = (db.query(CouponRecord)
            .join(ChageeAccount, CouponRecord.account_id == ChageeAccount.id, isouter=True))
@@ -501,6 +672,7 @@ def coupon_inventory(
     rows = q.order_by(CouponRecord.id.desc()).all()
 
     rules = db.query(VoucherCostRule).all()
+    categories = db.query(VoucherCostCategory).all()
     cfg = decision_svc.load_config()
     now_ms = int(time.time() * 1000)
     items = []
@@ -508,6 +680,7 @@ def coupon_inventory(
         kind = decision_svc.classify_coupon(r.benefit_text, r.benefit2_text,
                                             r.template_name, r.biz_type)
         cost = decision_svc.resolve_cost(rules, r, cfg)
+        cat = decision_svc.classify_category(categories, r)
         # 可用性：静态初筛 + 门槛（库存无订单总额语境，按门槛与券面额比较——
         # 面额低于自身门槛的券单独使用必然不满足，折扣/兑换券无面额不作此判）
         usable_flag, reason = _screen_usable(r, now_ms)
@@ -528,6 +701,9 @@ def coupon_inventory(
             "can_discount": r.can_discount, "bucket": r.bucket,
             "coupon_kind": kind["kind"],
             "cost_price": _money(cost["cost"]), "cost_source": cost["source"],
+            "cost_category_id": cat["category_id"],
+            "cost_category_name": cat["category_name"],
+            "biz_type": cat["biz_type"],
             "usable": usable_flag, "unusable_reason": reason,
             "last_order_no": r.last_order_no,
         })
@@ -779,6 +955,7 @@ def orders_decide(body: DecideRequest, request: Request,
 
     # ⑤ 券候选：在线账号 + 未使用 + 两桶可用 + 有效期/门槛初筛
     rules = db.query(VoucherCostRule).all()
+    categories = db.query(VoucherCostCategory).all()
     cfg = decision_svc.load_config()
     now_ms = int(time.time() * 1000)
     cand_q = (db.query(CouponRecord)
@@ -883,6 +1060,11 @@ def orders_decide(body: DecideRequest, request: Request,
         blocked_reason = "无可用券候选（在线账号无未使用的有效券），且 allow_full_price=false 不允许原价单"
         breakdown = _full_price_breakdown()
     breakdown["price_source"] = price_source
+    # 券成本子类（业务分类层）：选中券的归类名（无券 ""）；子类只做分类，
+    # 成本金额仍由 resolve_cost（voucher_cost_rules）唯一决定，不影响上面的成本链
+    breakdown["cost_category_name"] = (
+        decision_svc.classify_category(categories, chosen)["category_name"]
+        if chosen is not None else "")
 
     # 推荐账号：选券候选所在账号；原价单取首个在线账号作建议
     account_id, account_label = 0, ""

@@ -219,3 +219,15 @@ api/index.js 新增 `apiDecision`（全部端点封装）：`packets(params)` `p
 - Python：`C:\baidunetdiskdownload\霸王茶姬\.venv_verify\Scripts\python.exe`（唯一环境）
 - offline 测试：`CHAGEE_MINT_ENABLED=0`、`CHAGEE_OPLOG_DB` 指测试库、`CHAGEE_RECONCILE_INTERVAL_SECONDS<=0`、`CHAGEE_MENU_REFRESH_INTERVAL_SECONDS<=0`、`CHAGEE_PAYWATCH_INTERVAL_SECONDS<=0`、`CHAGEE_TUNNEL_ENABLED=0`
 - 测试模式：`database.DB_PATH` 指向 `data/test_decision.db` 重建 engine + monkeypatch `services.chagee_bridge.build_client` 回放 wire（参考 test_orders_offline.py 头注）
+
+## 9. 券成本子类（2026-09-29 增补：业务分类层，与优惠券查询联动）
+
+**语义：子类只做分类，不做成本。** 成本金额仍由 voucher_cost_rules 的 resolve_cost 链唯一决定。
+
+- 表 `voucher_cost_categories`：name(unique)/biz_type(paid|free|bank|other)/match_type(同规则四类)/match_value/priority/enabled/note/sort；`voucher_cost_rules` 加 category_id(int,0=未分类，seed 轻量迁移)
+- 纯函数 `classify_category(categories, record_fields) -> {"category_id","category_name","biz_type"}`（enabled 按 priority 升序，四类匹配与 resolve_cost 共用 `_match_hit`，全不命中→0/""/""）
+- 端点：`GET/POST/PUT/DELETE /api/ops/decision/cost-categories(/{id})`（GET 带 coupon_count/face_total/cost_total，**仅统计 effective+settle_available 两桶**；DELETE 时挂靠规则 category_id 重置 0；权限 decision:manage）
+- cost-rules 全端点透传 category_id 并回显 category_name
+- `GET /api/ops/coupons/search`（优惠券查询模块联动，权限不变 feature:coupon）：行加 cost_price/cost_source/cost_category_id/cost_category_name/biz_type（fail-soft）；新参数 `cost_category`（0=不筛，**-1=未分类**——前端档案库筛选项约定值）；stats.by_category 为 {category_id: count}（**含全部桶**，与子类统计的两桶口径区分）
+- coupon-inventory 行加 cost_category_* 三字段；scan 汇总加 by_category；decide 的 cost_breakdown 加 cost_category_name
+- 前端：VoucherCostView 首位 Tab「成本子类」（CRUD+统计+查看券跳转 /ops/coupons?tab=archive&cost_category=id）；CouponQueryView 档案库加「成本/子类」列+子类筛选（fail-soft）+路由深链预设

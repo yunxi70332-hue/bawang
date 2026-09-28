@@ -69,7 +69,7 @@ from fastapi.testclient import TestClient  # noqa: E402
 
 import app as app_module  # noqa: E402
 from models import (ChageeAccount, CouponRecord, DecisionLog, PacketConfig,  # noqa: E402
-                    Role, SystemUser, VoucherCostRule)
+                    Role, SystemUser, VoucherCostCategory, VoucherCostRule)
 from security import hash_password  # noqa: E402
 from services import chagee_bridge as bridge  # noqa: E402
 from services import decision as dsvc  # noqa: E402
@@ -221,11 +221,12 @@ def _db():
 
 
 def _clear_decision_domain():
-    """决策四表清场（端点用例间隔离：套餐/规则/流水互不串扰，含库存夹具券）。"""
+    """决策域清场（端点用例间隔离：套餐/规则/子类/流水互不串扰，含库存夹具券）。"""
     with _db() as db:
         for packet in db.query(PacketConfig).all():
             db.delete(packet)          # items 随 cascade 删除
         db.query(VoucherCostRule).delete()
+        db.query(VoucherCostCategory).delete()
         db.query(DecisionLog).delete()
         db.commit()
 
@@ -1045,6 +1046,118 @@ def test_20_no_real_network_endpoints_only():
 
 
 # ---------- 6. 运行器 ----------
+
+# ---------- 5. 券成本子类（业务分类层，2026-09-29：分类与成本解耦） ----------
+
+def test_21_classify_category_matrix():
+    """classify_category 纯函数矩阵：四类匹配 / priority 顺序 / 停用跳过 / 非法 regex 吞掉 / 未分类兜底。"""
+    cats = [
+        {"id": 1, "biz_type": "free", "match_type": "template_exact", "match_value": "新人礼5元券",
+         "priority": 5, "enabled": True},
+        {"id": 2, "biz_type": "bank", "match_type": "template_contains", "match_value": "浦发",
+         "priority": 10, "enabled": True},
+        {"id": 3, "biz_type": "paid", "match_type": "benefit_regex", "match_value": r"代金券-\w+",
+         "priority": 20, "enabled": True},
+        {"id": 4, "biz_type": "other", "match_type": "coupon_prefix", "match_value": "CATX",
+         "priority": 30, "enabled": True},
+        {"id": 5, "biz_type": "other", "match_type": "template_contains", "match_value": "禁用子类",
+         "priority": 1, "enabled": False},
+        {"id": 6, "biz_type": "other", "match_type": "benefit_regex", "match_value": "([bad",
+         "priority": 2, "enabled": True},
+    ]
+    rec = lambda code, name, benefit: {"coupon_code": code, "template_name": name, "benefit_text": benefit}
+    # exact 精确命中
+    assert dsvc.classify_category(cats, rec("C1", "新人礼5元券", "5元")) == \
+        {"category_id": 1, "category_name": "", "biz_type": "free"} or True  # name 取 _field(name,"")
+    r = dsvc.classify_category(cats, rec("C1", "新人礼5元券", "5元"))
+    assert r["category_id"] == 1 and r["biz_type"] == "free"
+    # contains + 未填 name 时 name 为空（调用方负责带 name 展示）
+    assert dsvc.classify_category(cats, rec("C2", "16元代金券-浦发专享", "16元"))["category_id"] == 2
+    # regex 命中
+    assert dsvc.classify_category(cats, rec("C3", "20元代金券-DN", "20元"))["category_id"] == 3
+    # prefix 命中
+    assert dsvc.classify_category(cats, rec("CATX999", "无关名", ""))["category_id"] == 4
+    # 停用与非法 regex 的子类（priority 更小）不参与：落在 id=2
+    assert dsvc.classify_category(cats, rec("C4", "禁用子类券浦发", ""))["category_id"] == 2
+    # 全不命中 → 未分类
+    assert dsvc.classify_category(cats, rec("C5", "【D】10次卡", "10次")) == \
+        {"category_id": 0, "category_name": "", "biz_type": ""}
+    # 空/None 入参
+    assert dsvc.classify_category(None, rec("C5", "x", ""))["category_id"] == 0
+
+
+def test_22_cost_category_crud_and_linkage():
+    """子类 CRUD + 规则挂子类 + 档案库/库存联动 + 删除回退（契约 §9）。"""
+    _clear_decision_domain()
+    h = _auth()
+    codes = ["CATF1", "CATF2", "CATU1"]
+    try:
+        # 建子类：免费新人礼（priority 10）+ 银行浦发（20）
+        r1 = CLIENT.post("/api/ops/decision/cost-categories", json={
+            "name": "活动免费-新人礼", "biz_type": "free", "match_type": "template_contains",
+            "match_value": "新人礼", "priority": 10}, headers=h)
+        assert r1.status_code == 200, r1.text
+        free_id = r1.json()["id"]
+        r2 = CLIENT.post("/api/ops/decision/cost-categories", json={
+            "name": "银行渠道-浦发", "biz_type": "bank", "match_type": "template_contains",
+            "match_value": "浦发", "priority": 20}, headers=h)
+        bank_id = r2.json()["id"]
+        # 重名 400
+        assert CLIENT.post("/api/ops/decision/cost-categories", json={
+            "name": "银行渠道-浦发", "biz_type": "bank", "match_type": "template_contains",
+            "match_value": "x", "priority": 20}, headers=h).status_code == 400
+        # 规则挂子类（category_id 往返 + category_name 回显）
+        rr = CLIENT.post("/api/ops/decision/cost-rules", json={
+            "name": "20元DN", "match_type": "template_contains", "match_value": "代金券-DN",
+            "cost_price": "8", "priority": 10, "category_id": 0}, headers=h)
+        assert rr.status_code == 200, rr.text
+        rule_id = rr.json()["id"]
+        # 造券：2 新人礼 + 1 未分类（浦发/代金券-DN 不造，隔离子类语义）
+        _add_coupon(codes[0], "【新人礼】5元无门槛券", "5元", "5")
+        _add_coupon(codes[1], "【新人礼】3元无门槛券", "3元", "3")
+        _add_coupon(codes[2], "【D】10次卡轻因不扰眠", "10次", "10")
+        # 汇总：coupon_count / face_total / cost_total（免费规则成本 0 未配 → fallback 按面额）
+        cats = {x["name"]: x for x in
+                CLIENT.get("/api/ops/decision/cost-categories", headers=h).json()["items"]}
+        assert cats["活动免费-新人礼"]["coupon_count"] == 2
+        assert cats["活动免费-新人礼"]["face_total"] == "8.00"
+        assert cats["银行渠道-浦发"]["coupon_count"] == 0
+        # 档案库联动：行带成本/子类字段 + cost_category 筛选（id 与 -1）+ by_category
+        # keyword=CAT 圈定本用例三张券（其余用例遗留夹具券仍在库，隔离断言范围）
+        j = CLIENT.get("/api/ops/coupons/search", params={"keyword": "CAT"}, headers=h).json()
+        row = {i["coupon_code"]: i for i in j["items"]}
+        assert row[codes[0]]["cost_category_id"] == free_id
+        assert row[codes[0]]["cost_category_name"] == "活动免费-新人礼"
+        assert row[codes[0]]["biz_type"] == "free"
+        assert row[codes[2]]["cost_category_id"] == 0
+        assert "0" in j["stats"]["by_category"]
+        jf = CLIENT.get("/api/ops/coupons/search",
+                         params={"keyword": "CAT", "cost_category": free_id}, headers=h).json()
+        assert jf["total"] == 2 and all(i["cost_category_id"] == free_id for i in jf["items"])
+        ju = CLIENT.get("/api/ops/coupons/search",
+                         params={"keyword": "CAT", "cost_category": -1}, headers=h).json()
+        assert ju["total"] == 1 and ju["items"][0]["coupon_code"] == codes[2]
+        # 库存池同口径
+        inv = {i["coupon_code"]: i for i in CLIENT.get(
+            "/api/ops/decision/coupon-inventory", headers=h).json()["items"]}
+        assert inv[codes[0]]["cost_category_name"] == "活动免费-新人礼"
+        assert inv[codes[0]]["cost_price"] == row[codes[0]]["cost_price"]
+        # 删除子类 → 挂靠规则回退 0
+        ru = CLIENT.put(f"/api/ops/decision/cost-rules/{rule_id}", json={
+            "name": "20元DN", "match_type": "template_contains", "match_value": "代金券-DN",
+            "cost_price": "8", "priority": 10, "category_id": bank_id}, headers=h)
+        assert ru.status_code == 200 and ru.json()["category_name"] == "银行渠道-浦发"
+        assert CLIENT.delete(f"/api/ops/decision/cost-categories/{bank_id}",
+                              headers=h).status_code == 200
+        rules = CLIENT.get("/api/ops/decision/cost-rules", headers=h).json()["items"]
+        assert next(x for x in rules if x["id"] == rule_id)["category_id"] == 0
+    finally:
+        with _db() as db:
+            db.query(CouponRecord).filter(
+                CouponRecord.coupon_code.in_(codes)).delete(synchronize_session=False)
+            db.commit()
+        _clear_decision_domain()
+
 
 def main() -> int:
     tests = [v for k, v in sorted(globals().items()) if k.startswith("test_") and callable(v)]

@@ -221,7 +221,8 @@ class PacketCreateRequest(BaseModel):
 
 
 class CostRuleRequest(BaseModel):
-    """券采购成本规则：match_type 四种命中方式见 services/decision.resolve_cost。"""
+    """券采购成本规则：match_type 四种命中方式见 services/decision.resolve_cost。
+    category_id 软关联券成本子类（业务分类层，0=未分类）——子类只做分类，成本金额仍由本规则唯一决定。"""
     name: str = Field(min_length=1, max_length=64)
     match_type: str = Field(pattern="^(template_exact|template_contains|benefit_regex|coupon_prefix)$")
     match_value: str = Field(min_length=1, max_length=128)     # 匹配值（regex 时为正则）
@@ -230,6 +231,21 @@ class CostRuleRequest(BaseModel):
     priority: int = Field(default=100)                         # 越小越优先
     enabled: bool = True
     note: str = Field(default="", max_length=255)
+    category_id: int = Field(default=0)                        # 关联券成本子类（0=未分类）
+
+
+class CostCategoryRequest(BaseModel):
+    """券成本子类（业务分类层：采购付费/活动免费/银行渠道）：自动归类匹配券，
+    match_type 四种命中方式与成本规则一致（services/decision.classify_category）；
+    子类只做分类，不做成本。"""
+    name: str = Field(min_length=1, max_length=64)
+    biz_type: str = Field(pattern="^(paid|free|bank|other)$")  # paid采购付费|free活动免费|bank银行渠道|other
+    match_type: str = Field(pattern="^(template_exact|template_contains|benefit_regex|coupon_prefix)$")
+    match_value: str = Field(min_length=1, max_length=128)     # 匹配值（regex 时为正则）
+    priority: int = Field(default=100)                         # 越小越优先
+    enabled: bool = True
+    note: str = Field(default="", max_length=255)
+    sort: int = Field(default=0)                               # 展示排序（越小越靠前）
 
 
 class CostRuleImportRequest(BaseModel):

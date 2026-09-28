@@ -12,6 +12,8 @@ margin 为利润率百分比，一位小数字符串（不带 %）。
   parse_benefit      benefitText 面额解析（"20元"→20，"满30减5"→5）
   classify_coupon    券文案 → face/discount/exchange/unknown + face/rate
   resolve_cost       券 → 采购成本（VoucherCostRule 匹配链，未命中按面额×fallback 系数）
+  classify_category  券 → 成本子类归类（业务分类层：采购付费/活动免费/银行渠道；
+                     子类只做分类不做成本——成本金额仍由 resolve_cost 唯一决定）
   estimate_deduction 券种 → 预计抵扣（返回值带"是否估算"标记）
   match_packets      套餐命中（价格区间 + 时段 + 商品圈定，支持跨零点时段）
   evaluate_cost      收入/总额/抵扣/成本/杂费 → cost_breakdown（profit/margin）
@@ -140,13 +142,37 @@ def classify_coupon(benefit_text, benefit2_text, template_name, biz_type="") -> 
 
 # ---------------- 成本与抵扣 ----------------
 
+def _match_hit(match_type, match_value, template_name, benefit_text, coupon_code) -> bool:
+    """四类匹配判定（resolve_cost 与 classify_category 共用，语义完全一致）：
+    template_exact（=template_name）/ template_contains（∈template_name）/
+    benefit_regex（re.search 于 template_name+" "+benefit_text 拼接串）/
+    coupon_prefix（coupon_code startswith）。
+    match_value 空 / 未知 match_type / 任何异常（regex 非法等）→ False（视为不命中）。"""
+    try:
+        match_type = str(match_type or "")
+        match_value = str(match_value or "")
+        if not match_value:
+            return False
+        if match_type == "template_exact":
+            return template_name == match_value
+        if match_type == "template_contains":
+            return match_value in template_name
+        if match_type == "benefit_regex":
+            return bool(re.search(match_value, f"{template_name} {benefit_text}"))
+        if match_type == "coupon_prefix":
+            return coupon_code.startswith(match_value)
+        return False
+    except Exception:
+        return False
+
+
 def resolve_cost(rules, record_fields, config=None) -> dict:
     """券 → 采购成本：{"cost": Decimal, "source": "rule:<id>"|"fallback", "rule": 规则对象|None}。
 
     匹配链（契约 §4）：enabled 规则按 priority 升序逐条尝试——
-      template_exact（=template_name）/ template_contains（∈template_name）/
-      benefit_regex（re.search 于 template_name+" "+benefit_text 拼接串）/
-      coupon_prefix（coupon_code startswith）；
+    template_exact（=template_name）/ template_contains（∈template_name）/
+    benefit_regex（re.search 于 template_name+" "+benefit_text 拼接串）/
+    coupon_prefix（coupon_code startswith），四类命中判定见 _match_hit；
     face_value 非空时须等于券面额（record_fields["amount"]）才命中；
     全部未命中 → cost = 面额 × cost_fallback_ratio，source="fallback"。
     任何异常（regex 非法等）安全吞掉视为该条不命中。
@@ -170,22 +196,9 @@ def resolve_cost(rules, record_fields, config=None) -> dict:
     )
     for rule in ordered:
         try:
-            match_type = str(_field(rule, "match_type") or "")
-            match_value = str(_field(rule, "match_value") or "")
-            if not match_value:
-                continue
-            if match_type == "template_exact":
-                hit = template_name == match_value
-            elif match_type == "template_contains":
-                hit = match_value in template_name
-            elif match_type == "benefit_regex":
-                hit = bool(re.search(match_value, f"{template_name} {benefit_text}"))
-            elif match_type == "coupon_prefix":
-                hit = coupon_code.startswith(match_value)
-            else:
-                hit = False
-            if not hit:
-                continue
+            if not _match_hit(_field(rule, "match_type"), _field(rule, "match_value"),
+                              template_name, benefit_text, coupon_code):
+                continue   # 未命中 → 继续走链
             face_check = str(_field(rule, "face_value") or "").strip()
             if face_check and (face is None or _dec(face_check) != face):
                 continue   # 面额校验不通过 → 视为不命中，继续走链
@@ -194,6 +207,35 @@ def resolve_cost(rules, record_fields, config=None) -> dict:
         except Exception:
             continue   # regex 非法等安全吞掉，视为不命中
     return {"cost": (face or Decimal("0")) * fallback_ratio, "source": "fallback", "rule": None}
+
+
+def classify_category(categories, record_fields) -> dict:
+    """券 → 成本子类归类：{"category_id": int, "category_name": str, "biz_type": str}。
+
+    子类只做分类，不做成本——成本金额仍由 resolve_cost（voucher_cost_rules）唯一决定。
+    enabled 子类按 priority 升序逐条尝试，四类匹配语义与 resolve_cost 完全一致
+    （共用 _match_hit：template_exact / template_contains / benefit_regex（于
+    template_name+" "+benefit_text 拼接串）/ coupon_prefix）；
+    全不命中 → {"category_id": 0, "category_name": "", "biz_type": ""}（0=未分类）。
+    异常（regex 非法等）安全吞掉视为不命中；categories 子类与 record_fields
+    券记录均可为 ORM 对象或 dict（_field 双态取字段）。
+    """
+    record_fields = record_fields or {}
+    template_name = str(_field(record_fields, "template_name") or "")
+    benefit_text = str(_field(record_fields, "benefit_text") or "")
+    coupon_code = str(_field(record_fields, "coupon_code") or "")
+    ordered = sorted(
+        (c for c in (categories or []) if bool(_field(c, "enabled", True))),
+        key=lambda c: _dec(_field(c, "priority", 100)),
+    )
+    for cat in ordered:
+        if not _match_hit(_field(cat, "match_type"), _field(cat, "match_value"),
+                          template_name, benefit_text, coupon_code):
+            continue   # 未命中 → 继续走链
+        return {"category_id": int(_field(cat, "id", 0) or 0),
+                "category_name": str(_field(cat, "name") or ""),
+                "biz_type": str(_field(cat, "biz_type") or "")}
+    return {"category_id": 0, "category_name": "", "biz_type": ""}
 
 
 def estimate_deduction(kind, face, rate, total):

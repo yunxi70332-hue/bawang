@@ -21,6 +21,8 @@ _COLUMN_MIGRATIONS = [
     # 全量取餐码扫描（2026-09-28）：官方 orderTime 原文 + 履约方式（businessTypeText）
     ("order_records", "order_time", "VARCHAR(32) DEFAULT '' NOT NULL"),
     ("order_records", "biz_type", "VARCHAR(16) DEFAULT '' NOT NULL"),
+    # 券成本子类（2026-09-28）：成本规则软关联子类（0=未分类，子类删除时回退 0）
+    ("voucher_cost_rules", "category_id", "INTEGER DEFAULT 0 NOT NULL"),
 ]
 
 

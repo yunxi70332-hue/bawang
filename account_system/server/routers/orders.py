@@ -24,11 +24,12 @@ from sqlalchemy.orm import Session
 from audit import log_audit
 from database import SessionLocal, get_db
 from models import (ChageeAccount, CouponRecord, CouponUsageLog, DecisionLog, OrderRecord,
-                    PayEventLog, SystemUser)
+                    PayEventLog, SystemUser, VoucherCostCategory, VoucherCostRule)
 from oplog import log_op
 from schemas import CashierUrlRequest, OrderCreateRequest, OrderSettleRequest, PayModeRequest
 from security import require_perm
 from services import chagee_bridge as bridge
+from services import decision as decision_svc
 from services import events_bus
 from services import pay_params
 from services.order_reconcile import (
@@ -1201,18 +1202,31 @@ def coupon_records(
     }
 
 
+# 券成本/子类联动字段兜底值（上下文加载或逐张计算失败时 fail-soft，不阻塞搜索主流程）
+_COST_FIELDS_FALLBACK = {"cost_price": "", "cost_source": "",
+                         "cost_category_id": 0, "cost_category_name": "", "biz_type": ""}
+
+
 @global_router.get("/coupons/search")
 def coupons_search(
     keyword: str = Query("", max_length=64),
     bucket: str = Query("", pattern="^(effective|historical|settle_available)?$"),
     account_id: int = Query(0),
     scene: str = Query("", max_length=32, description="使用范围筛选（如 自取/外卖/团餐）"),
+    cost_category: int = Query(0, description="券成本子类筛选（0=不筛，-1=未分类；匹配含正则语义，须 resolve 后内存过滤）"),
     page: int = Query(1, ge=1), page_size: int = Query(20, ge=1, le=100),
     db: Session = Depends(get_db),
     user: SystemUser = Depends(require_perm("feature:coupon")),
 ):
     """全库券档案模糊搜索：keyword 单串多维度模糊匹配（券码/券名/权益/使用范围/门槛/token 指纹/归属账号），
-    可叠加 bucket / 使用范围 / 归属账号 过滤；返回分页明细 + 命中维度统计（联动仪表盘）。"""
+    可叠加 bucket / 使用范围 / 归属账号 / 券成本子类 过滤；返回分页明细 + 命中维度统计（联动仪表盘）。
+
+    券成本联动（子代理 F，2026-09-28）：每行带 cost_price/cost_source（resolve_cost：
+    "rule:N"|"fallback"）与 cost_category_id/name/biz_type（classify_category 子类归类，
+    0=未分类）——每请求查一次 enabled 成本规则/子类 + decision 配置，循环内复用；
+    整体 try fail-soft，失败时这些字段给默认值不阻塞搜索。cost_category 筛选因匹配为
+    正则语义无法下推 SQL，在 resolve/classify 后内存过滤，分页 total 按过滤后计；
+    stats.by_category（含 0=未分类）统计当前 keyword/bucket/scene/account 筛选后的全集。"""
     q = db.query(CouponRecord).join(ChageeAccount, CouponRecord.account_id == ChageeAccount.id, isouter=True)
     if keyword:
         like = f"%{keyword}%"
@@ -1230,9 +1244,35 @@ def coupons_search(
         q = q.filter(CouponRecord.account_id == account_id)
     if scene:
         q = q.filter(CouponRecord.usable_scenes.like(f"%{scene}%"))
-    total = q.count()
-    rows = (q.order_by(CouponRecord.id.desc())
-             .offset((page - 1) * page_size).limit(page_size).all())
+    rows = q.order_by(CouponRecord.id.desc()).all()
+
+    # 券成本/子类上下文（每请求一次，循环内复用）；加载失败 → rules=None 触发全行兜底
+    rules = categories = None
+    cfg: dict = {}
+    try:
+        rules = (db.query(VoucherCostRule)
+                   .filter(VoucherCostRule.enabled.is_(True)).all())
+        categories = (db.query(VoucherCostCategory)
+                        .filter(VoucherCostCategory.enabled.is_(True)).all())
+        cfg = decision_svc.load_config()
+    except Exception:
+        logger.warning("券成本/子类联动加载失败（搜索降级默认值）", exc_info=True)
+        rules = categories = None
+
+    def _cost_fields(r: CouponRecord) -> dict:
+        """券 → 成本+子类字段（fail-soft：任何异常回默认值，绝不阻塞搜索）。"""
+        if rules is None:
+            return dict(_COST_FIELDS_FALLBACK)
+        try:
+            res = decision_svc.resolve_cost(rules, r, cfg)
+            cat = decision_svc.classify_category(categories, r)
+            return {"cost_price": _fmt_money(res["cost"]),
+                    "cost_source": str(res["source"]),
+                    "cost_category_id": int(cat["category_id"]),
+                    "cost_category_name": str(cat["category_name"]),
+                    "biz_type": str(cat["biz_type"])}
+        except Exception:
+            return dict(_COST_FIELDS_FALLBACK)
 
     def _coupon_display(r: CouponRecord) -> tuple[str, str]:
         """(coupon_kind, amount_display)：面额展示服务端派生——折扣率券「7折」原样、
@@ -1244,16 +1284,32 @@ def coupons_search(
             return kind, (f"{r.amount}元" if r.amount else r.benefit_text)
         return kind, r.benefit_text
 
-    # 命中集合的维度统计（与分页解耦，基于同一筛选全集）
-    stat = {"effective": 0, "historical": 0, "settle_available": 0, "used": 0}
-    for bucket_val, used_cnt in q.with_entities(CouponRecord.bucket,
-                                                CouponRecord.last_order_no).all():
-        if bucket_val in stat:
-            stat[bucket_val] += 1
-        if used_cnt:
-            stat["used"] += 1
-    items = []
+    # 命中集合的维度统计（与分页及 cost_category 过滤解耦，基于同一筛选全集；
+    # by_category 含 0=未分类，键为字符串化的子类 id）
+    stat = {"effective": 0, "historical": 0, "settle_available": 0, "used": 0,
+            "by_category": {}}
+    cost_by_code: dict[str, dict] = {}
     for r in rows:
+        if r.bucket in stat:
+            stat[r.bucket] += 1
+        if r.last_order_no:
+            stat["used"] += 1
+        fields = _cost_fields(r)
+        cost_by_code[r.coupon_code] = fields
+        key = str(fields["cost_category_id"])
+        stat["by_category"][key] = stat["by_category"].get(key, 0) + 1
+
+    # cost_category 内存过滤（正则语义无法下推 SQL）→ 过滤后计 total 再分页
+    # -1=未分类（cost_category_id==0，前端档案库「未分类」筛选项约定值）
+    if cost_category:
+        want = 0 if cost_category == -1 else cost_category
+        rows = [r for r in rows if cost_by_code[r.coupon_code]["cost_category_id"] == want]
+    total = len(rows)
+    start = (page - 1) * page_size
+    page_rows = rows[start:start + page_size]
+
+    items = []
+    for r in page_rows:
         kind, display = _coupon_display(r)
         items.append({
             "id": r.id, "coupon_code": r.coupon_code,
@@ -1271,6 +1327,7 @@ def coupons_search(
             "token_fingerprint": r.token_fingerprint,
             "last_used_at": r.last_used_at, "last_order_no": r.last_order_no,
             "updated_at": r.updated_at,
+            **cost_by_code[r.coupon_code],
         })
     return {
         "total": total,
