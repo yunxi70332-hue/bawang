@@ -17,6 +17,7 @@ import json
 import os
 import sys
 import time
+import urllib.parse
 from decimal import Decimal
 
 BASE = os.path.dirname(os.path.abspath(__file__))                 # .../account_system/server
@@ -99,6 +100,12 @@ class FakeClient:
     def post(self, path, body=None, **kw):
         CALLS.append(path)
         if path.endswith("/goods/sku/calculatePrice"):
+            if FIXTURE["mode"] == "rate":
+                return {"errcode": "0", "data": {   # 折扣率券夹具：22 元单价（事故原值）
+                    "spuId": "625339451983278080", "spuType": "stand", "skuId": "653632618000097282",
+                    "totalSalePrice": "22.00", "totalTradePrice": "22.00", "totalGoodsItemPrice": "22.00",
+                    "totalGoodsItemDiscountAmount": "0.00", "totalGoodsPaymentDiscountAmount": "0.00",
+                    "totalDiscountAmount": "0.00", "totalWrappingPrice": "0.00"}}
             return {"errcode": "0", "data": {            # 与 settle 夹具自洽：20 元无商品折
                 "spuId": "625339451983278080", "spuType": "stand", "skuId": "653632618000097282",
                 "totalSalePrice": "20.00", "totalTradePrice": "20.00", "totalGoodsItemPrice": "20.00",
@@ -109,12 +116,16 @@ class FakeClient:
         if path.endswith("/shoppingCart/get"):
             return _resp(TRADE[3])                       # 加购后的满购物车快照（totalTradePrice 20）
         if path.endswith("/order/settlePrice"):
+            if FIXTURE["mode"] == "rate":
+                return RATE_SETTLE_RESP                  # 7折券：服务端回填 6.6（带券/自荐同响应）
             rows = (body or {}).get("discountList") or []
             if not rows:
                 return _resp(TRADE[5])                   # 无券(recommendCoupon=true)：服务端自荐 20 元券，实付 0
             amt = Decimal(str(rows[0].get("discountAmount") or 0))
             return _resp(TRADE[5] if amt == 20 else TRADE[6])   # 20 元抵扣回样本5，10 元回样本6
         if path.endswith("/order/createOrder"):
+            if FIXTURE["mode"] == "rate":
+                return RATE_CREATE_RESP                  # 差额单：payUrl 支付串（15.40）
             return _resp(ZERO[0])                        # 零元单响应：data 仅 orderNo
         if path.endswith("/order/getOrderDetail"):
             return _resp(ZERO[1])                        # 制作中 TA0001，券核销 HYW
@@ -149,6 +160,35 @@ ACC_LABEL = f"下单冒烟#{ACC_ID}"
 ORDER_NO = "202609260910110023151918250"          # 零元 wire 样本订单号
 COUPON_HYW = "1309482592713252864"                # 霸王茶姬20元代金券-HYW（样本5 服务端自荐券）
 STORE_NO, STORE_NAME = "CN03324", "福建龙岩新罗万达广场店"
+
+# ---------- 折扣率券（"7折"）wire 回放夹具（2026-09-28 事故回归） ----------
+# 事故：coupon_face 首数字正则把 "7折" 当 ¥7 → ΣdiscountList=7 ≠ totalDiscountAmount=6.6，
+# assert_settle_consistency 提交前拦截（账号 茶壶#8，22 元大杯 ×7折 = 抵扣 6.6 / 应付 15.4）
+FIXTURE = {"mode": "default"}                     # "rate" = 折扣率券回放
+RATE_COUPON_CODE = "CRATE7Z"
+RATE_ORDER_NO = "202609280910119999000000099"
+RATE_COUPON = {
+    "couponCode": RATE_COUPON_CODE, "templateName": "全品类单杯7折券-离线",
+    "benefitText": "7折", "benefit2Text": "", "thresholdTips": "优惠1杯",
+    "useEndTime": 4102444800000, "canDiscount": True,   # 2100 年：永不过期，断言确定性
+}
+RATE_SETTLE_RESP = {"errcode": "0", "data": {
+    "confirmOrderKey": "RATE-KEY-1",
+    "tradeFundInfo": {"totalTradePrice": "22", "buyerRealPrice": "15.4",
+                      "totalDiscountAmount": "6.6", "totalCouponDiscountAmount": "6.6"},
+    "assetInfo": {"userCouponInfo": {"availableCouponList": [RATE_COUPON]}},
+    "orderGroupList": [{"tradeFundInfo": {"buyerRealPrice": "15.4"}}],
+    "discountList": [{"discountId": RATE_COUPON_CODE, "discountName": "全品类单杯7折券-离线",
+                      "discountSource": 1, "discountType": 1, "scopeType": 2,
+                      "discountAmount": "6.6", "currentSelect": None}],
+}}
+RATE_CREATE_RESP = {"errcode": "0", "data": {
+    "orderNo": RATE_ORDER_NO, "payNo": "CHP20260928RATE000000000000",
+    "payUrl": json.dumps({"requestJson": {"orderStr":
+        "out_trade_no=331LRATE0001&total_amount=15.40&biz_content=" + urllib.parse.quote(
+            json.dumps({"out_trade_no": "331LRATE0001", "total_amount": "15.40",
+                        "time_expire": "2026-09-28 23:00:00"}))}}),
+}}
 
 CLIENT = TestClient(app_module.app)
 _tokens: dict[str, str] = {}
@@ -238,6 +278,47 @@ def test_create_zero_with_coupon():
                           .filter(AuditLog.action == "feature.order_settle", AuditLog.target == ACC_LABEL)
                           .first())
         assert settle_audit is not None
+
+
+def test_create_with_rate_coupon():
+    """折扣率券（7折）回归：预览/下单全链路走服务端回填 6.6 —— 旧缺陷本地按 ¥7 构造行
+    会被一致性断言 409 拦截（2026-09-28 事故复现→修复验证）。"""
+    FIXTURE["mode"] = "rate"
+    try:
+        # 预览：服务端自荐 7折券并回填 totalDiscountAmount=6.6（旧口径 recommended_deduction=7.00）
+        draft_id, preview = _settle()
+        assert preview["total_trade_price"] == "22.00"
+        assert preview["recommended_coupon"]["couponCode"] == RATE_COUPON_CODE
+        assert preview["recommended_deduction"] == "6.60"
+        assert preview["estimated_pay"] == "15.40"
+        assert preview["scenario_preview"] == "partial"
+        # 下单：取服务端回填行（Σ=6.6 == totalDiscountAmount=6.6）→ 一致性通过、差额成单
+        r = CLIENT.post(f"/api/ops/accounts/{ACC_ID}/orders/create",
+                        json={"draft_id": draft_id, "coupon_code": RATE_COUPON_CODE},
+                        headers=_auth())
+        assert r.status_code == 200, f"create 失败: {r.status_code} {r.text}"
+        data = r.json()
+        assert data["result"] == "partial"
+        assert data["order_no"] == RATE_ORDER_NO
+        assert data["total_amount"] == "15.40"
+        with database.SessionLocal() as db:
+            rec = db.query(OrderRecord).filter(OrderRecord.order_no == RATE_ORDER_NO).one()
+            assert rec.scenario == "partial" and rec.coupon_code == RATE_COUPON_CODE
+            assert rec.pay_amount == "15.4" and rec.total_amount == "22"
+            usage = (db.query(CouponUsageLog)
+                       .filter(CouponUsageLog.coupon_code == RATE_COUPON_CODE,
+                               CouponUsageLog.result == "success")
+                       .order_by(CouponUsageLog.id.desc()).first())
+            assert usage is not None and usage.deduction == "6.60"   # 服务端事实（旧口径记 7）
+            crec = db.query(CouponRecord).filter(CouponRecord.coupon_code == RATE_COUPON_CODE).one()
+            assert crec.amount == ""                                 # 折扣率券不落元面额
+            # 清场：本单 status=1 会卡后续用例的单次一单守卫，置已完成
+            rec.status = 6
+            db.commit()
+    finally:
+        FIXTURE["mode"] = "default"
+        with orders_router._draft_lock:
+            orders_router._drafts.pop(ACC_ID, None)
 
 
 def test_viewer_forbidden():

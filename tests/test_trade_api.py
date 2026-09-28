@@ -85,10 +85,25 @@ def _coupon(code: str, face: str, threshold: str = "", end: int = FUTURE_MS,
     }
 
 
+def _rate_coupon(code: str, rate: str, threshold: str = "", end: int = FUTURE_MS,
+                 can_discount: bool = True) -> dict:
+    return {
+        "couponCode": code,
+        "templateName": f"茶姬单杯{rate}折券-T",
+        "benefitText": f"{rate}折",
+        "thresholdTips": threshold,
+        "useEndTime": end,
+        "canDiscount": can_discount,
+    }
+
+
 COUPON_20 = _coupon("C20", "20")
 COUPON_10 = _coupon("C10", "10")
 COUPON_20_T25 = _coupon("C25T", "20", threshold="满25元可用")
 COUPON_EXPIRED = _coupon("CEXP", "20", end=PAST_MS)
+COUPON_7Z = _rate_coupon("C7Z", "7")      # 全品类单杯7折券（2026-09-28 事故券型）
+COUPON_78Z = _rate_coupon("C78Z", "7.8")  # 【摇优惠】单杯78折券
+COUPON_5Z = _rate_coupon("C5Z", "5")
 
 
 # ---------------- classify：场景判据 ----------------
@@ -165,6 +180,81 @@ def test_pick_coupon_excludes_threshold_expired_and_empty():
         [_coupon("CDIS", "20", can_discount=False)], "20")
     assert entry is None and ded == Decimal("0")
     assert ChageeTradeApi.pick_coupon([], "20") == (None, Decimal("0"))
+
+
+# ---------------- 折扣率券（"7折"）券型感知（2026-09-28 修复回归） ----------------
+# 事故：coupon_face 首数字正则把 "7折" 当 ¥7 固定面额 → ΣdiscountList=7 ≠
+# totalDiscountAmount=6.3/6.6/4.84，assert_settle_consistency 提交前拦截
+
+def test_coupon_kind_classifies_rate_fixed_other():
+    """"7折"/"7.8折"=rate；"20元"=fixed；"免10杯"/空=other。"""
+    assert ChageeTradeApi.coupon_kind(COUPON_7Z) == "rate"
+    assert ChageeTradeApi.coupon_kind(COUPON_78Z) == "rate"
+    assert ChageeTradeApi.coupon_kind(COUPON_20) == "fixed"
+    assert ChageeTradeApi.coupon_kind({"benefitText": "免10杯"}) == "other"
+    assert ChageeTradeApi.coupon_kind({"benefitText": ""}) == "other"
+
+
+def test_expected_deduction_rate_math_matches_incident():
+    """事故数值精确复现：7折@21→6.30、7折@22→6.60、7.8折@22→4.84（均 2 位小数）。"""
+    assert ChageeTradeApi.expected_deduction(COUPON_7Z, "21") == Decimal("6.30")
+    assert ChageeTradeApi.expected_deduction(COUPON_7Z, "22") == Decimal("6.60")
+    assert ChageeTradeApi.expected_deduction(COUPON_78Z, "22") == Decimal("4.84")
+    # fixed 券语义不变：min(面额, 总价)；other 不计抵扣
+    assert ChageeTradeApi.expected_deduction(COUPON_20, "12") == Decimal("12")
+    assert ChageeTradeApi.expected_deduction(COUPON_20, "30") == Decimal("20")
+    assert ChageeTradeApi.expected_deduction({"benefitText": "免10杯"}, "20") == Decimal("0")
+
+
+def test_pick_coupon_rate_never_covers_total():
+    """total=6 + 7折券：旧缺陷 face=7≥6 误判可覆盖（ded=6 零元）；现按折率 ded=1.80 差额单。"""
+    entry, ded = ChageeTradeApi.pick_coupon([COUPON_7Z], "6")
+    assert entry["couponCode"] == "C7Z"
+    assert ded == Decimal("1.80")
+    assert ded < Decimal("6")
+
+
+def test_pick_coupon_mixed_rate_vs_fixed_by_deduction():
+    """混合券池按预估抵扣统一比较：22 元下单 7折(ded 6.6) 不敌 10元券(ded 10)；
+    5折(ded 11) 胜 10元券；fixed 券覆盖行为不受影响。"""
+    entry, ded = ChageeTradeApi.pick_coupon([COUPON_7Z, COUPON_10], "22")
+    assert (entry["couponCode"], ded) == ("C10", Decimal("10"))
+    entry, ded = ChageeTradeApi.pick_coupon([COUPON_5Z, COUPON_10], "22")
+    assert (entry["couponCode"], ded) == ("C5Z", Decimal("11"))
+    entry, ded = ChageeTradeApi.pick_coupon([COUPON_20, COUPON_10], "20")   # fixed 覆盖优先不变
+    assert (entry["couponCode"], ded) == ("C20", Decimal("20"))
+
+
+def _rate_settle() -> SettleResult:
+    """事故单 SettleResult：22 元 + 7折券，服务端回填 discountList/totalDiscountAmount=6.6。"""
+    return SettleResult(
+        confirm_order_key="K1",
+        total_trade_price="22", buyer_real_price="15.4",
+        available_coupons=[COUPON_7Z, COUPON_10], order_group_list=[{}],
+        trade_fund_info={"totalTradePrice": "22", "buyerRealPrice": "15.4",
+                         "totalDiscountAmount": "6.6"},
+        discount_list=[{
+            "discountId": "C7Z", "discountName": "茶姬单杯7折券-T",
+            "discountSource": 1, "discountType": 1, "scopeType": 2,
+            "discountAmount": "6.6", "currentSelect": None,
+        }],
+        raw={},
+    )
+
+
+def test_discount_rows_for_uses_server_backfilled_row():
+    """下单行取服务端回填：discount_rows_for 返回该券行（currentSelect 强制 True），
+    过三向一致性；本地旧口径（7 元）构造的行必须被断言拦截——事故的两种走向。"""
+    settle = _rate_settle()
+    rows = settle.discount_rows_for("C7Z")
+    assert len(rows) == 1
+    assert rows[0]["discountAmount"] == "6.6"
+    assert rows[0]["currentSelect"] is True
+    ChageeTradeApi.assert_settle_consistency(settle, rows)          # 服务端行 → 通过
+    with pytest.raises(ConsistencyError):                            # 本地旧猜 7 元 → 拦截
+        ChageeTradeApi.assert_settle_consistency(
+            settle, [ChageeTradeApi.build_discount_row(COUPON_7Z, Decimal("7"))])
+    assert settle.discount_rows_for("UNKNOWN") == []                 # 无回填 → 空，走兜底
 
 
 # ---------------- build_discount_row：折扣行模板 ----------------
