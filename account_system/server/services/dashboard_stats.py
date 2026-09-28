@@ -7,7 +7,7 @@
 """
 
 from datetime import datetime, timedelta
-from decimal import Decimal
+from decimal import Decimal, ROUND_HALF_UP
 
 from sqlalchemy import func
 from sqlalchemy.orm import Session
@@ -86,7 +86,8 @@ def _collect_profit_domain(db: Session, trend_start: datetime) -> dict:
         "revenue_total": _fmt_money(revenue),
         "cost_total": _fmt_money(cost),
         "profit_total": _fmt_money(profit_sum),
-        "margin_avg": f"{margin_avg.quantize(Decimal('0.1'))}",
+        # ROUND_HALF_UP 与 profit-report summary 对齐（默认 HALF_EVEN 会产生 25.65→25.6 口径差）
+        "margin_avg": f"{margin_avg.quantize(Decimal('0.1'), rounding=ROUND_HALF_UP)}",
         "blocked_count": blocked,
     }
 

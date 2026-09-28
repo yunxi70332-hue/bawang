@@ -244,8 +244,11 @@ def packet_update(packet_id: int, body: PacketCreateRequest, request: Request,
     packet.available_end = body.available_end or ""
     packet.min_profit = body.min_profit or ""
     packet.note = body.note or ""
-    # items 全量替换：清空集合由 cascade delete-orphan 兜底删除旧行后重建
+    # items 全量替换：清空集合由 cascade delete-orphan 兜底删除旧行后重建。
+    # 先 flush 落 DELETE：SQLAlchemy 单次 flush 内同表 INSERT 先于 DELETE，若新行与旧行
+    # 同 (packet_id, sku_id) 会先撞 uq_packet_item 唯一约束（离线测试实测复现）
     packet.items.clear()
+    db.flush()
     _build_packet_items(packet, body.items)
     db.commit()
     db.refresh(packet)
