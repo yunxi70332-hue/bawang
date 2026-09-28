@@ -353,3 +353,105 @@ class MenuRefreshLog(Base):
     error: Mapped[str] = mapped_column(String(255), default="")
     detail: Mapped[dict] = mapped_column(JSON, default=dict)                # {new_spus:[],new_spec_options:[],changed:[]}
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.now, index=True)
+
+
+# ---------------- 下单决策系统（2026-09-28，契约 docs/decision_api_contract.md §1）----------------
+# 决策链：套餐（PacketConfig + PacketItem）圈定可接单的价格区间/时段/商品与券规则 →
+# 券成本规则（VoucherCostRule）把券映射为采购成本 → decide 逐单评估落 DecisionLog 流水
+# （pass/blocked + 阈值/成本明细快照），成单后回填服务端实际抵扣/实付对账。
+
+class PacketConfig(Base):
+    """下单套餐：客户支付价区间 + 可用时段 + 套餐级最低利润覆盖，圈定可接单范围。
+    items 为空 = 全品类；min_profit 空 = 沿用全局配置（data/decision_config.json）。"""
+
+    __tablename__ = "packet_configs"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    name: Mapped[str] = mapped_column(String(64), unique=True, index=True)    # 套餐名称
+    open_flag: Mapped[bool] = mapped_column(Boolean, default=True)            # 是否开放
+    min_order_amount: Mapped[str] = mapped_column(String(16), default="0")    # 最小下单金额（客户支付价下限）
+    max_order_amount: Mapped[str] = mapped_column(String(16), default="0")    # 最大下单金额（0=不设上限）
+    available_start: Mapped[str] = mapped_column(String(8), default="")       # 可用时段开始 "00:00:00"，空=不限
+    available_end: Mapped[str] = mapped_column(String(8), default="")         # 可用时段结束，空=不限
+    min_profit: Mapped[str] = mapped_column(String(16), default="")           # 套餐级最低利润覆盖（元），空=用全局
+    note: Mapped[str] = mapped_column(String(255), default="")
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.now)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.now, onupdate=datetime.now)
+
+    items: Mapped[list["PacketItem"]] = relationship(
+        back_populates="packet", cascade="all, delete-orphan")   # PUT items 全量替换由 delete-orphan 兜底
+
+
+class PacketItem(Base):
+    """套餐商品行（packet_id + sku_id 唯一）：spu/sku 圈定可接商品，face_price 由
+    menu_goods_cache 自动回填；券规则 JSON 控制选券
+    （{"match_type":"template_contains","match_value":"代金券"}，null=不限）。"""
+
+    __tablename__ = "packet_items"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    packet_id: Mapped[int] = mapped_column(ForeignKey("packet_configs.id"), index=True)
+    spu_id: Mapped[str] = mapped_column(String(32), index=True)
+    sku_id: Mapped[str] = mapped_column(String(32), index=True)
+    product_name: Mapped[str] = mapped_column(String(128), default="")
+    face_price: Mapped[str] = mapped_column(String(16), default="")       # 面价（menu_goods_cache 自动回填）
+    premium_price: Mapped[str] = mapped_column(String(16), default="")    # 溢价（可空）
+    is_premium: Mapped[bool] = mapped_column(Boolean, default=False)      # 是否需溢价券商品
+    normal_coupon_rule: Mapped[dict | None] = mapped_column(JSON, nullable=True)   # 常规券规则 | null=不限
+    premium_coupon_rule: Mapped[dict | None] = mapped_column(JSON, nullable=True)  # 溢价券规则（同构）
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.now)
+    __table_args__ = (UniqueConstraint("packet_id", "sku_id", name="uq_packet_item"),)
+
+    packet: Mapped["PacketConfig"] = relationship(back_populates="items")
+
+
+class VoucherCostRule(Base):
+    """券采购成本规则：把券模板/面额映射为实际采购成本价（元，String 金额）。
+    匹配链见 services/decision.resolve_cost —— enabled 规则按 priority 升序逐条：
+    template_exact / template_contains / benefit_regex / coupon_prefix 四种命中方式，
+    face_value 非空须等于券面额；全部未命中按 面额×cost_fallback_ratio 保守计。"""
+
+    __tablename__ = "voucher_cost_rules"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    name: Mapped[str] = mapped_column(String(64))                          # 规则名
+    match_type: Mapped[str] = mapped_column(String(32))                    # template_exact|template_contains|benefit_regex|coupon_prefix
+    match_value: Mapped[str] = mapped_column(String(128))                  # 匹配值（regex 时为正则）
+    face_value: Mapped[str] = mapped_column(String(16), default="")        # 面额校验（非空时须等于券面额才命中）
+    cost_price: Mapped[str] = mapped_column(String(16))                    # ★采购成本（元，String 金额）
+    priority: Mapped[int] = mapped_column(Integer, default=100)            # 越小越优先
+    enabled: Mapped[bool] = mapped_column(Boolean, default=True)
+    note: Mapped[str] = mapped_column(String(255), default="")
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.now)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.now, onupdate=datetime.now)
+
+
+class DecisionLog(Base):
+    """决策流水：每次 decide 评估（order_no 空=未成单）与阈值判定全量留痕。
+    金额列全 String 快照；threshold_json 存阈值来源（global|packet），plan_json 存
+    决策明细（cost_breakdown + coupon 摘要 + alternatives）；成单后回填
+    deduction_actual/pay_actual（settle 服务端确认值）对账估算偏差。"""
+
+    __tablename__ = "decision_logs"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    order_no: Mapped[str] = mapped_column(String(64), default="", index=True)    # 空=decide 评估（未成单）
+    packet_id: Mapped[int] = mapped_column(Integer, default=0, index=True)
+    packet_name: Mapped[str] = mapped_column(String(64), default="")             # 快照
+    account_id: Mapped[int] = mapped_column(Integer, default=0, index=True)
+    coupon_code: Mapped[str] = mapped_column(String(64), default="", index=True)
+    revenue: Mapped[str] = mapped_column(String(16), default="")                 # 客户支付价
+    total_trade_price: Mapped[str] = mapped_column(String(16), default="")       # 茶姬订单总额（估算或服务端）
+    voucher_cost: Mapped[str] = mapped_column(String(16), default="")            # 券成本
+    pay_cost: Mapped[str] = mapped_column(String(16), default="")                # 差额实付
+    overhead: Mapped[str] = mapped_column(String(16), default="")                # 杂费
+    total_cost: Mapped[str] = mapped_column(String(16), default="")
+    profit: Mapped[str] = mapped_column(String(16), default="")
+    margin: Mapped[str] = mapped_column(String(8), default="")                   # 百分比 "23.5"（不带%）
+    verdict: Mapped[str] = mapped_column(String(16), default="", index=True)     # pass|blocked
+    blocked_reason: Mapped[str] = mapped_column(String(255), default="")
+    threshold_json: Mapped[dict] = mapped_column(JSON, default=dict)             # {"min_profit":"2.00","min_margin":"","source":"global|packet"}
+    plan_json: Mapped[dict] = mapped_column(JSON, default=dict)                  # 决策明细快照（cost_breakdown + coupon 摘要 + alternatives）
+    deduction_actual: Mapped[str] = mapped_column(String(16), default="")        # 成单后服务端确认抵扣
+    pay_actual: Mapped[str] = mapped_column(String(16), default="")              # 成单后实付
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.now, index=True)

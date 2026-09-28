@@ -18,6 +18,7 @@ PERMISSION_CATALOG = [
     ("user:manage",    "用户管理",   "系统管理", "系统用户的增删改查与密码重置"),
     ("role:manage",    "角色管理",   "系统管理", "角色与权限矩阵配置"),
     ("audit:read",     "审计日志",   "系统管理", "查看操作审计日志"),
+    ("decision:manage", "决策管理", "下单决策", "套餐配置/券成本规则/决策配置管理、券库存扫描、盈利报表与决策流水查询"),
 ]
 
 PERMISSION_CODES = [p[0] for p in PERMISSION_CATALOG]
@@ -34,7 +35,7 @@ BUILTIN_ROLES = [
         "permissions": [
             "account:read", "account:create", "account:update",
             "account:login", "feature:menu", "feature:coupon", "feature:order",
-            "feature:pickup", "audit:read",
+            "feature:pickup", "audit:read", "decision:manage",
         ],
     },
     {

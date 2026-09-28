@@ -116,6 +116,34 @@ export const apiOps = {
   couponRecords: (accountId, params) => http.get(`/api/ops/accounts/${accountId}/coupons/records`, { params }),
 }
 
+// 下单决策系统（契约 docs/decision_api_contract.md §5/§7；router 前缀 /api/ops/decision）
+export const apiDecision = {
+  // 套餐
+  packets: (params) => http.get('/api/ops/decision/packets', { params }),
+  packetGet: (id) => http.get(`/api/ops/decision/packets/${id}`),
+  packetCreate: (data) => http.post('/api/ops/decision/packets', data),
+  packetUpdate: (id, data) => http.put(`/api/ops/decision/packets/${id}`, data),
+  packetDelete: (id) => http.delete(`/api/ops/decision/packets/${id}`),
+  packetToggleOpen: (id) => http.post(`/api/ops/decision/packets/${id}/toggle-open`),
+  // 券成本规则
+  costRules: () => http.get('/api/ops/decision/cost-rules'),
+  costRuleCreate: (data) => http.post('/api/ops/decision/cost-rules', data),
+  costRuleUpdate: (id, data) => http.put(`/api/ops/decision/cost-rules/${id}`, data),
+  costRuleDelete: (id) => http.delete(`/api/ops/decision/cost-rules/${id}`),
+  costRuleImport: (rules) => http.post('/api/ops/decision/cost-rules/import', { rules }),
+  // 全局决策配置（data/decision_config.json）
+  configGet: () => http.get('/api/ops/decision/config'),
+  configPut: (data) => http.put('/api/ops/decision/config', data),
+  // 扫描与库存
+  scan: (data) => http.post('/api/ops/decision/scan', data),
+  couponInventory: (params) => http.get('/api/ops/decision/coupon-inventory', { params }),
+  // 报表 / 流水
+  profitReport: (params) => http.get('/api/ops/decision/profit-report', { params }),
+  decisionLogs: (params) => http.get('/api/ops/decision/logs', { params }),
+  // 决策评估（完整路径挂 /api/ops/orders 下，实现冻结在 decision 路由内，权限 feature:order）
+  decide: (data) => http.post('/api/ops/orders/decide', data),
+}
+
 export const apiAudit = {
   list: (params) => http.get('/api/audit', { params }),
 }

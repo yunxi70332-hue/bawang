@@ -42,6 +42,12 @@
             <el-menu-item v-if="auth.can('feature:pickup')" index="/ops/pickup">取餐查询 · F6</el-menu-item>
           </el-sub-menu>
 
+          <el-sub-menu index="grp-decision" v-if="auth.can('decision:manage')">
+            <template #title><el-icon><Coin /></el-icon><span>下单决策</span></template>
+            <el-menu-item index="/decision/packets">套餐配置</el-menu-item>
+            <el-menu-item index="/decision/costs">券成本与阈值</el-menu-item>
+          </el-sub-menu>
+
           <el-sub-menu index="grp-sys" v-if="auth.can('user:manage') || auth.can('role:manage') || auth.can('audit:read')">
             <template #title><el-icon><Setting /></el-icon><span>系统管理</span></template>
             <el-menu-item v-if="auth.can('user:manage')" index="/system/users">用户管理</el-menu-item>
