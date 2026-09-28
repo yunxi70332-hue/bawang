@@ -290,7 +290,7 @@ def account_coupons(account_id: int, request: Request,
     _persist_coupon_records(db, account, result)
     return {"run_at": time.strftime("%Y-%m-%d %H:%M:%S"),
             "account": {"id": account.id, "label": account.label,
-                        "nickname": account.nickname, "phone_masked": account.phone[:3] + "****" + account.phone[-4:]},
+                        "nickname": account.nickname, "phone_masked": account.phone or ""},
             **result}
 
 
@@ -313,7 +313,7 @@ def coupons_sync_all(request: Request, db: Session = Depends(get_db),
     for account in accounts:
         row = {"id": account.id, "label": account.label,
                "nickname": account.nickname,
-               "phone_masked": account.phone[:3] + "****" + account.phone[-4:],
+               "phone_masked": account.phone or "",
                "status": account.status, "result": "ok", "coupons": 0, "error": ""}
         try:
             client = bridge.build_client(account)

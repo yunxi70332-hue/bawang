@@ -5,23 +5,73 @@
       <h2 class="page-title">取餐查询 · 功能6</h2>
       <p class="page-subtitle">
         登录态调用 getOrderList / getOrderDetail / getOrderStatus / getWaitingInfo；
-        待支付订单每 5 秒状态探针，制作中订单每 3 秒刷新取餐等待信息
+        待支付订单每 5 秒状态探针，制作中订单每 3 秒刷新取餐等待信息；
+        全量模式遍历所有账号 token 批量收集取餐码，本地库多维模糊搜索（码值/订单号/饮品/门店/账号）
       </p>
       <div class="query-bar">
-        <el-select v-model="accountId" filterable placeholder="选择茶姬账号（仅在线可选）" style="width: 340px">
-          <el-option v-for="a in accounts" :key="a.id" :value="a.id" :disabled="a.status !== 'online'"
-            :label="`${a.label}（${a.phone_masked}${a.status === 'online' ? ' · 在线' : ' · ' + a.status_label}）`">
-            <span>{{ a.label }}</span>
-            <span class="opt-sub">{{ a.phone_masked }} · {{ a.status_label }}{{ a.status === 'online' ? '' : '（不可选）' }}</span>
-          </el-option>
-        </el-select>
-        <el-button v-if="accountId" :icon="Refresh" circle :loading="listLoading" @click="reload" />
-        <span v-if="accountId && lastLoadedAt" class="run-at mono">更新于 {{ lastLoadedAt }}</span>
+        <el-radio-group v-model="mode">
+          <el-radio-button value="single">单账号</el-radio-button>
+          <el-radio-button value="all">全量查询</el-radio-button>
+        </el-radio-group>
+
+        <!-- 单账号模式：账号选择（原有逻辑） -->
+        <template v-if="mode === 'single'">
+          <el-select v-model="accountId" filterable placeholder="选择茶姬账号（仅在线可选）" style="width: 340px">
+            <el-option v-for="a in accounts" :key="a.id" :value="a.id" :disabled="a.status !== 'online'"
+              :label="`${a.label}（${a.phone_masked}${a.status === 'online' ? ' · 在线' : ' · ' + a.status_label}）`">
+              <span>{{ a.label }}</span>
+              <span class="opt-sub">{{ a.phone_masked }} · {{ a.status_label }}{{ a.status === 'online' ? '' : '（不可选）' }}</span>
+            </el-option>
+          </el-select>
+          <el-button v-if="accountId" :icon="Refresh" circle :loading="listLoading" @click="reload" />
+          <span v-if="accountId && lastLoadedAt" class="run-at mono">更新于 {{ lastLoadedAt }}</span>
+        </template>
+
+        <!-- 全量模式：多维模糊搜索 + 筛选 + 全量扫描 -->
+        <template v-else>
+          <el-input v-model="allQuery.keyword" placeholder="模糊搜索：取餐码 / 订单号 / 饮品 / 门店 / 账号（回车执行）"
+            clearable :prefix-icon="Search" style="width: 320px" @keyup.enter="onAllSearch" @clear="onAllSearch" />
+          <el-select v-model="allQuery.status" placeholder="全部状态" clearable style="width: 118px" @change="onAllSearch">
+            <el-option v-for="(v, k) in ORDER_STATUS" :key="k" :value="Number(k)" :label="v.label" />
+          </el-select>
+          <el-select v-model="allQuery.account_id" placeholder="全部账号" clearable filterable style="width: 168px" @change="onAllSearch">
+            <el-option v-for="a in accounts" :key="a.id" :value="a.id" :label="`${a.label}（${a.phone_masked}）`" />
+          </el-select>
+          <el-select v-model="allQuery.scenario" placeholder="全部场景" clearable style="width: 108px" @change="onAllSearch">
+            <el-option value="zero" label="0元单" />
+            <el-option value="partial" label="差额单" />
+          </el-select>
+          <label class="pickup-only-switch">仅看有码 <el-switch v-model="allQuery.has_pickup" size="small" @change="onAllSearch" /></label>
+          <el-button type="primary" :loading="scanning" :icon="Search" @click="startScan">
+            {{ scanning ? `扫描中 ${scanProgress.done}/${scanProgress.total}` : '全量扫描' }}
+          </el-button>
+          <el-button :icon="Refresh" circle :loading="allLoading" @click="onAllSearch" />
+        </template>
+      </div>
+
+      <!-- 全量模式：扫描进度与逐账号实时结果（SSE 推流） -->
+      <div v-if="mode === 'all'" class="scan-panel">
+        <el-progress v-if="scanning && scanProgress.total" :stroke-width="10"
+          :percentage="Math.round((scanProgress.done / scanProgress.total) * 100)">
+          <span class="mono small">{{ scanProgress.done }}/{{ scanProgress.total }}</span>
+        </el-progress>
+        <div v-if="lastScan" class="scan-meta small">
+          上次扫描 {{ lastScan.summary.run_at }} · 成功 {{ lastScan.summary.ok }} / 失效 {{ lastScan.summary.expired }}
+          / 失败 {{ lastScan.summary.failed }} · 订单 {{ lastScan.summary.orders }} · 取餐码 {{ lastScan.summary.distinct_pickup_codes }} 个
+        </div>
+        <div v-if="scanFeed.length" class="scan-feed">
+          <div v-for="(r, i) in scanFeed" :key="i" class="scan-feed-row small" :class="'feed-' + r.result">
+            <span class="mono">{{ r.index }}/{{ r.total }}</span>
+            <span class="feed-account">{{ r.label }}（{{ r.phone_masked }}）</span>
+            <el-tag size="small" :type="r.result === 'ok' ? 'success' : r.result === 'expired' ? 'danger' : 'warning'"
+              effect="plain">{{ r.result === 'ok' ? `订单 ${r.orders} · 取餐码 ${r.pickups}` : r.error || r.result }}</el-tag>
+          </div>
+        </div>
       </div>
     </div>
 
-    <!-- 订单列表 -->
-    <div class="page-card" v-if="accountId">
+    <!-- 订单列表（单账号模式） -->
+    <div class="page-card" v-if="mode === 'single' && accountId">
       <div class="list-toolbar">
         <el-radio-group v-model="tab" @change="onTabChange">
           <el-radio-button value="today">今日订单</el-radio-button>
@@ -91,7 +141,86 @@
       </div>
     </div>
 
-    <!-- 未选账号引导 -->
+    <!-- 全量模式：本地库搜索结果（所有账号的订单/取餐码） -->
+    <div class="page-card" v-else-if="mode === 'all'">
+      <div class="list-toolbar">
+        <div class="all-stats">
+          <span class="muted small">命中 {{ allTotal }} 条</span>
+          <el-tag v-for="(v, k) in allStats.by_status" :key="k" size="small" effect="plain" round
+            :type="orderStatusTag(Number(k)).type" class="stat-chip">
+            {{ orderStatusTag(Number(k)).label }} {{ v }}
+          </el-tag>
+          <el-tag size="small" effect="plain" round type="success" class="stat-chip">有取餐码 {{ allStats.with_pickup }}</el-tag>
+        </div>
+        <span class="muted small">数据来自全量扫描落库的本地订单库 · 点击「全量扫描」收集最新取餐码</span>
+      </div>
+
+      <el-table v-loading="allLoading" :data="allOrders" stripe class="order-table">
+        <el-table-column label="取餐码" width="110" align="center">
+          <template #default="{ row }">
+            <span v-if="row.pickup_no" class="pickup-pill">{{ row.pickup_no }}</span>
+            <span v-else class="muted">—</span>
+          </template>
+        </el-table-column>
+        <el-table-column label="账号" min-width="150">
+          <template #default="{ row }">
+            <div v-if="row.account">{{ row.account.label || row.account.nickname }}</div>
+            <div v-if="row.account" class="mono muted small">{{ row.account.phone_masked }}</div>
+          </template>
+        </el-table-column>
+        <el-table-column label="订单号" min-width="180">
+          <template #default="{ row }">
+            <span class="mono" :title="String(row.order_no)">{{ row.order_no }}</span>
+          </template>
+        </el-table-column>
+        <el-table-column label="状态" width="92" align="center">
+          <template #default="{ row }">
+            <el-tag :type="orderStatusTag(row.order_status).type" size="small" effect="dark">
+              {{ row.status_label || orderStatusTag(row.order_status).label }}
+            </el-tag>
+          </template>
+        </el-table-column>
+        <el-table-column label="饮品" min-width="170">
+          <template #default="{ row }">
+            <el-tooltip v-if="row.goods_desc" :content="row.goods_desc" placement="top">
+              <span class="goods-desc">{{ row.goods_desc }}</span>
+            </el-tooltip>
+            <span v-else class="muted">—</span>
+          </template>
+        </el-table-column>
+        <el-table-column label="门店" min-width="160">
+          <template #default="{ row }">
+            <div>{{ row.store_name || '—' }}</div>
+            <div v-if="row.biz_type" class="muted small">{{ row.biz_type }}</div>
+          </template>
+        </el-table-column>
+        <el-table-column label="实付" width="88" align="right">
+          <template #default="{ row }">
+            <span v-if="row.pay_amount !== ''" class="pay-amount">¥ {{ row.pay_amount }}</span>
+            <span v-else class="muted">—</span>
+          </template>
+        </el-table-column>
+        <el-table-column label="下单时间" width="158">
+          <template #default="{ row }">{{ row.order_time || fmtTime(row.updated_at) }}</template>
+        </el-table-column>
+        <el-table-column label="操作" width="92" align="center">
+          <template #default="{ row }">
+            <el-button size="small" type="primary" plain @click.stop="openAllDetail(row)">详情</el-button>
+          </template>
+        </el-table-column>
+        <template #empty>
+          <el-empty :description="allQuery.keyword || allQuery.status ? '本地库无命中，可调整条件或先执行全量扫描' : '本地订单库为空，点击上方「全量扫描」收集所有账号的取餐码'" />
+        </template>
+      </el-table>
+
+      <div class="pager">
+        <el-pagination background layout="total, prev, pager, next, sizes" :total="allTotal"
+          v-model:current-page="allQuery.page" v-model:page-size="allQuery.page_size" :page-sizes="[10, 20, 50]"
+          @current-change="loadAll" @size-change="onAllSizeChange" />
+      </div>
+    </div>
+
+    <!-- 未选账号引导（单账号模式） -->
     <div class="page-card" v-else>
       <el-empty description="请先在上方选择一个在线茶姬账号，再查询订单" />
       <el-alert v-if="accountsLoaded && !hasOnlineAccount" type="warning" :closable="false" class="no-online"
@@ -269,18 +398,38 @@
 </template>
 
 <script setup>
-import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
+import { computed, onMounted, onUnmounted, reactive, ref, watch } from 'vue'
+import { useRoute } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { Refresh } from '@element-plus/icons-vue'
+import { Refresh, Search } from '@element-plus/icons-vue'
 import { apiAccounts, apiOps } from '../api'
-import { fmtTime, fmtWaiting, fmtCountdown, orderStatusTag } from '../utils/format'
+import { fmtTime, fmtWaiting, fmtCountdown, orderStatusTag, ORDER_STATUS } from '../utils/format'
 import { nowMs } from '../utils/clock'
+import { openEventStream } from '../utils/sse'
 
 // ---------- 账号 ----------
 const accounts = ref([])
 const accountsLoaded = ref(false)
 const accountId = ref(null)
 const hasOnlineAccount = computed(() => accounts.value.some((a) => a.status === 'online'))
+
+// ---------- 模式与全量查询 ----------
+const route = useRoute()
+const mode = ref('single')   // single 单账号实时查询 | all 全量查询（本地订单库多维模糊搜索）
+const allQuery = reactive({
+  keyword: '', status: null, account_id: null, scenario: null, has_pickup: false, page: 1, page_size: 20,
+})
+const allOrders = ref([])
+const allTotal = ref(0)
+const allLoading = ref(false)
+const allStats = ref({ by_status: {}, with_pickup: 0 })
+
+// 全量扫描（后台线程执行，进度经 SSE /api/events?topics=pickup_scan 实时推流）
+const scanning = ref(false)
+const scanProgress = reactive({ done: 0, total: 0 })
+const scanFeed = ref([])      // 逐账号实时结果（新→旧，上限 50 条）
+const lastScan = ref(null)    // 上次扫描摘要（scan-status）
+let scanStream = null
 
 // ---------- 列表 ----------
 const tab = ref('today')
@@ -338,28 +487,146 @@ onMounted(async () => {
   accountsLoaded.value = true
   const online = data.items.find((a) => a.status === 'online')
   if (online) accountId.value = online.id // 仅自动选中在线账号
+  applyRouteQuery()
+  if (mode.value === 'all') enterAllMode()
 })
 
 onUnmounted(() => {
   for (const t of [probeTimer, waitingTimer, tickTimer, autoPayTimer, cashierTimer]) clearInterval(t)
   probeTimer = waitingTimer = tickTimer = autoPayTimer = cashierTimer = null
+  closeScanStream()
 })
 
-// 切换账号：清空订单数据、关抽屉，重新拉取
+// 仪表盘统计卡联动入口：/ops/pickup?view=all&status=3&scenario=zero&keyword=…
+function applyRouteQuery() {
+  const q = route.query
+  if (q.view === 'all') mode.value = 'all'
+  if (q.status) allQuery.status = Number(q.status)
+  if (q.scenario) allQuery.scenario = String(q.scenario)
+  if (q.keyword) allQuery.keyword = String(q.keyword)
+}
+
+watch(mode, (m) => {
+  if (m === 'all') {
+    enterAllMode()
+  } else {
+    closeScanStream()
+    if (accountId.value && !orders.value.length) load()
+  }
+})
+
+function enterAllMode() {
+  openScanStream()
+  refreshScanStatus()
+  if (!allOrders.value.length) loadAll()
+}
+
+async function refreshScanStatus() {
+  try {
+    const s = await apiOps.pickupScanStatus()
+    scanning.value = !!s.running
+    scanProgress.done = s.progress?.done || 0
+    scanProgress.total = s.progress?.total || 0
+    lastScan.value = s.last || null
+  } catch { /* 静默：状态展示非关键路径 */ }
+}
+
+function openScanStream() {
+  if (scanStream) return
+  scanStream = openEventStream({
+    topics: ['pickup_scan'],
+    events: {
+      account_done: (d) => {
+        scanProgress.done = d.index
+        scanProgress.total = d.total
+        scanFeed.value.unshift(d)
+        if (scanFeed.value.length > 50) scanFeed.value.length = 50
+      },
+      scan_done: (d) => {
+        scanning.value = false
+        ElMessage.success(`全量扫描完成：${d.ok}/${d.scanned} 账号成功，收集取餐码 ${d.distinct_pickup_codes} 个`)
+        refreshScanStatus()
+        loadAll()
+      },
+    },
+  })
+}
+
+function closeScanStream() {
+  if (scanStream) {
+    scanStream.close()
+    scanStream = null
+  }
+}
+
+async function startScan() {
+  try {
+    const res = await apiOps.pickupScanAll()
+    scanning.value = true
+    scanProgress.done = 0
+    scanProgress.total = res.accounts
+    scanFeed.value = []
+    openScanStream()   // 确保订阅在位（进入全量模式时通常已连上，此处幂等）
+  } catch {
+    refreshScanStatus()   // 409 扫描进行中 / 400 无可查账号：全局拦截器已提示
+  }
+}
+
+async function loadAll() {
+  allLoading.value = true
+  try {
+    const data = await apiOps.pickupSearch({
+      keyword: allQuery.keyword || '',
+      status: allQuery.status || 0,
+      account_id: allQuery.account_id || 0,
+      scenario: allQuery.scenario || '',
+      has_pickup: allQuery.has_pickup,
+      page: allQuery.page,
+      page_size: allQuery.page_size,
+    })
+    allOrders.value = data.items || []
+    allTotal.value = data.total || 0
+    allStats.value = data.stats || { by_status: {}, with_pickup: 0 }
+  } catch {
+    allOrders.value = []
+    allTotal.value = 0
+  } finally {
+    allLoading.value = false
+  }
+}
+
+function onAllSearch() {
+  allQuery.page = 1
+  loadAll()
+}
+
+function onAllSizeChange() {
+  allQuery.page = 1
+  loadAll()
+}
+
+// 全量行详情：抽屉复用单账号详情链（accountId 临时指向该行账号；
+// watch(accountId) 在全量模式下不重置抽屉、load 亦跳过，见两处 mode 守卫）
+function openAllDetail(row) {
+  if (row.account?.id) accountId.value = row.account.id
+  openDetail({ order_no: row.order_no })
+}
+
+// 切换账号：清空订单数据、关抽屉，重新拉取（仅单账号模式；全量模式切账号=行详情临时指向）
 watch(accountId, (id, old) => {
-  if (old) {
+  if (old && mode.value === 'single') {
     drawerOpen.value = false // 触发 watch(drawerOpen) 停止全部抽屉轮询
     orders.value = []
     total.value = 0
     page.value = 1
     lastLoadedAt.value = ''
   }
-  if (id) load()
+  if (id && mode.value === 'single') load()
 })
 
 // ---------- 列表 ----------
 async function load() {
-  if (!accountId.value) return
+  if (mode.value !== 'single' || !accountId.value) return
   listLoading.value = true
   try {
     const data = await apiOps.orderList(accountId.value, {
@@ -402,7 +669,7 @@ function rowClassName({ row }) {
 
 // ---------- 状态探针（列表存在待支付单时，每 5s 逐个轻探；仅页面可见时工作） ----------
 function syncProbe() {
-  const need = pendingOrders.value.length > 0 && !!accountId.value
+  const need = pendingOrders.value.length > 0 && !!accountId.value && mode.value === 'single'
   if (need && !probeTimer) {
     probeTimer = setInterval(probeTick, 5000)
   } else if (!need && probeTimer) {
@@ -412,7 +679,7 @@ function syncProbe() {
 }
 
 async function probeTick() {
-  if (probeBusy || document.hidden || !accountId.value) return
+  if (probeBusy || document.hidden || !accountId.value || mode.value !== 'single') return
   probeBusy = true
   try {
     for (const o of pendingOrders.value) {
@@ -441,11 +708,15 @@ async function probeTick() {
 // 某单状态离开 1：静默重拉列表；若抽屉正展示该单则同步刷新详情
 async function refreshAfterStatusChange(orderNo) {
   try {
-    const data = await apiOps.orderList(accountId.value, {
-      tab: tab.value, page: page.value, page_size: pageSize.value,
-    })
-    orders.value = data.items || []
-    total.value = data.total || 0
+    if (mode.value === 'all') {
+      await loadAll()   // 抽屉从全量行打开时，刷新全量列表而非单账号页
+    } else {
+      const data = await apiOps.orderList(accountId.value, {
+        tab: tab.value, page: page.value, page_size: pageSize.value,
+      })
+      orders.value = data.items || []
+      total.value = data.total || 0
+    }
   } finally {
     syncProbe()
   }
@@ -835,6 +1106,63 @@ function hasAmt(v) {
 }
 .no-online {
   margin-top: 4px;
+}
+
+/* 全量模式：扫描进度面板与实时结果流（SSE 推流） */
+.scan-panel {
+  margin-top: 14px;
+  border-top: 1px dashed #e3ebe7;
+  padding-top: 12px;
+}
+.scan-meta {
+  color: var(--muted);
+  margin-top: 8px;
+}
+.scan-feed {
+  margin-top: 8px;
+  max-height: 168px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.scan-feed-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  background: #f7faf8;
+  border: 1px solid #e8f0ec;
+  border-radius: 8px;
+  padding: 5px 10px;
+}
+.feed-account {
+  min-width: 140px;
+}
+.pickup-only-switch {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--muted);
+  font-size: 13px;
+  white-space: nowrap;
+}
+.all-stats {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.stat-chip {
+  border-radius: 999px;
+}
+.goods-desc {
+  display: inline-block;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  vertical-align: bottom;
 }
 
 /* 抽屉 */

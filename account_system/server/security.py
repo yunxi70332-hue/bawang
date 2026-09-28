@@ -76,6 +76,21 @@ def get_current_user(
     return user
 
 
+def user_from_token_str(token: str, db: Session) -> SystemUser | None:
+    """从裸 JWT 字符串解析用户（SSE 端点用：EventSource 无法携带 Authorization 头，
+    鉴权改走 query token）；无效/过期/用户不存在或停用一律返回 None，由调用方决定 401。"""
+    if not token:
+        return None
+    try:
+        payload = jwt.decode(token, JWT_SECRET, algorithms=[JWT_ALGO])
+    except jwt.InvalidTokenError:
+        return None
+    user = db.get(SystemUser, int(payload.get("sub", 0) or 0))
+    if not user or not user.is_active:
+        return None
+    return user
+
+
 def require_perm(*perms: str):
     """RBAC 依赖工厂：当前用户角色须持有任意一个给定权限点。"""
 

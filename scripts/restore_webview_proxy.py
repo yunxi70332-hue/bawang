@@ -154,6 +154,7 @@ def main():
     def reporter():
         while True:
             time.sleep(30)
+            snapshot = None
             with lock:
                 if hosts:
                     snapshot = dict(hosts)

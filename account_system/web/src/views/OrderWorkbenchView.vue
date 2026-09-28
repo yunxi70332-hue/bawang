@@ -162,7 +162,7 @@
                   <el-tag v-if="isRecommended(c)" type="success" size="small" effect="plain">推荐</el-tag>
                 </div>
                 <div class="coupon-meta">
-                  <span class="coupon-face">¥{{ faceOf(c) }}</span>
+                  <span class="coupon-face">{{ faceLabel(c) }}</span>
                   <span class="coupon-sub">{{ [c.benefitText, c.benefit2Text].filter(Boolean).join(' · ') }}</span>
                   <span class="coupon-sub">{{ c.thresholdTips || '无门槛' }}</span>
                   <span class="coupon-sub">{{ validity(c) || '长期有效' }}</span>
@@ -185,7 +185,7 @@
               <span v-if="est.amount != null" class="price pay-big">{{ est.approximate ? '约 ' : '' }}¥{{ est.amount }}</span>
               <span v-else class="muted">以提交后实际结算为准</span>
             </div>
-            <p v-if="est.approximate" class="muted est-note">已手动切换优惠券：金额为本地估算（仅识别「N 元」面额券），最终以提交订单时服务端结算为准。</p>
+            <p v-if="est.approximate" class="muted est-note">已手动切换优惠券：金额为本地估算（支持「N 元」与「N 折」券），最终以提交订单时服务端结算为准。</p>
           </div>
         </div>
 
@@ -312,10 +312,26 @@
               <el-input type="textarea" readonly :rows="6" :model-value="result.order_str" class="mono pay-str" />
             </el-collapse-item>
           </el-collapse>
+          <!-- 官方收银台支付参数串：alipay_cashier_url 捕获/铸造后生成（JSON v1 快照，供支付宝浏览器支付脚本消费） -->
+          <el-collapse class="pay-str-collapse">
+            <el-collapse-item name="cashier-params">
+              <template #title>
+                <span class="mono muted">
+                  官方收银台支付参数串（pay_params，点击展开 / 收起，{{ cashierParamText.length }} 字符）
+                </span>
+                <el-tag v-if="cashierReady" size="small" type="success" effect="plain" class="cashier-tag">已捕获</el-tag>
+                <el-tag v-else size="small" type="info" effect="plain" class="cashier-tag">铸造中…</el-tag>
+              </template>
+              <el-input type="textarea" readonly :rows="8" :model-value="cashierParamText" class="mono pay-str" />
+            </el-collapse-item>
+          </el-collapse>
           <div class="step-actions left">
             <el-button type="primary" plain :icon="CopyDocument" @click="copyPayStr">复制支付串</el-button>
             <el-button :icon="Refresh" :loading="continueBusy" :disabled="payExpired" @click="regenPayStr">
               重新生成支付串
+            </el-button>
+            <el-button type="primary" plain :icon="CopyDocument" :disabled="!cashierReady" @click="copyCashierParams">
+              复制支付参数串
             </el-button>
           </div>
         </div>
@@ -530,6 +546,11 @@ const payExpired = ref(false)
 const payDeadlineTs = ref(0)
 const payMode = ref('manual')
 const continueBusy = ref(false)
+/* 官方收银台支付参数串（JSON v1）：下单/续付响应即时携带；未捕获时轮询铸造状态补齐 */
+const cashierParamStr = ref('')
+const cashierPollTimes = ref(0)
+let cashierTimer = null
+let cashierBusy = false
 const autoBusy = ref(false)
 const autoResult = ref(null) // { status, message }
 const autoConfigNote = ref('')
@@ -544,7 +565,7 @@ let pollBusy = false
 
 /* ---------------- 派生：预计应付（本地视角） ----------------
  * 服务端 estimated_pay 基于「推荐券」；切换券后无法重算（无 settle-with-coupon 端点），
- * 仅对「N 元」面额券做本地估算并标注「约」，其余提示以实际结算为准。 */
+ * 对「N 元」与「N 折」券做本地估算并标注「约」，其余提示以实际结算为准。 */
 const est = computed(() => {
   const p = settleData.value?.preview
   if (!p) return { amount: null, approximate: false, scenario: '' }
@@ -560,6 +581,11 @@ const est = computed(() => {
   const m = (c?.benefitText || '').match(/([\d.]+)\s*元/)
   if (m) {
     const pay = Math.max(total - Number(m[1]), 0)
+    return { amount: pay.toFixed(2), approximate: true, scenario: pay > 0 ? 'partial' : 'zero' }
+  }
+  const r = (c?.benefitText || '').match(/([\d.]+)\s*折/)
+  if (r) {
+    const pay = Math.max((total * Number(r[1])) / 10, 0)
     return { amount: pay.toFixed(2), approximate: true, scenario: pay > 0 ? 'partial' : 'zero' }
   }
   return { amount: null, approximate: true, scenario: '' }
@@ -799,6 +825,7 @@ async function doCreate() {
       payDeadlineTs.value = deadline > 0 ? deadline : nowMs() + Number(res.pay_window_seconds || 600) * 1000
       payExpired.value = false
       startPayTimer()
+      syncCashierParams(res)
       ElMessage.success('订单已创建，请在支付窗口内完成支付')
     }
   } finally {
@@ -818,6 +845,7 @@ function startPayTimer() {
       payExpired.value = true
       stopPayTimer()
       stopPolling()
+      stopCashierPoll() // 窗口已关，官方收银台短窗同步失效，停止铸造轮询
       ElMessage.warning('支付窗口已过期，订单已自动取消；可到取餐查询页核实订单状态')
     }
   }
@@ -837,6 +865,7 @@ async function regenPayStr() {
     if (deadline > 0) payDeadlineTs.value = deadline
     payExpired.value = false // 续付会重新 issued，复位过期标记
     startPayTimer()
+    syncCashierParams(res) // 续付重铸支付串：参数串旧短窗作废，按新响应重取/重轮询
     ElMessage.success('已重新生成支付串（支付截止不重置，仍以下单时刻为准）')
   } finally {
     continueBusy.value = false
@@ -858,6 +887,78 @@ async function copyPayStr() {
       ElMessage.success('支付串已复制')
     } catch {
       ElMessage.error('复制失败，请在展开的支付串中手动全选复制')
+    }
+    document.body.removeChild(ta)
+  }
+}
+
+/* ---------------- 官方收银台支付参数串 ---------------- */
+const cashierReady = computed(() => !!cashierParamStr.value)
+/* 展示用 pretty JSON（人读）；复制仍取原文 cashierParamStr（紧凑、与库内存储逐字一致） */
+const cashierParamText = computed(() => {
+  if (!cashierParamStr.value) return ''
+  try {
+    return JSON.stringify(JSON.parse(cashierParamStr.value), null, 2)
+  } catch {
+    return cashierParamStr.value
+  }
+})
+
+/* 下单/续付响应若已带参数串直接采用，否则开轮询等铸造回填（云手机约 10-30 秒） */
+function syncCashierParams(res) {
+  stopCashierPoll()
+  cashierParamStr.value = res?.pay_param_str || ''
+  cashierPollTimes.value = 0
+  if (!cashierParamStr.value) startCashierPoll()
+}
+
+function startCashierPoll() {
+  stopCashierPoll()
+  cashierTimer = setInterval(async () => {
+    if (cashierBusy || cashierReady.value || !result.value || step.value !== 4) {
+      stopCashierPoll()
+      return
+    }
+    cashierBusy = true
+    cashierPollTimes.value += 1
+    try {
+      const res = await apiOps.orderCashier(accountId.value, result.value.order_no)
+      if (res?.pay_param_str) {
+        cashierParamStr.value = res.pay_param_str
+        stopCashierPoll()
+        ElMessage.success('官方收银台支付参数串已生成')
+      } else if (cashierPollTimes.value >= 20) {
+        stopCashierPoll() // 约 60 秒未铸出：静默停（面板仍显示「铸造中…」，续付可重新触发）
+      }
+    } catch {
+      /* 单次轮询失败忽略（orderCashier 已 silent），下一轮继续 */
+    } finally {
+      cashierBusy = false
+    }
+  }, 3000)
+}
+
+function stopCashierPoll() {
+  if (cashierTimer) clearInterval(cashierTimer)
+  cashierTimer = null
+}
+
+async function copyCashierParams() {
+  const text = cashierParamStr.value || ''
+  if (!text) return
+  try {
+    await navigator.clipboard.writeText(text)
+    ElMessage.success('支付参数串已复制（JSON v1，可直接供支付宝浏览器支付脚本解析）')
+  } catch {
+    const ta = document.createElement('textarea')
+    ta.value = text
+    document.body.appendChild(ta)
+    ta.select()
+    try {
+      document.execCommand('copy')
+      ElMessage.success('支付参数串已复制')
+    } catch {
+      ElMessage.error('复制失败，请在展开的面板中手动全选复制')
     }
     document.body.removeChild(ta)
   }
@@ -950,8 +1051,11 @@ function clearResult() {
   autoResult.value = null
   autoConfigNote.value = ''
   paidStatus.value = null
+  cashierParamStr.value = ''
+  cashierPollTimes.value = 0
   stopPayTimer()
   stopPolling()
+  stopCashierPoll()
 }
 
 function restartFlow() {
@@ -977,6 +1081,7 @@ onUnmounted(() => {
   stopDraftTimer()
   stopPayTimer()
   stopPolling()
+  stopCashierPoll()
   window.removeEventListener('resize', onResize)
 })
 
@@ -1003,14 +1108,22 @@ function validity(c) {
 const couponOptions = computed(() => settleData.value?.preview?.available_coupons || [])
 const disabledCount = computed(() => couponOptions.value.filter((c) => couponState(c).disabled).length)
 
-function faceOf(c) {
-  const m = (c.benefitText || '').match(/([\d.]+)\s*元/)
-  return m ? m[1] : '—'
+/* 面额标签（券型感知）：固定券「¥20」、折扣率券「7折」原文（不以元计）、不可解析「—」 */
+function faceLabel(c) {
+  const text = c.benefitText || ''
+  const r = text.match(/([\d.]+)\s*折/)
+  if (r) return `${r[1]}折`
+  const m = text.match(/([\d.]+)\s*元/)
+  return m ? `¥${m[1]}` : '—'
 }
+/* 预计抵扣（券型感知）：固定券 min(面额,总额)；折扣率券 总额×(10−n)/10 */
 function deductionOf(c) {
-  const m = (c.benefitText || '').match(/([\d.]+)\s*元/)
-  if (!m) return null
   const total = Number(settleData.value?.preview?.total_trade_price || 0)
+  const text = c.benefitText || ''
+  const r = text.match(/([\d.]+)\s*折/)
+  if (r) return ((total * (10 - Number(r[1]))) / 10).toFixed(2)
+  const m = text.match(/([\d.]+)\s*元/)
+  if (!m) return null
   return Math.min(Number(m[1]), total).toFixed(2)
 }
 function couponState(c) {
@@ -1196,6 +1309,10 @@ function pickCoupon(c) {
 }
 .pay-str-collapse {
   margin-bottom: 6px;
+}
+.cashier-tag {
+  margin-left: 8px;
+  flex-shrink: 0;
 }
 .coupon-head {
   padding: 7px 0 8px;

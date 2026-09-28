@@ -103,6 +103,14 @@ export const apiOps = {
   // 官方收银台链接查询：后端在下单差额/pay manual/续付后异步铸造（云手机约 10-30 秒）写入
   // PaySession.alipay_cashier_url；无支付会话返回 404 —— 轮询场景传 silent，失败静默由调用方重试
   orderCashier: (accountId, orderNo) => http.get(`/api/ops/accounts/${accountId}/orders/${orderNo}/cashier`, { silent: true }),
+  // 官方收银台支付参数串显式读取（JSON v1：pay_param_str 紧凑原文 + pay_params 解析对象；
+  // 与下单/续付响应、cashier 轮询携带的字段同源）
+  orderPayParams: (accountId, orderNo) => http.get(`/api/ops/accounts/${accountId}/orders/${orderNo}/pay-params`, { silent: true }),
+  // F6 全量取餐码：遍历所有账号 token 批量拉单落库（后台线程扫描，秒回；进度走 SSE /api/events）
+  pickupScanAll: () => http.post('/api/ops/pickup/scan-all'),
+  pickupScanStatus: () => http.get('/api/ops/pickup/scan-status', { silent: true }),
+  // 全量取餐码多维模糊搜索（本地订单库：码值/订单号/饮品/门店/账号等任一 LIKE 命中）
+  pickupSearch: (params) => http.get('/api/ops/pickup/search', { params }),
   // 优惠券使用规则（券档案 / 使用日志）
   couponUsageLogs: (params) => http.get('/api/ops/coupon-usage-logs', { params }),
   couponRecords: (accountId, params) => http.get(`/api/ops/accounts/${accountId}/coupons/records`, { params }),

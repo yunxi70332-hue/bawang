@@ -1,4 +1,5 @@
-"""Pydantic 请求/响应模型。敏感字段（token/sk）永不下发，手机号默认脱敏。"""
+"""Pydantic 请求/响应模型。敏感字段（token/sk）永不下发；手机号自 2026-09-28 起不再脱敏，
+字段名沿用 phone_masked 历史命名，但值为完整号码。"""
 
 from datetime import datetime
 
@@ -8,7 +9,8 @@ PHONE_RE = r"^1[3-9]\d{9}$"
 
 
 def mask_phone(phone: str) -> str:
-    return f"{phone[:3]}****{phone[-4:]}" if phone and len(phone) == 11 else (phone or "")
+    # 内部系统不再脱敏（2026-09-28）：返回完整手机号，函数名仅为兼容历史调用方
+    return (phone or "")
 
 
 # ---------- 认证 ----------

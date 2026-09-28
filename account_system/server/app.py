@@ -10,7 +10,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
-from routers import accounts, audit, auth, logs, ops, orders, payportal, roles, users
+from routers import accounts, audit, auth, events, logs, ops, orders, payportal, roles, users
 from log_setup import setup_logging
 from oplog import init_oplog, install_request_middleware, log_op
 from log_monitor import start_log_monitor_thread
@@ -44,6 +44,7 @@ app.include_router(ops.router)
 app.include_router(orders.router)   # F5 下单 + F6 取餐查询（/api/ops/accounts/{id}/orders...）
 app.include_router(orders.global_router)   # 券使用记录 / 券档案 / 支付事件流（/api/ops/...）
 app.include_router(audit.router)
+app.include_router(events.router)   # SSE 实时事件流（/api/events：仪表盘统计推送 + 全量取餐码扫描进度）
 app.include_router(logs.router)   # 全局日志/告警查询与处置（/api/ops/logs、/api/ops/alerts）
 # H5 收银台公开路由（/pay/*，token 即凭证无 JWT）：主 API 本机也可访问，
 # 局域网由独立进程 pay_portal:app 绑 0.0.0.0:8010 暴露同一组路由（管理 API 不进局域网）
@@ -70,6 +71,10 @@ def startup():
     start_menu_refresh_thread()   # 菜单规格库每日刷新（CHAGEE_MENU_REFRESH_INTERVAL_SECONDS，默认 86400）
     start_pay_watcher()   # 支付会话 watcher：自动发现已支付/已取消并收口 + 外部回调（CHAGEE_PAYWATCH_INTERVAL_SECONDS，默认 2s）
     start_log_monitor_thread()   # 日志监控告警线程：CHAGEE_LOG_MONITOR_INTERVAL_SECONDS，默认 30s
+    from services.dashboard_push import start_dashboard_push_thread
+    start_dashboard_push_thread()   # 仪表盘统计 SSE 推送（CHAGEE_DASHBOARD_PUSH_INTERVAL_SECONDS，默认 5s，指纹变化才推）
+    from services.cloud_tunnel import start_tunnel
+    start_tunnel()   # 云手机 WebView 隧道托管子进程（与主服务同寿命；CHAGEE_TUNNEL_ENABLED=0 停用）
 
 
 # 生产模式：托管前端构建产物（存在 web/dist 时生效；开发模式由 Vite 代理 /api）

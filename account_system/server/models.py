@@ -99,6 +99,8 @@ class OrderRecord(Base):
     status_label: Mapped[str] = mapped_column(String(16), default="")
     pickup_no: Mapped[str] = mapped_column(String(16), default="")
     unique_pos_order_no: Mapped[str] = mapped_column(String(64), default="")
+    order_time: Mapped[str] = mapped_column(String(32), default="")  # 官方下单时间原文（全量扫描回填，区别于 created_at 落库时刻）
+    biz_type: Mapped[str] = mapped_column(String(16), default="")    # 履约方式（businessTypeText：自取/外卖，"使用范围"搜索维度）
     out_trade_no: Mapped[str] = mapped_column(String(64), default="")
     pay_deadline: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     # 下单时的 settle target 快照（draft["target"] + extra_list + 门店/商品描述），
@@ -241,6 +243,28 @@ class PayAttempt(Base):
     out_trade_no: Mapped[str] = mapped_column(String(64), default="")
     expire_at: Mapped[str] = mapped_column(String(32), default="")     # 支付宝侧 time_expire 原文
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.now)
+
+
+class PayParamRecord(Base):
+    """官方收银台支付参数串（独立存储域，2026-09-28 新增）：order_no 一单一活跃记录，
+    param_str = 结构化 JSON v1 快照（全量支付参数，契约见 services/pay_params.py）。
+
+    独立性：与 pay_sessions 仅以 order_no/account_id 快照弱关联（同 PayEventLog 口径，
+    不设外键）——支付会话重铸/取消/重建后参数串仍完整可查，生命周期独立；
+    关联性：order_no 与 order_records/pay_sessions 同键 join，account_id 供账号维度筛选。
+    param_str 覆盖式更新（与 alipay_cashier_url 的「最新短窗」语义一致）。
+    """
+
+    __tablename__ = "pay_param_records"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    order_no: Mapped[str] = mapped_column(String(64), unique=True, index=True)
+    account_id: Mapped[int] = mapped_column(Integer, default=0, index=True)
+    pay_token_prefix: Mapped[str] = mapped_column(String(16), default="")  # 关联支付会话（前 8 位）
+    param_str: Mapped[str] = mapped_column(Text, default="")               # ★ 支付参数串（JSON v1，Python json.loads 直接消费）
+    source: Mapped[str] = mapped_column(String(32), default="")            # protocol-mint|frida-mint|manual|static-config
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.now)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.now, onupdate=datetime.now)
 
 
 class PayEventLog(Base):

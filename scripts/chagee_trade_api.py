@@ -94,6 +94,17 @@ class SettleResult:
     def scenario(self) -> PayScenario:
         return ChageeTradeApi.classify(self.buyer_real_price)
 
+    def discount_rows_for(self, coupon_code: str) -> list:
+        """从服务端回填的 discountList 中取指定券的抵扣行（下单行的唯一权威来源：
+        discountAmount 是茶姬按券型算好的真实抵扣，折扣率券不再依赖本地换算）。
+        返回行的拷贝并强制 currentSelect=True；无匹配返回 []。"""
+        code = str(coupon_code or "")
+        rows = [dict(r) for r in (self.discount_list or [])
+                if str(r.get("discountId")) == code]
+        for r in rows:
+            r["currentSelect"] = True
+        return rows
+
 
 @dataclass
 class PayLink:
@@ -131,9 +142,42 @@ class ChageeTradeApi:
             return PayScenario.ZERO
         return PayScenario.PARTIAL
 
+    # benefitText 券型文案：固定面额 "20元"、折扣率 "7折"/"7.8折"（2026-09-28 折扣率券误当
+    # ¥7 固定面额事故后引入，docs/rate_coupon_fix_20260928.md）
+    RE_RATE = re.compile(r"(\d+(?:\.\d+)?)折")
+    RE_FACE = re.compile(r"(\d+(?:\.\d+)?)元")
+
+    @classmethod
+    def coupon_kind(cls, entry: dict) -> str:
+        """benefitText 券型：rate=折扣率券（"7折"，抵扣=总价×(10−n)/10）；
+        fixed=固定面额（"20元"）；other=不可解析（免次卡/兑换券等，本地不计抵扣）。"""
+        text = str(entry.get("benefitText") or "")
+        if cls.RE_RATE.search(text):
+            return "rate"
+        if cls.RE_FACE.search(text):
+            return "fixed"
+        return "other"
+
+    @classmethod
+    def expected_deduction(cls, entry: dict, total_trade_price) -> Decimal:
+        """按券型估算抵扣额：rate=总价×(10−n)/10（2位小数）；fixed=min(面额,总价)；
+        other=0。仅用于本地预估与 settle 请求行/兜底，成单金额以服务端回填为准。"""
+        total = Decimal(str(total_trade_price))
+        text = str(entry.get("benefitText") or "")
+        kind = cls.coupon_kind(entry)
+        if kind == "rate":
+            n = Decimal(cls.RE_RATE.search(text).group(1))
+            ded = (total * (Decimal(10) - n) / Decimal(10)).quantize(Decimal("0.01"))
+            return min(ded, total)
+        if kind == "fixed":
+            face = Decimal(cls.RE_FACE.search(text).group(1))
+            return min(face, total)
+        return Decimal(0)
+
     @staticmethod
     def coupon_face(entry: dict) -> Decimal:
-        """benefitText "20元" → Decimal(20)。"""
+        """benefitText "20元" → Decimal(20)。仅对 fixed 券有元语义；
+        rate 券返回的是折扣率数字（非面额），消费方应改用 expected_deduction。"""
         m = re.search(r"(\d+(?:\.\d+)?)", str(entry.get("benefitText", "")))
         return Decimal(m.group(1)) if m else Decimal(0)
 
@@ -149,7 +193,8 @@ class ChageeTradeApi:
     @classmethod
     def pick_coupon(cls, available: list, total_trade_price: str):
         """券匹配：可用(canDiscount/有效期内/门槛满足) 中——
-        优先能覆盖总额且面额最小的券（零元场景），否则面额最大（差额最小）。
+        优先能全额抵扣且面额最小的券（零元场景），否则预估抵扣最大（差额最小）。
+        折扣率券（"7折"）永不计入全额抵扣集合（抵扣恒 = 总价×折扣比例 < 总价）。
         返回 (券条目, 预期抵扣)；无可用券返回 (None, Decimal(0))。"""
         total = Decimal(str(total_trade_price))
         now_ms = int(time.time() * 1000)
@@ -161,12 +206,16 @@ class ChageeTradeApi:
         ]
         if not usable:
             return None, Decimal(0)
-        covering = [e for e in usable if cls.coupon_face(e) >= total]
+        # 覆盖判断/排序按券型感知的预估抵扣：fixed 券行为与旧版面额比较完全一致，
+        # rate 券不再被"首数字当面额"误判成可覆盖/¥N 固定抵扣
+        covering = [e for e in usable
+                    if cls.coupon_kind(e) == "fixed"
+                    and cls.expected_deduction(e, total) >= total]
         if covering:
             best = min(covering, key=cls.coupon_face)
-        else:
-            best = max(usable, key=cls.coupon_face)
-        return best, min(cls.coupon_face(best), total)
+            return best, total
+        best = max(usable, key=lambda e: (cls.expected_deduction(e, total), cls.coupon_face(e)))
+        return best, cls.expected_deduction(best, total)
 
     @staticmethod
     def build_discount_row(coupon_entry: dict, deduction: Decimal, selected: bool = True) -> dict:

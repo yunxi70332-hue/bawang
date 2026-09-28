@@ -175,7 +175,8 @@ def _mint_via_protocol(order_no: str, order_str: str) -> str | None:
 
 
 def _fill_back(order_no: str, entry: str, source: str) -> None:
-    """回填 PaySession.alipay_cashier_url + cashier_updated 事件（双 provider 共用 e 步）。
+    """回填 PaySession.alipay_cashier_url + cashier_updated 事件（双 provider 共用 e 步），
+    并同步生成支付参数串快照（pay_param_records 独立表，最新短窗覆盖）。
 
     独立短事务；铸造期间会话已被支付/取消/过期收口 → 放弃，不算失败。
     """
@@ -187,6 +188,12 @@ def _fill_back(order_no: str, entry: str, source: str) -> None:
             return
         sess.alipay_cashier_url = entry[:512]
         db.commit()
+        # 参数串快照：URL 已落库后再生成（save 失败只 WARN，绝不回滚 URL 回填）
+        try:
+            from services import pay_params
+            pay_params.save_pay_params(db, order_no, entry, source=source, sess=sess)
+        except Exception:
+            logger.warning("支付参数串生成失败（忽略）order_no=%s", order_no, exc_info=True)
         record_event(db, order_no, token_prefix(sess.pay_token), EVENT_CASHIER_UPDATED,
                      {"source": source, "alive": True, "url_prefix": entry[:80]})
 
@@ -240,9 +247,16 @@ def mint_status(order_no: str) -> dict | None:
             sess = get_by_order_no(db, order_no)
             if not sess:
                 return None
-            return {"order_no": sess.order_no,
-                    "alipay_cashier_url": sess.alipay_cashier_url or None,
-                    "session_status": sess.status}
+            out = {"order_no": sess.order_no,
+                   "alipay_cashier_url": sess.alipay_cashier_url or None,
+                   "session_status": sess.status}
+            # 支付参数串透出（前端轮询补齐 /ops/order 支付卡的面板数据源；缺表/坏数据不影响主字段）
+            try:
+                from services import pay_params
+                out.update(pay_params.payload_fields(db, order_no))
+            except Exception:
+                logger.warning("支付参数串读取失败（忽略）order_no=%s", order_no, exc_info=True)
+            return out
     except Exception:
         logger.warning("查询铸造状态失败 order_no=%s", order_no, exc_info=True)
         return None

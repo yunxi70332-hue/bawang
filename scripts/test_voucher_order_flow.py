@@ -697,12 +697,13 @@ def main() -> int:
         settle_coupon = api.settle_direct(target, price, coupon_entry=coupon_entry)
         total_c = dec(settle_coupon.total_trade_price)
         pay_c = dec(settle_coupon.buyer_real_price)
-        expected_pay = expected_pay_amount(total_c, face)
+        est_ded = ChageeTradeApi.expected_deduction(coupon_entry, total_c)
+        expected_pay = expected_pay_amount(total_c, est_ded)
         record_step("试算-settlePrice(带券)",
                     {"goods": {"skuId": target["skuId"], "quantity": target["quantity"]},
                      "coupon": {"couponCode": coupon_code,
                                 "templateName": coupon_entry.get("templateName"),
-                                "discountAmount": str(min(face, total_c))},
+                                "discountAmount": str(est_ded)},
                      "recommendCoupon": False},
                     {"totalTradePrice": settle_coupon.total_trade_price,
                      "buyerRealPrice": settle_coupon.buyer_real_price,
@@ -713,12 +714,12 @@ def main() -> int:
         print(f"  无券试算: 总额 ¥{fmt_money(settle_base.total_trade_price)} "
               f"应付 ¥{fmt_money(settle_base.buyer_real_price)}")
         print(f"  带券试算: 总额 ¥{fmt_money(settle_coupon.total_trade_price)} "
-              f"券抵 ¥{fmt_money(min(face, total_c))} 应付 ¥{fmt_money(settle_coupon.buyer_real_price)}")
+              f"券抵 ¥{fmt_money(est_ded)} 应付 ¥{fmt_money(settle_coupon.buyer_real_price)}")
         trial_start = len(assertions)
         check("试算-带券总额与无券一致",
               total_c == dec(settle_base.total_trade_price),
               f"带券 {settle_coupon.total_trade_price} vs 无券 {settle_base.total_trade_price}")
-        check(f"试算-应付=max(总额-券面额,0)=max({fmt_money(total_c)}-{fmt_money(face)},0)",
+        check(f"试算-应付=max(总额-预估抵扣,0)（券型感知）",
               pay_c == expected_pay,
               f"实际应付 {settle_coupon.buyer_real_price}，期望 {expected_pay}")
         if not all(a["pass"] for a in assertions[trial_start:]):
@@ -730,8 +731,11 @@ def main() -> int:
 
         # ---- STEP 4: 下单 + verify 口径 ----
         banner("[STEP 4] 下单：createOrder（带券折扣行）→ PayLink + verify 口径核对")
-        _, ded = ChageeTradeApi.pick_coupon([coupon_entry], settle_coupon.total_trade_price)
-        rows = [ChageeTradeApi.build_discount_row(coupon_entry, ded)]
+        # 抵扣行优先取服务端回填（折扣率券金额由茶姬计算回填），无回填退本地折率感知预估
+        rows = settle_coupon.discount_rows_for(coupon_code) or [
+            ChageeTradeApi.build_discount_row(
+                coupon_entry,
+                ChageeTradeApi.expected_deduction(coupon_entry, settle_coupon.total_trade_price))]
         try:
             outcome = api.create_order(settle_coupon, args.store_no, store_name, rows)
         except OrderHangError as e:
@@ -815,7 +819,8 @@ def main() -> int:
             crec.token_fingerprint = mask_token(account.token)
             crec.template_name = str(coupon_entry.get("templateName") or "")[:255]
             crec.benefit_text = str(coupon_entry.get("benefitText") or "")[:64]
-            crec.amount = str(ChageeTradeApi.coupon_face(coupon_entry))
+            crec.amount = "" if ChageeTradeApi.coupon_kind(coupon_entry) == "rate" \
+                else str(ChageeTradeApi.coupon_face(coupon_entry))
             crec.threshold_tips = str(coupon_entry.get("thresholdTips") or "")[:128]
             crec.use_end_time = (coupon_entry.get("useEndTime")
                                  if isinstance(coupon_entry.get("useEndTime"), int) else None)

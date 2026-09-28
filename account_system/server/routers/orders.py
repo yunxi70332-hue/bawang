@@ -11,6 +11,7 @@
 """
 
 import logging
+import re
 import threading
 import time
 import uuid as uuidlib
@@ -21,12 +22,14 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from sqlalchemy.orm import Session
 
 from audit import log_audit
-from database import get_db
+from database import SessionLocal, get_db
 from models import ChageeAccount, CouponRecord, CouponUsageLog, OrderRecord, PayEventLog, SystemUser
 from oplog import log_op
 from schemas import CashierUrlRequest, OrderCreateRequest, OrderSettleRequest, PayModeRequest
 from security import require_perm
 from services import chagee_bridge as bridge
+from services import events_bus
+from services import pay_params
 from services.order_reconcile import (
     RECONCILE_GRACE_SECONDS, reconcile_expired_pending_orders, reconcile_order, rollback_coupon_usage,
 )
@@ -143,6 +146,37 @@ def _upsert_order(db: Session, account_id: int, order_no, **fields):
     return rec
 
 
+def _goods_desc_from_items(order_items) -> str:
+    """orderItems → 商品快照文案（"青青糯山、伯牙绝弦 x2"），截断 255 与列宽一致。"""
+    parts = []
+    for it in order_items or []:
+        name = str(it.get("skuName") or "").strip()
+        num = int(it.get("buyNum") or 0)
+        if name:
+            parts.append(f"{name} x{num}" if num > 1 else name)
+    return "、".join(parts)[:255]
+
+
+def _order_row_fields(r: dict) -> dict:
+    """getOrderList 行 → OrderRecord 落库字段（单账号列表与全量扫描同一映射口径；
+    wire 实证行含 orderItems/businessTypeText/orderTime，样本 output/pay_complete_capture_20260926.json）。"""
+    items = r.get("orderItems") or []
+    return {
+        "store_no": r.get("storeNo") or "",
+        "store_name": r.get("storeName") or "",
+        "goods_desc": _goods_desc_from_items(items),
+        "quantity": sum(int(i.get("buyNum") or 0) for i in items) or 1,
+        "total_amount": str(r.get("totalAmount") or ""),
+        "pay_amount": str(r.get("payAmount") or ""),
+        "status": int(r.get("orderStatus") or 0) or None,
+        "status_label": r.get("orderStatusText") or "",
+        "pickup_no": r.get("pickupNo") or "",
+        "unique_pos_order_no": r.get("uniquePosOrderNo") or "",
+        "order_time": r.get("orderTime") or "",
+        "biz_type": r.get("businessTypeText") or "",
+    }
+
+
 # ---------------- 券档案：券ID ↔ 归属账号(token) 唯一映射 + 完整名称全量存储 ----------------
 
 def _token_fp(account: ChageeAccount) -> str:
@@ -152,8 +186,12 @@ def _token_fp(account: ChageeAccount) -> str:
 
 
 def _parse_face(benefit_text: str) -> str:
-    """benefitText「20元」→ 面额字符串「20」。"""
-    import re
+    """benefitText「20元」→ 面额字符串「20」。
+    折扣率券（「7折」）无元面额语义 → 空串（历史缺陷：首数字正则把 7折 存成 7，
+    展示成「7元」；2026-09-28 修正，券型/展示统一走 coupon_kind/amount_display）。"""
+    kind = bridge.ChageeTradeApi.coupon_kind({"benefitText": benefit_text})
+    if kind == "rate":
+        return ""
     m = re.search(r"(\d+(?:\.\d+)?)", str(benefit_text or ""))
     return m.group(1) if m else ""
 
@@ -374,9 +412,18 @@ def order_settle(account_id: int, body: OrderSettleRequest, request: Request,
                    target=f"{account.label}#{account.id}", result="failed", error=e)
 
     # 预览：estimated_pay = max(total − 推荐券抵扣, 0)；无推荐券时即 total（scenario 按 total>0 判定）
+    # 推荐抵扣优先取服务端事实：settle 请求 recommendCoupon=true 时服务端自行选券并回填
+    # discountList/totalDiscountAmount（折扣率券也准确）；无回填再回退本地折率感知预估
     total = Decimal(str(settle_base.total_trade_price or "0"))
-    recommended, deduction = bridge.ChageeTradeApi.pick_coupon(
-        settle_base.available_coupons, settle_base.total_trade_price)
+    server_deduction = Decimal(str((settle_base.trade_fund_info or {}).get("totalDiscountAmount") or "0"))
+    if settle_base.discount_list and server_deduction > 0:
+        deduction = server_deduction
+        rec_codes = {str(r.get("discountId")) for r in settle_base.discount_list}
+        recommended = next((c for c in (settle_base.available_coupons or [])
+                            if str(c.get("couponCode")) in rec_codes), None)
+    else:
+        recommended, deduction = bridge.ChageeTradeApi.pick_coupon(
+            settle_base.available_coupons, settle_base.total_trade_price)
     estimated = max(total - deduction, Decimal(0))
     goods = [{
         "name": (body.sku_name or body.spu_name or ""),
@@ -484,14 +531,20 @@ def order_create(account_id: int, body: OrderCreateRequest, request: Request,
         api = bridge.trade_api(account)
         settle = draft["settle_base"]
         rows = None
+        coupon_deduction = Decimal(0)
         if coupon_entry is not None:
             # 选券复跑直连试算，取服务端回填金额后的最终 SettleResult（金额自动抵扣的服务端事实）
             settle = api.settle_direct(draft["target"], draft.get("price") or {},
                                        coupon_entry=coupon_entry,
                                        extra_entries=[api.build_extra_entry(o)
                                                       for o in (draft.get("extra_list") or [])])
-            _, deduction = api.pick_coupon([coupon_entry], settle.total_trade_price)
-            rows = [api.build_discount_row(coupon_entry, deduction)]
+            # 下单抵扣行唯一权威 = 服务端回填的 discountList 行（折扣率券「7折」的真实抵扣
+            # 由茶姬按券型计算回填，杜绝本地换算口径差→一致性断言拦截）；无回填才退本地
+            # 折率感知预估（2026-09-28 修复，docs/rate_coupon_fix_20260928.md）
+            rows = settle.discount_rows_for(coupon_code) or [
+                api.build_discount_row(coupon_entry,
+                                       api.expected_deduction(coupon_entry, settle.total_trade_price))]
+            coupon_deduction = Decimal(str((settle.trade_fund_info or {}).get("totalDiscountAmount") or "0"))
         outcome = api.create_order(settle, draft["store_no"], draft["store_name"] or "", rows)
     except Exception as e:
         if coupon_code:
@@ -517,9 +570,7 @@ def order_create(account_id: int, body: OrderCreateRequest, request: Request,
             _log_coupon_usage(db, account, user, coupon_code,
                               coupon_entry.get("templateName") or "", "success",
                               order_no=outcome.order_no,
-                              deduction=_fmt_money(min(
-                                  Decimal(str(bridge.ChageeTradeApi.coupon_face(coupon_entry))),
-                                  Decimal(str(settle.total_trade_price or "0")))),
+                              deduction=_fmt_money(coupon_deduction),
                               total_amount=_fmt_money(settle.total_trade_price),
                               pay_amount=_fmt_money(outcome.pay_amount), scenario="zero")
         log_audit(db, request, user, "feature.order_create", f"{account.label}#{account.id}",
@@ -559,9 +610,7 @@ def order_create(account_id: int, body: OrderCreateRequest, request: Request,
         _log_coupon_usage(db, account, user, coupon_code,
                           coupon_entry.get("templateName") or "", "success",
                           order_no=link.order_no,
-                          deduction=_fmt_money(min(
-                              Decimal(str(bridge.ChageeTradeApi.coupon_face(coupon_entry))),
-                              Decimal(str(settle.total_trade_price or "0")))),
+                          deduction=_fmt_money(coupon_deduction),
                           total_amount=_fmt_money(settle.total_trade_price),
                           pay_amount=_fmt_money(settle.buyer_real_price), scenario="partial")
     log_audit(db, request, user, "feature.order_create", f"{account.label}#{account.id}",
@@ -753,6 +802,11 @@ def order_cashier_url(account_id: int, order_no: str, body: CashierUrlRequest, r
         raise HTTPException(400, "链接形态不符：需要 https://mclient.alipay.com/cashierRoutePay.htm?...&session=... 的完整收银台 URL")
     sess.alipay_cashier_url = url[:512]
     db.commit()
+    # 同步生成支付参数串快照（独立表；URL 参数不完整时跳过，不影响已回填的 URL）
+    try:
+        pay_params.save_pay_params(db, order_no, url, source="manual", sess=sess)
+    except Exception:
+        logger.warning("支付参数串生成失败（忽略）order_no=%s", order_no, exc_info=True)
     record_event(db, order_no, token_prefix(sess.pay_token), EVENT_CASHIER_UPDATED,
                  {"url_prefix": url[:80], "operator": user.username})
     log_audit(db, request, user, "feature.order_cashier_url", f"#{account_id}",
@@ -761,6 +815,7 @@ def order_cashier_url(account_id: int, order_no: str, body: CashierUrlRequest, r
            params={"url_prefix": url[:80]})
     return {"order_no": order_no, "alipay_cashier_url": sess.alipay_cashier_url,
             "h5_url": build_h5_url(sess.pay_token), "pay_token": sess.pay_token,
+            **pay_params.payload_fields(db, order_no),
             "note": "mobilegw 会话短窗有效：回填后尽快在浏览器打开完成支付，超时重新捕获再回填"}
 
 
@@ -786,6 +841,25 @@ def order_cashier_status(account_id: int, order_no: str, request: Request,
                   "session_status": sess.status}
     return {**status,
             "note": "铸造中请稍候；完成后 alipay_cashier_url 非空；重试=续付"}
+
+
+@router.get("/{order_no}/pay-params")
+def order_pay_params(account_id: int, order_no: str, request: Request,
+                     db: Session = Depends(get_db),
+                     user: SystemUser = Depends(require_perm("feature:order"))):
+    """官方收银台支付参数串显式读取（JSON v1 契约见 services/pay_params.py；
+    下单/续付响应、cashier 轮询均带同源字段，本端点是外部 Python 支付脚本/调试的稳定入口）。"""
+    _get_account(db, account_id)
+    sess = get_by_order_no(db, order_no)
+    if not sess or sess.account_id != account_id:
+        raise HTTPException(404, "该订单没有支付会话（先获取支付串铸造会话）")
+    fields = pay_params.payload_fields(db, order_no)
+    return {"order_no": order_no, "session_status": sess.status,
+            "alipay_cashier_url": sess.alipay_cashier_url or None,
+            "generated": fields["pay_params"] is not None,
+            **fields,
+            "note": "pay_param_str 为官方收银台全量支付参数（JSON v1，紧凑原文与库内存储一致）；"
+                    "alipay_cashier_url 为空表示尚未捕获/铸造，可续付触发重铸"}
 
 
 # ---------------- F6：订单查询（不审计；SessionExpired 仍置 expired+审计） ----------------
@@ -820,12 +894,7 @@ def order_list_endpoint(account_id: int, request: Request,
             "unique_pos_order_no": r.get("uniquePosOrderNo") or "",
             "can_waiting": st == 3,
         })
-        _upsert_order(db, account_id, r.get("orderNo"),
-                      store_no=r.get("storeNo"), store_name=r.get("storeName"),
-                      status=st, status_label=label,
-                      pickup_no=r.get("pickupNo"), unique_pos_order_no=r.get("uniquePosOrderNo"),
-                      pay_amount=str(r.get("payAmount") or ""),
-                      total_amount=str(r.get("totalAmount") or ""))
+        _upsert_order(db, account_id, r.get("orderNo"), **_order_row_fields(r))
     return {"total": len(rows), "items": items}
 
 
@@ -851,7 +920,8 @@ def order_detail_endpoint(account_id: int, order_no: str, request: Request,
                   status=st, status_label=label,
                   pickup_no=d.get("pickupNo"), unique_pos_order_no=d.get("uniquePosOrderNo"),
                   pay_amount=str(d.get("payAmount") or ""),
-                  total_amount=str(d.get("totalAmount") or ""))
+                  total_amount=str(d.get("totalAmount") or ""),
+                  order_time=d.get("orderTime") or "", biz_type=d.get("businessTypeText") or "")
     return {
         "order_no": d.get("orderNo") or order_no,
         "status": st,
@@ -993,7 +1063,7 @@ def coupon_usage_logs(
     total = q.count()
     rows = (q.order_by(CouponUsageLog.id.desc())
              .offset((page - 1) * page_size).limit(page_size).all())
-    # 归属账号手机号回填：默认脱敏；持 account:update（查看完整手机号）权限时额外下发完整号
+    # 归属账号手机号回填：mask_phone 已改为返回完整号码（2026-09-28 起不再脱敏）
     from schemas import mask_phone
     acc_ids = {r.account_id for r in rows if r.account_id}
     acc_map = {a.id: a for a in db.query(ChageeAccount).filter(ChageeAccount.id.in_(acc_ids)).all()} if acc_ids else {}
@@ -1114,6 +1184,17 @@ def coupons_search(
     total = q.count()
     rows = (q.order_by(CouponRecord.id.desc())
              .offset((page - 1) * page_size).limit(page_size).all())
+
+    def _coupon_display(r: CouponRecord) -> tuple[str, str]:
+        """(coupon_kind, amount_display)：面额展示服务端派生——折扣率券「7折」原样、
+        固定券「20元」、不可解析（免次卡等）回退 benefit_text 原文；前端不再自行拼「元」。"""
+        kind = bridge.ChageeTradeApi.coupon_kind({"benefitText": r.benefit_text})
+        if kind == "rate":
+            return kind, r.benefit_text
+        if kind == "fixed":
+            return kind, (f"{r.amount}元" if r.amount else r.benefit_text)
+        return kind, r.benefit_text
+
     # 命中集合的维度统计（与分页解耦，基于同一筛选全集）
     stat = {"effective": 0, "historical": 0, "settle_available": 0, "used": 0}
     for bucket_val, used_cnt in q.with_entities(CouponRecord.bucket,
@@ -1122,14 +1203,16 @@ def coupons_search(
             stat[bucket_val] += 1
         if used_cnt:
             stat["used"] += 1
-    return {
-        "total": total,
-        "stats": stat,
-        "items": [{
+    items = []
+    for r in rows:
+        kind, display = _coupon_display(r)
+        items.append({
             "id": r.id, "coupon_code": r.coupon_code,
             "template_name": r.template_name,
             "benefit_text": r.benefit_text, "benefit2_text": r.benefit2_text,
-            "amount": r.amount, "usable_scenes": r.usable_scenes,
+            "amount": r.amount,
+            "coupon_kind": kind, "amount_display": display,
+            "usable_scenes": r.usable_scenes,
             "threshold_tips": r.threshold_tips,
             "use_start_time": r.use_start_time, "use_end_time": r.use_end_time,
             "can_discount": r.can_discount, "bucket": r.bucket,
@@ -1139,5 +1222,189 @@ def coupons_search(
             "token_fingerprint": r.token_fingerprint,
             "last_used_at": r.last_used_at, "last_order_no": r.last_order_no,
             "updated_at": r.updated_at,
+        })
+    return {
+        "total": total,
+        "stats": stat,
+        "items": items,
+    }
+
+
+# ---------------- F6 全量取餐码：遍历所有账号 token 批量拉单 + 本地多维模糊搜索（2026-09-28） ----------------
+
+PICKUP_SCAN_PAGE_SIZE = 50          # 每页拉单数（官方 getOrderList pageSize）
+PICKUP_SCAN_TODAY_MAX_PAGES = 10    # 今日 tab 翻页上限（覆盖全部在制/待取单）
+PICKUP_SCAN_HISTORY_MAX_PAGES = 3   # 历史 tab 翻页上限（回填近单，不深翻全历史）
+
+_pickup_scan_lock = threading.Lock()
+# 内存态：running/started_at/progress 供 scan-status 轮询；last 为上次扫描摘要（进程重启即失，前端引导重扫）
+_pickup_scan: dict = {"running": False, "started_at": "", "progress": {"done": 0, "total": 0}, "last": None}
+
+
+def _mask_phone(phone: str) -> str:
+    # 内部系统不再脱敏（2026-09-28）：返回完整手机号，函数名仅为兼容历史调用方
+    return str(phone or "")
+
+
+def _run_pickup_scan(username: str) -> None:
+    """扫描线程主体：逐账号分页拉单落库，进度经 events_bus 推流 pickup_scan topic；
+    单账号凭证失效/协议异常不中断整体遍历（模式同 coupons_sync_all）。"""
+    account_rows: list[dict] = []
+    ok = expired = failed = 0
+    orders_seen = 0
+    pickup_codes: set[str] = set()
+    try:
+        with SessionLocal() as db:
+            accounts = (db.query(ChageeAccount)
+                        .filter(ChageeAccount.status != "disabled", ChageeAccount.token != "")
+                        .order_by(ChageeAccount.id).all())
+            _pickup_scan["progress"] = {"done": 0, "total": len(accounts)}
+            for idx, account in enumerate(accounts, 1):
+                row = {"id": account.id, "label": account.label, "nickname": account.nickname,
+                       "phone_masked": _mask_phone(account.phone),
+                       "result": "ok", "orders": 0, "pickups": 0, "error": ""}
+                try:
+                    api = bridge.trade_api(account)
+                    seen_codes: set[str] = set()
+                    for tab, max_pages in (("today", PICKUP_SCAN_TODAY_MAX_PAGES),
+                                           ("history", PICKUP_SCAN_HISTORY_MAX_PAGES)):
+                        for page in range(1, max_pages + 1):
+                            rows = api.order_list(tab, page, PICKUP_SCAN_PAGE_SIZE)
+                            for r in rows:
+                                _upsert_order(db, account.id, r.get("orderNo"), **_order_row_fields(r))
+                                code = str(r.get("pickupNo") or "")
+                                if code:
+                                    seen_codes.add(code)
+                                    pickup_codes.add(code)
+                            row["orders"] += len(rows)
+                            if len(rows) < PICKUP_SCAN_PAGE_SIZE:
+                                break   # 尾页，本 tab 结束
+                    ok += 1
+                    orders_seen += row["orders"]
+                    row["pickups"] = len(seen_codes)
+                except bridge.SessionExpiredError as e:
+                    expired += 1
+                    account.status = "expired"
+                    db.commit()
+                    row.update(result="expired", error=f"凭证已失效: {str(e)[:120]}")
+                except Exception as e:   # 协议/网络层错误：记录后继续下一个账号
+                    failed += 1
+                    row.update(result="error", error=f"{type(e).__name__}: {str(e)[:120]}")
+                account_rows.append(row)
+                _pickup_scan["progress"] = {"done": idx, "total": len(accounts)}
+                events_bus.publish("pickup_scan", "account_done", {"index": idx, "total": len(accounts), **row})
+        summary = {
+            "run_at": time.strftime("%Y-%m-%d %H:%M:%S"),
+            "scanned": len(account_rows), "ok": ok, "expired": expired, "failed": failed,
+            "orders": orders_seen, "distinct_pickup_codes": len(pickup_codes),
+        }
+    except Exception as e:   # 线程顶层兜底：任何漏网异常也要解除 running 态并推 scan_done
+        logger.error("全量取餐码扫描线程异常终止", exc_info=True)
+        summary = {"run_at": time.strftime("%Y-%m-%d %H:%M:%S"), "aborted": True,
+                   "scanned": len(account_rows), "ok": ok, "expired": expired, "failed": failed,
+                   "orders": orders_seen, "distinct_pickup_codes": len(pickup_codes),
+                   "error": f"{type(e).__name__}: {str(e)[:200]}"}
+    _pickup_scan["last"] = {"summary": summary, "accounts": account_rows}
+    _pickup_scan["running"] = False
+    events_bus.publish("pickup_scan", "scan_done", summary)
+    log_op(level="INFO", actor=username, target="全账号", action="feature.pickup_scan_all",
+           result="failed" if summary.get("aborted") else "success", params=summary)
+
+
+@global_router.post("/pickup/scan-all")
+def pickup_scan_all(request: Request, db: Session = Depends(get_db),
+                    user: SystemUser = Depends(require_perm("feature:pickup"))):
+    """全量取餐码扫描：遍历系统内所有可登录账号的 token，逐账号批量翻页拉取订单，
+    收集全部取餐码并落库 OrderRecord；后台线程执行，进度经 SSE
+    （GET /api/events?topics=pickup_scan）实时推流；模糊搜索（/api/ops/pickup/search）
+    查本地库，不随查询反复打官方接口。"""
+    with _pickup_scan_lock:
+        if _pickup_scan["running"]:
+            raise HTTPException(409, "全量扫描进行中，请等待完成（GET /api/ops/pickup/scan-status 查进度）")
+        accounts = (db.query(ChageeAccount)
+                    .filter(ChageeAccount.status != "disabled", ChageeAccount.token != "")
+                    .order_by(ChageeAccount.id).count())
+        if not accounts:
+            raise HTTPException(400, "系统内没有可查询的账号（需要有 token 且未停用的账号）")
+        _pickup_scan.update(running=True,
+                            started_at=time.strftime("%Y-%m-%d %H:%M:%S"),
+                            progress={"done": 0, "total": accounts})
+    threading.Thread(target=_run_pickup_scan, args=(user.username,),
+                     daemon=True, name="pickup-scan").start()
+    log_audit(db, request, user, "feature.pickup_scan_all", "全账号", {"accounts": accounts})
+    return {"started": True, "accounts": accounts, "started_at": _pickup_scan["started_at"],
+            "events": "GET /api/events?topics=pickup_scan（SSE 实时进度）"}
+
+
+@global_router.get("/pickup/scan-status")
+def pickup_scan_status(_: SystemUser = Depends(require_perm("feature:pickup"))):
+    """扫描状态：进行中返回进度，空闲返回上次扫描摘要（进程重启后 last 为空，前端引导重扫）。"""
+    return {"running": _pickup_scan["running"], "started_at": _pickup_scan["started_at"],
+            "progress": _pickup_scan["progress"], "last": _pickup_scan["last"]}
+
+
+@global_router.get("/pickup/search")
+def pickup_search(
+    keyword: str = Query("", max_length=64),
+    status: int = Query(0, ge=0, le=99),
+    account_id: int = Query(0, ge=0),
+    has_pickup: bool = Query(False),
+    scenario: str = Query("", pattern="^(zero|partial)?$"),
+    page: int = Query(1, ge=1), page_size: int = Query(20, ge=1, le=100),
+    db: Session = Depends(get_db),
+    _: SystemUser = Depends(require_perm("feature:pickup")),
+):
+    """全量取餐码多维模糊搜索（本地 OrderRecord 库，毫秒级、零官方 API 调用）：
+    keyword 单串多维度模糊匹配（取餐码值/订单号/饮品快照/门店/履约方式/归属账号
+    备注昵称手机号——"名称/使用范围"维度映射），可叠加状态/账号/仅看有码/场景过滤；
+    返回分页明细 + 命中维度统计（与分页解耦，供筛选栏计数联动仪表盘）。"""
+    base = db.query(OrderRecord).join(ChageeAccount, OrderRecord.account_id == ChageeAccount.id, isouter=True)
+    if keyword:
+        like = f"%{keyword}%"
+        base = base.filter(OrderRecord.pickup_no.like(like)
+                           | OrderRecord.order_no.like(like)
+                           | OrderRecord.goods_desc.like(like)
+                           | OrderRecord.store_name.like(like)
+                           | OrderRecord.store_no.like(like)
+                           | OrderRecord.biz_type.like(like)
+                           | ChageeAccount.label.like(like)
+                           | ChageeAccount.nickname.like(like)
+                           | ChageeAccount.phone.like(like))
+    if account_id:
+        base = base.filter(OrderRecord.account_id == account_id)
+    if scenario:
+        base = base.filter(OrderRecord.scenario == scenario)
+    # 命中集合维度统计（与分页及 status/has_pickup 过滤解耦）
+    by_status: dict[int, int] = {}
+    with_pickup = 0
+    for st, pn in base.with_entities(OrderRecord.status, OrderRecord.pickup_no).all():
+        by_status[st] = by_status.get(st, 0) + 1
+        if pn:
+            with_pickup += 1
+    q = base
+    if status:
+        q = q.filter(OrderRecord.status == status)
+    if has_pickup:
+        q = q.filter(OrderRecord.pickup_no != "")
+    total = q.count()
+    rows = (q.order_by(OrderRecord.updated_at.desc(), OrderRecord.id.desc())
+             .offset((page - 1) * page_size).limit(page_size).all())
+    return {
+        "total": total,
+        "stats": {"by_status": {str(k): v for k, v in by_status.items()}, "with_pickup": with_pickup},
+        "items": [{
+            "order_no": r.order_no, "pickup_no": r.pickup_no,
+            "order_status": r.status,
+            "status_label": r.status_label or ORDER_STATUS_LABELS.get(r.status, str(r.status)),
+            "pay_amount": r.pay_amount, "total_amount": r.total_amount,
+            "goods_desc": r.goods_desc, "quantity": r.quantity,
+            "store_name": r.store_name, "store_no": r.store_no,
+            "biz_type": r.biz_type, "scenario": r.scenario,
+            "order_time": r.order_time,
+            "created_at": r.created_at, "updated_at": r.updated_at,
+            "account": ({"id": r.account.id, "label": r.account.label,
+                         "nickname": r.account.nickname,
+                         "phone_masked": _mask_phone(r.account.phone),
+                         "status": r.account.status} if r.account else None),
         } for r in rows],
     }

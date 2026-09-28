@@ -18,6 +18,9 @@ _COLUMN_MIGRATIONS = [
     ("order_records", "order_target", "JSON"),
     # 支付宝官方 H5 收银台 URL 快照（2026-09-27 新增，旧 pay_sessions 表补列）
     ("pay_sessions", "alipay_cashier_url", "VARCHAR(512) DEFAULT '' NOT NULL"),
+    # 全量取餐码扫描（2026-09-28）：官方 orderTime 原文 + 履约方式（businessTypeText）
+    ("order_records", "order_time", "VARCHAR(32) DEFAULT '' NOT NULL"),
+    ("order_records", "biz_type", "VARCHAR(16) DEFAULT '' NOT NULL"),
 ]
 
 

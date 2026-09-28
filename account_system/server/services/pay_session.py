@@ -28,6 +28,7 @@ from models import OrderRecord, PayAttempt, PayEventLog, PaySession
 from oplog import log_op
 from services import chagee_bridge as bridge
 from services import pay_broadcast
+from services import pay_params
 from services.order_reconcile import RECONCILE_GRACE_SECONDS, rollback_coupon_usage
 
 logger = logging.getLogger(__name__)
@@ -232,6 +233,14 @@ def ensure_pay_session(db: Session, account_id: int, order_no, link,
            actor="system", target=order_no,
            params={"mode": sess.mode, "coupon_code": coupon_code or None,
                    "pay_token_prefix": token_prefix(sess.pay_token)})
+    # 官方收银台支付参数串：静态构造出 URL 即同步落独立表（覆盖式，最新短窗语义）；
+    # fail-soft——参数串是旁路增强，绝不阻塞支付串下发
+    if sess.alipay_cashier_url:
+        try:
+            pay_params.save_pay_params(db, order_no, sess.alipay_cashier_url,
+                                       source="static-config", sess=sess)
+        except Exception:
+            logger.warning("支付参数串生成失败（忽略）order_no=%s", order_no, exc_info=True)
     return sess
 
 
@@ -402,6 +411,11 @@ def pay_link_payload_with_session(db: Session, link, account_id: int,
     # 时间戳同步契约（docs/pay_timesync_design_20260928.md）：绝对锚点下发，前端做时钟校正
     payload.update({"server_time": server_now_ms(),
                     "pay_deadline_ts": pay_deadline_ts(sess)})
+    # 官方收银台支付参数串（已捕获时随单下发；未捕获为空，前端轮询 cashier 端点补齐）
+    try:
+        payload.update(pay_params.payload_fields(db, link.order_no))
+    except Exception:
+        logger.warning("支付参数串读取失败（忽略）order_no=%s", link.order_no, exc_info=True)
     return payload
 
 
@@ -552,6 +566,11 @@ def switch_order_to_full_price(db: Session, account, order: OrderRecord, *,
                     # 时间戳同步契约：新会话的绝对锚点（壳页跳新链接前就能校准时钟）
                     "server_time": server_now_ms(),
                     "pay_deadline_ts": pay_deadline_ts(sess)})
+    # 新单的官方收银台支付参数串（原价重下后旧参数串作废，此处恒为新单号记录）
+    try:
+        payload.update(pay_params.payload_fields(db, link.order_no))
+    except Exception:
+        logger.warning("支付参数串读取失败（忽略）order_no=%s", link.order_no, exc_info=True)
     log_op("order.switch_full_price", actor=operator, target=old_order_no,
            params={"old_order_no": old_order_no, "new_order_no": link.order_no,
                    "coupon_rolled_back": rolled_back})

@@ -189,7 +189,9 @@
                 </template>
               </el-table-column>
               <el-table-column label="面额" width="70" align="center">
-                <template #default="{ row }">{{ row.amount ? row.amount + '元' : '—' }}</template>
+                <template #default="{ row }">
+                  {{ row.amount_display || (row.amount ? row.amount + '元' : '—') }}
+                </template>
               </el-table-column>
               <el-table-column label="使用范围" width="110">
                 <template #default="{ row }">

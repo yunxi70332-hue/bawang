@@ -8,10 +8,8 @@
       </div>
       <div class="hero-right">
         <div class="hero-fresh">
-          <span class="pulse-dot" :class="{ paused: !autoRefresh }" />
-          <span class="hero-fresh-text">
-            {{ autoRefresh ? `实时联动中 · 每 ${REFRESH_MS / 1000}s 自动同步` : '实时联动已暂停' }}
-          </span>
+          <span class="pulse-dot" :class="{ paused: !autoRefresh && !sseLive }" />
+          <span class="hero-fresh-text">{{ liveText }}</span>
           <span v-if="stats.generated_at" class="mono hero-gen">数据源：{{ stats.generated_at }}</span>
         </div>
         <div class="hero-actions">
@@ -21,39 +19,45 @@
       </div>
     </div>
 
-    <!-- 统计卡（账号 / 券 / 订单三域，与各功能页数据联动） -->
+    <!-- 统计卡（账号 / 券 / 订单三域，点击联动跳转对应页面；订单/券使用卡带 7 日迷你趋势） -->
     <div class="stat-grid">
-      <div class="stat-card g1">
+      <div class="stat-card g1" :class="{ 'card-link': auth.can('account:read') }" @click="go('account:read', '/accounts')">
         <div class="stat-value">{{ stats.total_accounts }}</div>
         <div class="stat-label">茶姬账号</div>
         <div class="stat-foot">在线 {{ stats.online }} · 待登/失效 {{ stats.pending + stats.expired }}</div>
         <el-icon class="stat-icon"><User /></el-icon>
       </div>
-      <div class="stat-card g2">
+      <div class="stat-card g2" :class="{ 'card-link': auth.can('feature:coupon') }" @click="go('feature:coupon', '/ops/coupons')">
         <div class="stat-value">{{ stats.coupons_total }}</div>
         <div class="stat-label">券ID 档案（全量收集）</div>
         <div class="stat-foot">可用 {{ stats.coupons_effective }} · 历史 {{ stats.coupons_historical }} · 试算 {{ stats.coupons_settle_available }}</div>
         <el-icon class="stat-icon"><Ticket /></el-icon>
       </div>
-      <div class="stat-card g3">
+      <div class="stat-card g3" :class="{ 'card-link': auth.can('feature:order') }" @click="go('feature:order', '/ops/coupon-logs')">
         <div class="stat-value">{{ stats.coupon_used_success }}</div>
         <div class="stat-label">券使用成功（次）</div>
+        <svg class="spark" viewBox="0 0 100 26" preserveAspectRatio="none" aria-hidden="true">
+          <polyline :points="sparkUsage" fill="none" stroke="rgba(255,255,255,0.85)" stroke-width="1.6" />
+        </svg>
         <div class="stat-foot">累计抵扣 ¥{{ stats.coupon_deduction_total }} · 拒/败 {{ stats.coupon_rejected + stats.coupon_failed }}</div>
         <el-icon class="stat-icon"><CircleCheck /></el-icon>
       </div>
-      <div class="stat-card g4">
+      <div class="stat-card g4" :class="{ 'card-link': auth.can('feature:pickup') }" @click="go('feature:pickup', '/ops/pickup?view=all')">
         <div class="stat-value">{{ stats.orders_total }}</div>
         <div class="stat-label">订单总数</div>
+        <svg class="spark" viewBox="0 0 100 26" preserveAspectRatio="none" aria-hidden="true">
+          <polyline :points="sparkOrders" fill="none" stroke="rgba(255,255,255,0.85)" stroke-width="1.6" />
+        </svg>
         <div class="stat-foot">今日 {{ stats.orders_today }} · 待支付 {{ stats.orders_pending_pay }} · 制作中 {{ stats.orders_making }}</div>
         <el-icon class="stat-icon"><ShoppingCart /></el-icon>
       </div>
-      <div class="stat-card g5">
+      <div class="stat-card g5" :class="{ 'card-link': auth.can('feature:pickup') }" @click="go('feature:pickup', '/ops/pickup?view=all&scenario=zero')">
         <div class="stat-value">{{ stats.orders_zero }}</div>
         <div class="stat-label">0 元单（券抵扣闭环）</div>
         <div class="stat-foot">差额支付单 {{ stats.orders_partial }}</div>
         <el-icon class="stat-icon"><Present /></el-icon>
       </div>
-      <div class="stat-card g6">
+      <div class="stat-card g6" :class="{ 'card-link': auth.can('audit:read') }" @click="go('audit:read', '/system/audit')">
         <div class="stat-value">{{ stats.logins_7d }}</div>
         <div class="stat-label">近 7 日协议登录</div>
         <div class="stat-foot">系统用户 {{ stats.users }} 个</div>
@@ -129,14 +133,17 @@
 
 <script setup>
 import { computed, onBeforeUnmount, onMounted, reactive, ref } from 'vue'
+import { useRouter } from 'vue-router'
 import * as echarts from 'echarts'
 import { Refresh } from '@element-plus/icons-vue'
 import { apiDashboard } from '../api'
 import { fmtTime } from '../utils/format'
 import { useAuthStore } from '../stores/auth'
+import { openEventStream } from '../utils/sse'
 
 const auth = useAuthStore()
-const REFRESH_MS = 15000   // 统计数据实时联动轮询间隔
+const router = useRouter()
+const REFRESH_MS = 15000   // 轮询兜底间隔（SSE 实时通道正常时停用）
 
 const stats = reactive({
   total_accounts: 0, online: 0, pending: 0, expired: 0, disabled: 0,
@@ -161,7 +168,33 @@ const features = [
 
 const autoRefresh = ref(true)
 const refreshing = ref(false)
-let timer = null
+const sseLive = ref(false)   // SSE 实时推送在位（true 时轮询兜底停用）
+let pollTimer = null
+let liveStream = null
+
+const liveText = computed(() => {
+  if (sseLive.value) return 'SSE 实时推送中 · 数据一变即同步'
+  return autoRefresh.value ? `轮询同步中 · 每 ${REFRESH_MS / 1000}s（SSE 断开回落）` : '实时联动已暂停'
+})
+
+// 统计卡联动跳转：点击卡片带筛选参数跳到对应页面（无权限的卡片不响应、不显示手型）
+function go(perm, path) {
+  if (auth.can(perm)) router.push(path)
+}
+
+// 迷你趋势线（统计卡内 7 点 SVG sparkline，数据复用已拉取的趋势序列，零额外请求）
+function sparkPoints(values, w = 100, h = 26, pad = 3) {
+  const nums = values.map((v) => Number(v) || 0)
+  const max = Math.max(1, ...nums)
+  const step = nums.length > 1 ? (w - pad * 2) / (nums.length - 1) : 0
+  return nums.map((v, i) => {
+    const x = pad + i * step
+    const y = h - pad - (v / max) * (h - pad * 2)
+    return `${x.toFixed(1)},${y.toFixed(1)}`
+  }).join(' ')
+}
+const sparkOrders = computed(() => sparkPoints(stats.orders_trend.map((d) => d.count)))
+const sparkUsage = computed(() => sparkPoints(stats.coupon_usage_trend.map((d) => d.success)))
 
 const greeting = computed(() => {
   const h = new Date().getHours()
@@ -277,22 +310,57 @@ function renderAll() {
   renderOrdersChart()
 }
 
+function applyStats(data) {
+  Object.assign(stats, data.cards, {
+    status_distribution: data.status_distribution,
+    coupon_scenes: data.coupon_scenes,
+    coupon_usage_trend: data.coupon_usage_trend,
+    orders_trend: data.orders_trend,
+    recent_audit: data.recent_audit,
+    generated_at: data.generated_at,
+  })
+  renderAll()
+}
+
 async function refresh() {
   refreshing.value = true
   try {
-    const data = await apiDashboard.stats()
-    Object.assign(stats, data.cards, {
-      status_distribution: data.status_distribution,
-      coupon_scenes: data.coupon_scenes,
-      coupon_usage_trend: data.coupon_usage_trend,
-      orders_trend: data.orders_trend,
-      recent_audit: data.recent_audit,
-      generated_at: data.generated_at,
-    })
-    renderAll()
+    applyStats(await apiDashboard.stats())
   } finally {
     refreshing.value = false
   }
+}
+
+// ---- 实时通道：SSE 主通道（服务端指纹变化即推）+ 轮询兜底（SSE 断开自动接管、恢复即停） ----
+function startPollTimer() {
+  if (pollTimer) return
+  pollTimer = setInterval(() => {
+    if (autoRefresh.value) refresh()
+  }, REFRESH_MS)
+}
+
+function stopPollTimer() {
+  if (pollTimer) {
+    clearInterval(pollTimer)
+    pollTimer = null
+  }
+}
+
+function startLive() {
+  liveStream = openEventStream({
+    topics: ['dashboard'],
+    events: {
+      stats: (d) => { if (d?.cards) applyStats(d) },
+    },
+    onOpen: () => {
+      sseLive.value = true
+      stopPollTimer()
+    },
+    onError: () => {
+      sseLive.value = false
+      startPollTimer()
+    },
+  })
 }
 
 const onResize = () => {
@@ -307,14 +375,14 @@ const onFocus = () => {
 onMounted(async () => {
   await refresh()
   renderAll()
-  timer = setInterval(() => {
-    if (autoRefresh.value) refresh()   // 实时联动：统计与仪表盘数据周期同步
-  }, REFRESH_MS)
+  startLive()        // SSE 实时主通道（连上即推当前 stats）
+  startPollTimer()   // 轮询兜底：SSE onOpen 后自动停用，断开自动接管
   window.addEventListener('resize', onResize)
   window.addEventListener('focus', onFocus)
 })
 onBeforeUnmount(() => {
-  clearInterval(timer)
+  stopPollTimer()
+  liveStream?.close()
   window.removeEventListener('resize', onResize)
   window.removeEventListener('focus', onFocus)
   statusChart?.dispose()
@@ -447,6 +515,16 @@ onBeforeUnmount(() => {
   top: 12px;
   font-size: 36px;
   opacity: 0.2;
+}
+.stat-card.card-link {
+  cursor: pointer;
+}
+.spark {
+  display: block;
+  width: 100%;
+  height: 26px;
+  margin-top: 6px;
+  opacity: 0.92;
 }
 .g1 { background: linear-gradient(135deg, #2a6e59, #1b433c); }
 .g2 { background: linear-gradient(135deg, #3d8b72, #2a6e59); }
