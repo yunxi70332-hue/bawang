@@ -245,3 +245,11 @@ errors 不中断。
   `packet.items.clear()` 后先 `db.flush()` 再重建；② 仪表盘 margin_avg 默认 HALF_EVEN
   舍入（25.65→25.6）与 profit-report 的 ROUND_HALF_UP（→25.7）口径不一致——统一
   ROUND_HALF_UP。
+
+## 券成本子类（2026-09-29 增补）
+
+**定位：子类只做分类，不做成本。** 券资产业务分类层（biz_type：paid 采购付费 / free 活动免费 / bank 银行渠道 / other 其他），按与成本规则相同的四类匹配语义自动归类每张券；成本金额仍由成本规则唯一决定，二者职责解耦、互不重复。
+
+- 数据：`voucher_cost_categories` 新表 + `voucher_cost_rules.category_id`（0=未分类）；归类结果不持久化，全部实时由 `classify_category`（与 resolve_cost 共用 `_match_hit`）派生——库存池/档案库/decide 三处同一口径
+- 联动（与优惠券查询模块）：档案库每行带 成本价/成本来源/子类/biz_type，支持子类筛选（`cost_category=-1` 为未分类）；成本子类页「查看券」深链跳转档案库并自动应用筛选；子类页统计（券数/面额/成本合计）仅计 effective+settle_available 两桶当前有效资产，档案库统计含历史全桶——两口径均为设计语义
+- 运营：在「券成本与阈值 → 成本子类」维护分类（如 新人礼=free、浦发=bank、代金券=paid）；删除子类自动把挂靠规则归位未分类；详见契约 §9 与用户操作文档 §13
