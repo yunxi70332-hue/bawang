@@ -178,6 +178,10 @@ class OrderSettleRequest(BaseModel):
 class OrderCreateRequest(BaseModel):
     draft_id: str = Field(min_length=1, max_length=64)
     coupon_code: str | None = Field(default=None, max_length=64)   # None = 不用券
+    # 决策挂钩（契约 decision_api_contract.md §6）：decide 响应的 decision_log_id 传回时，
+    # 成单后回填该 DecisionLog 的 order_no/account_id/coupon_code/deduction_actual/pay_actual；
+    # 缺省 0 = 行为与决策系统引入前完全一致（向后兼容）
+    decision_log_id: int = Field(default=0, ge=0)
 
 
 class PayModeRequest(BaseModel):
@@ -187,3 +191,74 @@ class PayModeRequest(BaseModel):
 class CashierUrlRequest(BaseModel):
     """云手机实时捕获的支付宝官方收银台 URL 回填（mobilegw 会话仅捕获后短窗有效）。"""
     url: str = Field(min_length=32, max_length=2048)
+
+
+# ---------- 下单决策（契约 docs/decision_api_contract.md §5） ----------
+
+class PacketItemBody(BaseModel):
+    """套餐商品行（POST/PUT /packets 的 items 元素）：spu/sku 圈定可接商品，
+    券规则 JSON（{"match_type":"template_contains","match_value":"代金券"}）控制选券，null=不限。"""
+    spu_id: str = Field(default="", max_length=32)
+    sku_id: str = Field(min_length=1, max_length=32)
+    product_name: str = Field(default="", max_length=128)
+    face_price: str = Field(default="", max_length=16)        # 面价（前端选品时从菜单回填）
+    premium_price: str = Field(default="", max_length=16)     # 溢价（可空）
+    is_premium: bool = False                                  # 是否需溢价券商品
+    normal_coupon_rule: dict | None = None                    # 常规券规则 | null=不限
+    premium_coupon_rule: dict | None = None                   # 溢价券规则（同构）
+
+
+class PacketCreateRequest(BaseModel):
+    """套餐创建/编辑（PUT 同构，items 全量替换）。金额为 String 金额字符串。"""
+    name: str = Field(min_length=1, max_length=64)
+    min_order_amount: str = Field(default="0", max_length=16)   # 客户支付价下限
+    max_order_amount: str = Field(default="0", max_length=16)   # 0=不设上限
+    available_start: str = Field(default="", max_length=8)      # "HH:MM:SS"，空=不限
+    available_end: str = Field(default="", max_length=8)
+    min_profit: str = Field(default="", max_length=16)          # 套餐级最低利润覆盖，空=用全局
+    note: str = Field(default="", max_length=255)
+    items: list[PacketItemBody] = Field(default_factory=list)   # 空=全品类
+
+
+class CostRuleRequest(BaseModel):
+    """券采购成本规则：match_type 四种命中方式见 services/decision.resolve_cost。"""
+    name: str = Field(min_length=1, max_length=64)
+    match_type: str = Field(pattern="^(template_exact|template_contains|benefit_regex|coupon_prefix)$")
+    match_value: str = Field(min_length=1, max_length=128)     # 匹配值（regex 时为正则）
+    face_value: str = Field(default="", max_length=16)         # 面额校验（非空时须等于券面额）
+    cost_price: str = Field(min_length=1, max_length=16)       # 采购成本（元）
+    priority: int = Field(default=100)                         # 越小越优先
+    enabled: bool = True
+    note: str = Field(default="", max_length=255)
+
+
+class CostRuleImportRequest(BaseModel):
+    """批量导入：逐条校验（非法条目进 errors 不中断），name 与库内重复跳过。"""
+    rules: list[dict] = Field(default_factory=list)            # 元素字段同 CostRuleRequest
+
+
+class DecisionConfigRequest(BaseModel):
+    """全局决策配置（data/decision_config.json，services/decision.load_config/save_config）。"""
+    model_config = {"extra": "allow"}   # 透传文件中的额外键（GET/PUT 原文往返）
+
+    min_profit: str = Field(default="2.00", max_length=16)     # 全局每单最低利润（元）
+    min_margin: str = Field(default="", max_length=16)         # 全局最低利润率%（空=不启用）
+    overhead: str = Field(default="0", max_length=16)          # 每单杂费（元）
+    cost_fallback_ratio: str = Field(default="1.0", max_length=16)  # 规则未命中按面额×该系数
+
+
+class ScanRequest(BaseModel):
+    """券库存扫描：account_ids 空=全部可登录账号（status!=disabled 且 token 非空）。"""
+    account_ids: list[int] = Field(default_factory=list)
+
+
+class DecideRequest(BaseModel):
+    """决策评估（POST /api/ops/orders/decide）：客户平台 linkId + 文案规格 → 利润折算与选券推荐。"""
+    sku_id: str = Field(min_length=1, max_length=64)           # 客户平台 linkId
+    quantity: int = Field(default=1, ge=1, le=99)
+    spec_list: list[str] = Field(default_factory=list)         # 文案规格（"大杯"…），空=用 sku 默认组合
+    store_no: str = Field(min_length=1, max_length=32)
+    customer_price: str = Field(min_length=1, max_length=16)   # 客户支付价（revenue，String 金额）
+    packet_id: int = Field(default=0, ge=0)                    # 可选，指定则校验在命中集内
+    allow_full_price: bool = False                             # 无券时是否允许原价单
+    deep: bool = False                                         # true=对 top1 候选账号真实 settle 探针

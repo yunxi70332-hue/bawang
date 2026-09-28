@@ -160,6 +160,7 @@
                     <b>{{ c.templateName }}</b>
                   </el-radio>
                   <el-tag v-if="isRecommended(c)" type="success" size="small" effect="plain">推荐</el-tag>
+                  <el-tag v-if="isDecisionCoupon(c)" type="primary" size="small" effect="plain">决策</el-tag>
                 </div>
                 <div class="coupon-meta">
                   <span class="coupon-face">{{ faceLabel(c) }}</span>
@@ -442,6 +443,93 @@
           </template>
         </el-table-column>
       </el-table>
+
+      <!-- 决策评估（可选）：去结算前测算成本利润与阈值判定；不评估/评估失败均不影响手动下单流程 -->
+      <div v-if="goods.skus && goods.skus.length" class="decide-card">
+        <div class="decide-head" @click="decideOpen = !decideOpen">
+          <span class="decide-title">决策评估</span>
+          <el-tag v-if="decideResult" :type="decideResult.verdict === 'pass' ? 'success' : 'danger'"
+            size="small" effect="dark">
+            {{ decideResult.verdict === 'pass' ? '通过' : '拦截' }}
+          </el-tag>
+          <span class="muted decide-sub">输入客户支付价，测算本单成本利润（可选）</span>
+          <el-icon class="decide-arrow" :class="{ open: decideOpen }"><ArrowDown /></el-icon>
+        </div>
+        <template v-if="decideOpen">
+          <div class="decide-form">
+            <el-select v-model="decideSkuId" size="small" filterable placeholder="选择评估 SKU" style="width: 210px">
+              <el-option v-for="s in goods.skus" :key="s.skuId" :value="s.skuId" :disabled="rowStockOut(s)"
+                :label="`${s.specDesc || '默认'} · ¥${s.price}`" />
+            </el-select>
+            <span class="muted">× {{ decideQty }}</span>
+            <el-input v-model="decidePrice" size="small" placeholder="客户支付价" style="width: 150px">
+              <template #prepend>¥</template>
+            </el-input>
+            <el-button type="primary" size="small" :loading="decideBusy" @click="runDecide">评估成本利润</el-button>
+          </div>
+          <p v-if="decideSpecPreview.length" class="muted decide-spec">
+            规格：{{ decideSpecPreview.join(' / ') }} · 门店：{{ storeName }}
+          </p>
+
+          <template v-if="decideResult">
+            <el-alert v-if="decideResult.verdict !== 'pass'" type="error" :closable="false" show-icon
+              class="decide-gap" :title="`拦截：${decideResult.blocked_reason || '未达到利润阈值'}`" />
+
+            <div class="decide-body">
+              <el-descriptions :column="1" size="small" border class="decide-desc">
+                <el-descriptions-item label="客户支付价">¥{{ cb.revenue }}</el-descriptions-item>
+                <el-descriptions-item :label="`订单总额（${cb.price_source === 'settle' ? '服务端' : '菜单估算'}）`">
+                  ¥{{ cb.total_trade_price }}
+                </el-descriptions-item>
+                <el-descriptions-item label="券抵扣">
+                  ¥{{ cb.deduction }}
+                  <el-tag v-if="cb.deduction_estimated" size="small" type="warning" effect="plain" class="est-tag">估</el-tag>
+                </el-descriptions-item>
+                <el-descriptions-item :label="`券成本（${costSourceLabel}）`">¥{{ cb.voucher_cost }}</el-descriptions-item>
+                <el-descriptions-item label="差额实付">¥{{ cb.pay_cost }}</el-descriptions-item>
+                <el-descriptions-item label="杂费">¥{{ cb.overhead }}</el-descriptions-item>
+                <el-descriptions-item label="总成本">¥{{ cb.total_cost }}</el-descriptions-item>
+                <el-descriptions-item label="利润"><span class="price">¥{{ cb.profit }}</span></el-descriptions-item>
+                <el-descriptions-item label="利润率">{{ cb.margin }}%</el-descriptions-item>
+              </el-descriptions>
+
+              <div class="decide-side">
+                <div class="decide-meta">
+                  <el-tag size="small" effect="plain">{{ thresholdLabel }}</el-tag>
+                  <span class="muted decide-th">
+                    最低利润 ¥{{ decideResult.threshold?.min_profit || '0' }}
+                    <template v-if="decideResult.threshold?.min_margin"> · 最低利润率 {{ decideResult.threshold.min_margin }}%</template>
+                  </span>
+                </div>
+                <div v-if="decideResult.coupon" class="decide-coupon">
+                  推荐券：<b>{{ decideResult.coupon.template_name }}</b>
+                  <span class="muted">{{ decideResult.coupon.benefit_text }}</span>
+                  <span class="mono muted">{{ decideResult.coupon.coupon_code }}</span>
+                </div>
+                <div v-else class="muted">推荐方案：不使用优惠券（原价单）</div>
+                <div class="muted">
+                  推荐账号：{{ decideResult.account_label || decideResult.account_id || '—' }}
+                  <template v-if="decideResult.packet"> · 套餐：{{ decideResult.packet.name }}</template>
+                </div>
+                <div v-if="decideResult.decision_log_id" class="muted mono decide-log">
+                  决策流水 #{{ decideResult.decision_log_id }}
+                </div>
+                <div v-if="alternatives.length" class="decide-alts">
+                  <div class="muted decide-alt-title">备选方案</div>
+                  <div v-for="(a, i) in alternatives" :key="i" class="decide-alt">
+                    {{ a.account_label }} · {{ a.template_name || a.coupon_code }} · 成本 ¥{{ a.total_cost }} · 利润 ¥{{ a.profit }}
+                  </div>
+                </div>
+                <el-button v-if="decideResult.verdict === 'pass'" type="primary" size="small" plain
+                  :disabled="isAppliedCurrent" @click="applyRecommendation">
+                  {{ isAppliedCurrent ? '已应用推荐方案' : '应用推荐方案' }}
+                </el-button>
+                <p v-if="appliedHint" class="decide-hint">{{ appliedHint }}</p>
+              </div>
+            </div>
+          </template>
+        </template>
+      </div>
       <p class="muted drawer-note">选择数量后点击「去结算」生成 10 分钟有效试算草稿（服务端以该草稿完成下单）。</p>
     </el-drawer>
 
@@ -459,6 +547,9 @@
           <span v-if="est.amount != null" class="price pay-big">{{ est.approximate ? '约 ' : '' }}¥{{ est.amount }}</span>
           <span v-else class="muted">以实际结算为准</span>
         </el-descriptions-item>
+        <el-descriptions-item v-if="decisionLogAttached" label="决策留痕">
+          <span class="muted">已选决策推荐券，成单将回填决策流水 #{{ decisionApplied.decisionLogId }}</span>
+        </el-descriptions-item>
       </el-descriptions>
       <el-alert v-if="isZeroPay" type="error" :closable="false" show-icon class="block-gap"
         title="0 元单会真实制作饮品！门店由你选择，不取自然作废" />
@@ -474,8 +565,8 @@
 import { computed, onMounted, onUnmounted, reactive, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { CopyDocument, InfoFilled, Refresh, WarningFilled } from '@element-plus/icons-vue'
-import { apiAccounts, apiOps } from '../api'
+import { ArrowDown, CopyDocument, InfoFilled, Refresh, WarningFilled } from '@element-plus/icons-vue'
+import { apiAccounts, apiDecision, apiOps } from '../api'
 import { fmtCountdown, fmtTime, orderStatusTag } from '../utils/format'
 import { nowMs } from '../utils/clock'
 
@@ -519,6 +610,55 @@ const hasZeroPricePreselect = (e) =>
   (e?.extraOptions || []).some((o) => Number(o.salePrice) === 0 && (o.stock ?? 1) > 0)
 const settleBusy = ref(false)
 const settleSkuId = ref(null)
+
+/* ---------------- 决策评估（步骤② 抽屉内，可选能力，不阻塞手动流程） ----------------
+ * 流转：选 SKU + 客户支付价 → decide → pass 时「应用推荐方案」：
+ * 程序化切换账号到推荐 account_id（保留步骤/抽屉上下文）、暂存推荐 coupon_code 与
+ * decision_log_id → 用户点「去结算」→ 试算可用券列表命中推荐券则自动选中 →
+ * 提交时若所选券==推荐券则 payload 携带 decision_log_id（否则旧流程完全不变）。 */
+const decideOpen = ref(true)          // 面板可折叠/关闭（不评估不影响手动下单）
+const decideSkuId = ref(null)         // 评估目标 SKU（默认首个在售）
+const decidePrice = ref('')           // 客户支付价（customer_price / revenue）
+const decideBusy = ref(false)
+const decideResult = ref(null)        // decide 响应（verdict/cost_breakdown/threshold/coupon/…）
+const decisionApplied = ref(null)     // 已应用的推荐方案 { accountId, couponCode, decisionLogId }
+let applyingRec = false               // 程序化切换账号的一次性标志（watch 中消费）
+
+const decideQty = computed(() => Number(skuQty[decideSkuId.value] || 1))
+const cb = computed(() => decideResult.value?.cost_breakdown || {})
+const alternatives = computed(() => (decideResult.value?.alternatives || []).slice(0, 5))
+const costSourceLabel = computed(() => {
+  const s = cb.value.cost_source || ''
+  if (s.startsWith('rule:')) return `成本规则 #${s.slice(5)}`
+  if (s === 'fallback') return '面额兜底'
+  return s || '—'
+})
+const thresholdLabel = computed(() => {
+  const t = decideResult.value?.threshold
+  if (!t) return '阈值'
+  return t.source === 'packet' ? '套餐阈值' : '全局阈值'
+})
+const isAppliedCurrent = computed(() => {
+  const r = decideResult.value
+  return !!r?.decision_log_id && decisionApplied.value?.decisionLogId === r.decision_log_id
+})
+const appliedHint = computed(() => {
+  const rec = decisionApplied.value
+  if (!rec?.decisionLogId) return ''
+  return `已应用推荐方案（流水 #${rec.decisionLogId}）：点击「去结算」试算后${
+    rec.couponCode ? '将自动选中推荐券' : '按原价单提交'
+  }，成单时回填决策流水`
+})
+/* 提交挂钩条件：暂存了 decision_log_id 且当前所选券==推荐券（原价单推荐=未选券） */
+const decisionLogAttached = computed(() => {
+  const rec = decisionApplied.value
+  return !!(rec?.decisionLogId && selectedCouponCode.value === (rec.couponCode || ''))
+})
+const decideSku = computed(() => (goods.value.skus || []).find((s) => s.skuId === decideSkuId.value) || null)
+const decideSpecPreview = computed(() => (decideSku.value ? currentSpecTexts(decideSku.value) : []))
+function rowStockOut(s) {
+  return (s.stock ?? 1) <= 0
+}
 
 /* 步骤3：试算草稿 */
 const settleData = ref(null)
@@ -618,10 +758,18 @@ onMounted(async () => {
   }
 })
 
-/* 账号切换：清理下游全部状态（草稿/结果/计时器），回到步骤1 */
+/* 账号切换：清理下游全部状态（草稿/结果/计时器），回到步骤1。
+ * applyingRec 一次性标志=「应用决策推荐方案」的程序化切换：下游草稿清理语义保留
+ * （旧草稿属于旧账号必须作废），但不跳回步骤0、不失效刚暂存的推荐方案；
+ * 手动切换则推荐方案失效（推荐券属于推荐账号的券库存）。 */
 watch(accountId, () => {
   clearResult()
   clearSettle()
+  if (applyingRec) {
+    applyingRec = false
+    return
+  }
+  resetDecisionContext()
   if (step.value > 0) step.value = 0
 })
 
@@ -631,6 +779,7 @@ async function onCityChange() {
   menuMeta.value = null
   clearSettle()
   clearResult()
+  resetDecisionContext()   // 门店变了：决策评估与推荐方案随之失效
   await searchStores('')
 }
 
@@ -651,6 +800,7 @@ async function searchStores(kw) {
 function onStoreChange() {
   clearSettle()
   clearResult()
+  resetDecisionContext()   // 门店变了：决策评估与推荐方案随之失效
   if (storeNo.value) loadMenu()
 }
 
@@ -681,12 +831,19 @@ async function openGoods(row) {
   goods.value = { spuId: row.spuId, spuName: row.spuName, img: row.img || '', description: '', skus: [], detailImages: [] }
   Object.keys(attrSel).forEach((k) => delete attrSel[k])
   Object.keys(extraSel).forEach((k) => delete extraSel[k])
+  // 换商品：决策评估面板复位（保留客户支付价输入与折叠态，减少重复输入）
+  decideResult.value = null
+  decisionApplied.value = null
+  decideBusy.value = false
   try {
     const detail = await apiOps.goods(row.spuId, storeNo.value)
     goods.value = detail
     detail.skus.forEach((s) => {
       if (!(s.skuId in skuQty)) skuQty[s.skuId] = 1
     })
+    // 决策评估默认 SKU：首个在售（无则首个）
+    decideSkuId.value = (detail.skus || []).find((s) => (s.stock ?? 1) > 0)?.skuId
+      || (detail.skus || [])[0]?.skuId || null
     // 属性预选：defaulted 项优先，无默认取首个可选项（服务端要求每组属性必选）
     for (const a of detail.attributes || []) {
       const opts = (a.attrOptions || []).filter((o) => !o.saleOut)
@@ -767,7 +924,25 @@ async function doSettle(sku) {
 
     const data = await apiOps.orderSettle(accountId.value, payload)
     settleData.value = data
+    // 选券默认值：决策推荐券优先（在可用列表且未禁用则自动选中），否则服务端推荐券
     selectedCouponCode.value = data.preview?.recommended_coupon?.couponCode || ''
+    const rec = decisionApplied.value
+    if (rec?.decisionLogId) {
+      if (!rec.couponCode) {
+        selectedCouponCode.value = ''   // 推荐方案=原价单
+        ElMessage.info('决策推荐为原价单：本次未选用优惠券')
+      } else {
+        const target = (data.preview?.available_coupons || []).find((c) => c.couponCode === rec.couponCode)
+        if (target && !couponState(target).disabled) {
+          selectedCouponCode.value = rec.couponCode
+          ElMessage.success('已自动选中决策推荐券，提交时将回填决策流水')
+        } else if (target) {
+          ElMessage.warning('决策推荐券在当前试算中不可用（已回退服务端推荐），可手动换券或重新评估')
+        } else {
+          ElMessage.warning('决策推荐券不在可用券列表中，请手动选择或返回重新评估')
+        }
+      }
+    }
     settleSkuIdUsed.value = sku.skuId
     settleQty.value = qty
     startDraftCountdown(data.expires_at)
@@ -800,7 +975,101 @@ function startDraftCountdown(expiresAt) {
 
 function backToGoods() {
   clearSettle()
+  resetDecisionContext()   // 重选商品：上一轮决策评估与推荐方案不再可信
   step.value = 1
+}
+
+/* ---------------- 决策评估 ---------------- */
+/* 当前已选规格文案数组：SKU 自身规格（杯型等）+ 抽屉属性选择（温度/甜度）+ 加料选择 */
+function currentSpecTexts(sku) {
+  const texts = []
+  ;(sku.specOptionInfos || []).forEach((o) => {
+    if (o.specOptionName) texts.push(o.specOptionName)
+  })
+  for (const a of goods.value.attributes || []) {
+    const opt = (a.attrOptions || []).find((o) => String(o.attributeOptionId) === String(attrSel[a.attributeId]))
+    if (opt?.name) texts.push(opt.name)
+  }
+  for (const e of goods.value.extras || []) {
+    const opt = (e.extraOptions || []).find((o) => String(o.skuId) === String(extraSel[e.extraId]))
+    if (opt?.name) texts.push(opt.name)
+  }
+  return texts
+}
+
+async function runDecide() {
+  const sku = decideSku.value
+  const price = Number(decidePrice.value)
+  if (!sku) {
+    ElMessage.warning('请选择要评估的 SKU')
+    return
+  }
+  if (!storeNo.value) {
+    ElMessage.warning('请先选择门店')
+    return
+  }
+  if (!Number.isFinite(price) || price <= 0) {
+    ElMessage.warning('请输入有效的客户支付价')
+    return
+  }
+  decideBusy.value = true
+  try {
+    const data = await apiDecision.decide({
+      sku_id: String(sku.skuId || ''),
+      quantity: Number(skuQty[sku.skuId] || 1),
+      spec_list: currentSpecTexts(sku),
+      store_no: storeNo.value,
+      customer_price: price.toFixed(2),
+    })
+    decideResult.value = data
+    if (data.verdict === 'pass') ElMessage.success('决策评估通过')
+    else ElMessage.warning('决策评估被拦截')
+  } catch {
+    /* 422 等校验错误：detail 已由全局拦截器 ElMessage.error 弹出，面板保持原状不阻塞手动流程 */
+  } finally {
+    decideBusy.value = false
+  }
+}
+
+/* 应用推荐方案：切换账号到推荐 account_id + 暂存 coupon_code / decision_log_id。
+ * 切换走既有 accountId watch（下游草稿清理语义保留），applyingRec 标志防止跳回步骤0；
+ * 推荐账号不在线/不存在时不应用（推荐券在其券库存，换账号无法使用）。 */
+function applyRecommendation() {
+  const d = decideResult.value
+  if (!d || d.verdict !== 'pass') return
+  const target = Number(d.account_id) || 0
+  const applied = () => ({
+    accountId: target || accountId.value,
+    couponCode: d.coupon?.coupon_code || '',
+    decisionLogId: Number(d.decision_log_id) || 0,
+  })
+  if (target && target !== accountId.value) {
+    const acc = accounts.value.find((a) => a.id === target)
+    if (!acc || acc.status !== 'online') {
+      ElMessage.warning('推荐账号当前不在线或不存在，无法应用；请手动处理后再评估')
+      return
+    }
+    decisionApplied.value = applied()
+    applyingRec = true
+    accountId.value = target   // watch：清旧账号草稿，但保留步骤/抽屉与暂存推荐
+    ElMessage.success(`已切换到推荐账号 ${acc.label}，请点击「去结算」重新试算`)
+  } else {
+    decisionApplied.value = applied()
+    ElMessage.success('已暂存推荐方案，请点击「去结算」试算后选用推荐券')
+  }
+}
+
+/* 决策上下文复位：门店/商品/账号变化或重开流程时，评估结果与暂存推荐一并失效 */
+function resetDecisionContext() {
+  decisionApplied.value = null
+  decideResult.value = null
+  decideBusy.value = false
+}
+
+/* 券列表项是否为决策推荐券（应用推荐后标记「决策」角标） */
+function isDecisionCoupon(c) {
+  const rec = decisionApplied.value
+  return !!rec?.decisionLogId && !!rec.couponCode && c.couponCode === rec.couponCode
 }
 
 /* ---------------- 步骤4：确认下单 ---------------- */
@@ -808,10 +1077,14 @@ async function doCreate() {
   if (!settleData.value) return
   createBusy.value = true
   try {
-    const res = await apiOps.orderCreate(accountId.value, {
+    const payload = {
       draft_id: settleData.value.draft_id,
       coupon_code: selectedCouponCode.value || null,
-    })
+    }
+    // 决策挂钩：暂存了 decision_log_id 且所选券==推荐券才携带；否则 payload 与旧流程完全一致
+    if (decisionLogAttached.value) payload.decision_log_id = decisionApplied.value.decisionLogId
+    const res = await apiOps.orderCreate(accountId.value, payload)
+    if (payload.decision_log_id) decisionApplied.value = null   // 已消费：成单后由服务端回填该流水
     result.value = res
     stopDraftTimer()
     dlgConfirm.value = false
@@ -1061,6 +1334,7 @@ function clearResult() {
 function restartFlow() {
   clearResult()
   clearSettle()
+  resetDecisionContext()   // 再下一单：上一单的决策留痕已消费/失效
   step.value = 1 // 保留账号与门店选择，快速再下一单
 }
 
@@ -1259,6 +1533,103 @@ function pickCoupon(c) {
 .drawer-note {
   margin-top: 12px;
   font-size: 12.5px;
+}
+/* 决策评估卡（步骤② 抽屉内，可折叠，不阻塞手动流程） */
+.decide-card {
+  margin-top: 14px;
+  border: 1px solid #e3ebe7;
+  border-radius: 10px;
+  background: #fafcfa;
+}
+.decide-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px;
+  cursor: pointer;
+  user-select: none;
+}
+.decide-title {
+  font-weight: 600;
+  color: var(--tea-800);
+  font-size: 13.5px;
+}
+.decide-sub {
+  font-size: 12px;
+}
+.decide-arrow {
+  margin-left: auto;
+  color: var(--muted);
+  transition: transform 0.15s;
+}
+.decide-arrow.open {
+  transform: rotate(180deg);
+}
+.decide-form {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  padding: 0 12px 10px;
+}
+.decide-spec {
+  margin: 0 12px 8px;
+  font-size: 12px;
+}
+.decide-gap {
+  margin: 0 12px 10px;
+}
+.decide-body {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  padding: 0 12px 12px;
+}
+.decide-side {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  font-size: 13px;
+  align-items: flex-start;
+}
+.decide-meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.decide-th {
+  font-size: 12.5px;
+}
+.decide-coupon {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-size: 13px;
+}
+.est-tag {
+  margin-left: 6px;
+}
+.decide-log {
+  font-size: 12px;
+}
+.decide-alt-title {
+  font-size: 12px;
+}
+.decide-alt {
+  font-size: 12.5px;
+  color: var(--muted);
+  line-height: 1.6;
+}
+.decide-hint {
+  margin: 4px 0 0;
+  font-size: 12px;
+  color: var(--tea-700);
+}
+@media (max-width: 640px) {
+  .decide-body {
+    grid-template-columns: 1fr;
+  }
 }
 /* 试算预览 */
 .preview-grid {

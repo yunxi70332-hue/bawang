@@ -63,6 +63,33 @@
         <div class="stat-foot">系统用户 {{ stats.users }} 个</div>
         <el-icon class="stat-icon"><TrendCharts /></el-icon>
       </div>
+      <!-- 盈利概览（决策系统，decision:manage 可见）：整行横带卡，profit-report 近 7 日 summary；
+           SSE stats 帧携带同口径 profit 域时实时同步（REST 首拉 + SSE 增量双通道，同源） -->
+      <div v-if="auth.can('decision:manage')" class="stat-card g7 profit-band"
+        :class="{ 'card-link': auth.can('decision:manage') }" @click="go('decision:manage', '/decision/costs')">
+        <div class="profit-cell main">
+          <div class="stat-value">¥{{ profit.profit_total }}</div>
+          <div class="stat-label">近 7 日总利润</div>
+        </div>
+        <div class="profit-cell">
+          <div class="stat-value">{{ profit.margin_avg || '0' }}%</div>
+          <div class="stat-label">平均利润率</div>
+        </div>
+        <div class="profit-cell">
+          <div class="stat-value">{{ profit.blocked_count }}</div>
+          <div class="stat-label">拦截（blocked）</div>
+        </div>
+        <div class="profit-cell">
+          <div class="stat-value">{{ profit.orders }}</div>
+          <div class="stat-label">决策成单数</div>
+        </div>
+        <div class="profit-cell">
+          <div class="stat-value">¥{{ profit.cost_total }}</div>
+          <div class="stat-label">总成本</div>
+        </div>
+        <div class="profit-note">决策流水近 7 日成单口径 · 点击进入「下单决策」</div>
+        <el-icon class="stat-icon"><Coin /></el-icon>
+      </div>
     </div>
 
     <!-- 图表区：券使用趋势（双轴）+ 订单趋势 -->
@@ -136,7 +163,7 @@ import { computed, onBeforeUnmount, onMounted, reactive, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import * as echarts from 'echarts'
 import { Refresh } from '@element-plus/icons-vue'
-import { apiDashboard } from '../api'
+import { apiDashboard, apiDecision } from '../api'
 import { fmtTime } from '../utils/format'
 import { useAuthStore } from '../stores/auth'
 import { openEventStream } from '../utils/sse'
@@ -165,6 +192,40 @@ const features = [
   { name: 'F5', desc: '下单试算 / 0 元闭环 / 差额支付', type: 'success' },
   { name: 'F6', desc: '取餐码 / 等待杯数 / 状态轮询', type: 'success' },
 ]
+
+/* ---- 盈利概览（决策系统）：profit-report 近 7 日 summary，decision:manage 可见 ----
+ * 首拉走 REST profitReport；其后 SSE stats 帧自带同口径 profit 域实时覆盖（双通道同源）。
+ * 低频数据：仅挂载时拉一次，不随 15s 轮询刷新。 */
+const profit = reactive({
+  orders: 0, revenue_total: '0.00', cost_total: '0.00',
+  profit_total: '0.00', margin_avg: '0', blocked_count: 0,
+})
+
+function applyProfitSummary(s) {
+  profit.orders = s.orders || 0
+  profit.revenue_total = s.revenue_total || '0.00'
+  profit.cost_total = s.cost_total || '0.00'
+  profit.profit_total = s.profit_total || '0.00'
+  profit.margin_avg = s.margin_avg || '0'
+  profit.blocked_count = s.blocked_count || 0
+}
+
+// YYYY-MM-DD HH:MM:SS（仓内响应风格的时间格式；整天覆盖：from 00:00:00 ~ to 23:59:59）
+function fmtDayOffset(days, endOfDay = false) {
+  const d = new Date(Date.now() + days * 86400000)
+  const p = (n) => String(n).padStart(2, '0')
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())} ${endOfDay ? '23:59:59' : '00:00:00'}`
+}
+
+async function loadProfit() {
+  if (!auth.can('decision:manage')) return
+  try {
+    const data = await apiDecision.profitReport({ from: fmtDayOffset(-6), to: fmtDayOffset(0, true) })
+    applyProfitSummary(data?.summary || {})
+  } catch {
+    /* 决策报表端点未就绪（波2-C 未合并）/ 网络失败：保持零值展示，不打断仪表盘 */
+  }
+}
 
 const autoRefresh = ref(true)
 const refreshing = ref(false)
@@ -319,6 +380,7 @@ function applyStats(data) {
     recent_audit: data.recent_audit,
     generated_at: data.generated_at,
   })
+  if (data.profit && auth.can('decision:manage')) applyProfitSummary(data.profit)
   renderAll()
 }
 
@@ -375,6 +437,7 @@ const onFocus = () => {
 onMounted(async () => {
   await refresh()
   renderAll()
+  loadProfit()         // 盈利概览：REST 首拉一次（其后靠 SSE stats.profit 实时覆盖）
   startLive()        // SSE 实时主通道（连上即推当前 stats）
   startPollTimer()   // 轮询兜底：SSE onOpen 后自动停用，断开自动接管
   window.addEventListener('resize', onResize)
@@ -532,6 +595,32 @@ onBeforeUnmount(() => {
 .g4 { background: linear-gradient(135deg, #33658a, #234a66); }
 .g5 { background: linear-gradient(135deg, #8a5a8f, #5f3a66); }
 .g6 { background: linear-gradient(135deg, #4a7a5c, #35604a); }
+.g7 { background: linear-gradient(135deg, #215e4c, #8a6508); }
+
+/* ---- 盈利概览横带卡（整行占满，多个数字单元横排；对齐统计卡渐变/配色语言） ---- */
+.profit-band {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: center;
+  gap: 34px;
+  flex-wrap: wrap;
+  padding: 14px 22px;
+}
+.profit-cell .stat-value {
+  font-size: 24px;
+}
+.profit-cell.main .stat-value {
+  font-size: 30px;
+}
+.profit-cell.main .stat-label {
+  font-size: 13px;
+}
+.profit-note {
+  margin-left: auto;
+  font-size: 11px;
+  opacity: 0.75;
+  white-space: nowrap;
+}
 
 /* ---- 图表 ---- */
 .dash-grid {

@@ -23,7 +23,8 @@ from sqlalchemy.orm import Session
 
 from audit import log_audit
 from database import SessionLocal, get_db
-from models import ChageeAccount, CouponRecord, CouponUsageLog, OrderRecord, PayEventLog, SystemUser
+from models import (ChageeAccount, CouponRecord, CouponUsageLog, DecisionLog, OrderRecord,
+                    PayEventLog, SystemUser)
 from oplog import log_op
 from schemas import CashierUrlRequest, OrderCreateRequest, OrderSettleRequest, PayModeRequest
 from security import require_perm
@@ -318,6 +319,46 @@ def _order_target_snapshot(draft: dict) -> dict:
     }
 
 
+def _backfill_decision_log(db: Session, body: OrderCreateRequest, account: ChageeAccount,
+                           order_no: str, coupon_code: str, deduction: str,
+                           pay_actual: str, user: SystemUser) -> None:
+    """成单挂钩（契约 decision_api_contract.md §6）：请求带 decision_log_id 时，把该
+    DecisionLog 行（decide 评估时 order_no 为空）回填为真实成单信息——order_no/
+    account_id/coupon_code（原行空时）/deduction_actual（选券复跑的服务端抵扣）/
+    pay_actual（OrderOutcome.pay_amount 或 PayLink.total_amount）+ plan_json 补 order_no。
+    找不到该 id 或已被其他单占用时不报错（仅 log_op WARN），绝不影响下单主流程；
+    未传 decision_log_id（缺省 0）时行为与决策系统引入前完全一致。"""
+    log_id = int(getattr(body, "decision_log_id", 0) or 0)
+    if log_id <= 0:
+        return
+    row = db.get(DecisionLog, log_id)
+    if row is None:
+        log_op(level="WARN", action="decision.backfill", actor=user.username,
+               target=order_no, result="missed",
+               params={"decision_log_id": log_id, "reason": "not_found"})
+        return
+    if str(row.order_no or "").strip():
+        log_op(level="WARN", action="decision.backfill", actor=user.username,
+               target=order_no, result="skipped",
+               params={"decision_log_id": log_id, "reason": "already_bound",
+                       "bound_order_no": row.order_no})
+        return
+    row.order_no = order_no
+    row.account_id = account.id
+    if not str(row.coupon_code or "").strip() and coupon_code:
+        row.coupon_code = coupon_code
+    row.deduction_actual = deduction
+    row.pay_actual = pay_actual
+    plan = dict(row.plan_json or {})
+    plan["order_no"] = order_no
+    row.plan_json = plan
+    db.commit()
+    log_op(action="decision.backfill", actor=user.username, target=order_no,
+           params={"decision_log_id": log_id, "account_id": account.id,
+                   "coupon_code": coupon_code or None,
+                   "deduction_actual": deduction, "pay_actual": pay_actual})
+
+
 def _pay_link_payload(link, db: Session | None = None, account_id: int | None = None,
                       pay_mode: str | None = None, coupon_code: str | None = None, **extra) -> dict:
     """PayLink → create partial / continue-pay / pay(manual) 共用的响应字段。
@@ -573,6 +614,10 @@ def order_create(account_id: int, body: OrderCreateRequest, request: Request,
                               deduction=_fmt_money(coupon_deduction),
                               total_amount=_fmt_money(settle.total_trade_price),
                               pay_amount=_fmt_money(outcome.pay_amount), scenario="zero")
+        # 决策挂钩：decide 评估行回填真实成单信息（未传 decision_log_id 时零行为变化）
+        _backfill_decision_log(db, body, account, outcome.order_no, coupon_code,
+                               _fmt_money(coupon_deduction) if coupon_code else "",
+                               outcome.pay_amount, user)
         log_audit(db, request, user, "feature.order_create", f"{account.label}#{account.id}",
                   {"result": "zero", "order_no": outcome.order_no,
                    "pay_amount": outcome.pay_amount, "coupon": coupon_code or None})
@@ -613,6 +658,10 @@ def order_create(account_id: int, body: OrderCreateRequest, request: Request,
                           deduction=_fmt_money(coupon_deduction),
                           total_amount=_fmt_money(settle.total_trade_price),
                           pay_amount=_fmt_money(settle.buyer_real_price), scenario="partial")
+    # 决策挂钩：decide 评估行回填真实成单信息（未传 decision_log_id 时零行为变化）
+    _backfill_decision_log(db, body, account, link.order_no, coupon_code,
+                           _fmt_money(coupon_deduction) if coupon_code else "",
+                           link.total_amount, user)
     log_audit(db, request, user, "feature.order_create", f"{account.label}#{account.id}",
               {"result": "partial", "order_no": link.order_no,
                "pay_amount": settle.buyer_real_price, "coupon": coupon_code or None})

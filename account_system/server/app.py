@@ -10,7 +10,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
-from routers import accounts, audit, auth, events, logs, ops, orders, payportal, roles, users
+from routers import accounts, audit, auth, decision, events, logs, ops, orders, payportal, roles, users
 from log_setup import setup_logging
 from oplog import init_oplog, install_request_middleware, log_op
 from log_monitor import start_log_monitor_thread
@@ -43,6 +43,8 @@ app.include_router(accounts.router)
 app.include_router(ops.router)
 app.include_router(orders.router)   # F5 下单 + F6 取餐查询（/api/ops/accounts/{id}/orders...）
 app.include_router(orders.global_router)   # 券使用记录 / 券档案 / 支付事件流（/api/ops/...）
+app.include_router(decision.router)   # 下单决策：套餐/券成本/配置/扫描库存/报表/流水（/api/ops/decision/...）
+app.include_router(decision.global_router)   # decide 决策评估（POST /api/ops/orders/decide，权限 feature:order）
 app.include_router(audit.router)
 app.include_router(events.router)   # SSE 实时事件流（/api/events：仪表盘统计推送 + 全量取餐码扫描进度）
 app.include_router(logs.router)   # 全局日志/告警查询与处置（/api/ops/logs、/api/ops/alerts）

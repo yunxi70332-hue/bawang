@@ -13,10 +13,16 @@ from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from models import (AuditLog, ChageeAccount, CouponRecord, CouponUsageLog,
-                    OrderRecord, STATUS_LABELS, SystemUser)
+                    DecisionLog, OrderRecord, STATUS_LABELS, SystemUser)
 
 # 近 N 日趋势窗口（含当日）
 TREND_DAYS = 7
+
+# 盈利域零值（decision_logs 无数据 / 查询异常时的 fail-soft 返回，金额全 string 对齐响应风格）
+_PROFIT_ZERO = {
+    "orders": 0, "revenue_total": "0.00", "cost_total": "0.00",
+    "profit_total": "0.00", "margin_avg": "0.0", "blocked_count": 0,
+}
 
 
 def _fmt_money(v) -> str:
@@ -29,6 +35,60 @@ def _fmt_money(v) -> str:
 def _day_series(days: int = TREND_DAYS) -> list[str]:
     today = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
     return [(today - timedelta(days=i)).strftime("%m-%d") for i in range(days - 1, -1, -1)]
+
+
+def _dec(v) -> Decimal | None:
+    """String 金额列 → Decimal（空串/非法值 → None，聚合时按 0 计）。"""
+    try:
+        return Decimal(str(v))
+    except Exception:
+        return None
+
+
+def _collect_profit_domain(db: Session, trend_start: datetime) -> dict:
+    """盈利域：近 N 日 decision_logs 聚合，口径对齐 profit-report summary
+    （GET /api/ops/decision/profit-report 的 summary 块）：
+
+    - orders / revenue_total / cost_total / profit_total / margin_avg 取「成单行」
+      （order_no 非空——decide 评估落库后经 order_create 的 decision_log_id 回填），
+      未成单的纯评估行不计入金额，避免报价刷高利润；
+    - blocked_count 统计窗口内 verdict=blocked 的判定数（blocked 恒未成单，多为评估拦截）。
+
+    轻量与 fail-soft：单次范围查询（created_at 有索引，仅取聚合所需列），
+    任何异常（表未建 / 值非法）返回零值不抛错——本函数随 dashboard_push SSE
+    周期调用，绝不能阻断 stats 主流程。
+    """
+    try:
+        rows = (db.query(DecisionLog.order_no, DecisionLog.verdict, DecisionLog.revenue,
+                         DecisionLog.total_cost, DecisionLog.profit, DecisionLog.margin)
+                  .filter(DecisionLog.created_at >= trend_start).all())
+    except Exception:
+        return dict(_PROFIT_ZERO)
+
+    orders = blocked = 0
+    revenue = cost = profit_sum = Decimal("0")
+    margins: list[Decimal] = []
+    for order_no, verdict, rev, cost_v, prof, margin in rows:
+        if verdict == "blocked":
+            blocked += 1
+        if not order_no or verdict != "pass":
+            continue   # 纯评估（未成单）行：只计入 blocked 计数，不计金额；成单口径与 profit-report 统一（order_no 非空且 verdict=pass）
+        orders += 1
+        revenue += _dec(rev) or Decimal("0")
+        cost += _dec(cost_v) or Decimal("0")
+        profit_sum += _dec(prof) or Decimal("0")
+        m = _dec(margin)
+        if m is not None:
+            margins.append(m)
+    margin_avg = (sum(margins) / len(margins)) if margins else Decimal("0")
+    return {
+        "orders": orders,
+        "revenue_total": _fmt_money(revenue),
+        "cost_total": _fmt_money(cost),
+        "profit_total": _fmt_money(profit_sum),
+        "margin_avg": f"{margin_avg.quantize(Decimal('0.1'))}",
+        "blocked_count": blocked,
+    }
 
 
 def collect_dashboard_stats(db: Session) -> dict:
@@ -99,6 +159,8 @@ def collect_dashboard_stats(db: Session) -> dict:
 
     return {
         "generated_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+        # 盈利域（近 7 日 decision_logs 聚合，口径同 profit-report summary；fail-soft 零值）
+        "profit": _collect_profit_domain(db, trend_start),
         "cards": {
             # 账号域
             "total_accounts": total_accounts,
