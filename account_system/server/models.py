@@ -159,8 +159,9 @@ class CouponUsageLog(Base):
     total_amount: Mapped[str] = mapped_column(String(16), default="")
     pay_amount: Mapped[str] = mapped_column(String(16), default="")
     scenario: Mapped[str] = mapped_column(String(8), default="")             # zero|partial
-    result: Mapped[str] = mapped_column(String(16), default="", index=True)  # success|rejected|failed
+    result: Mapped[str] = mapped_column(String(16), default="", index=True)  # pending|success|rejected|failed|rolled_back
     fail_reason: Mapped[str] = mapped_column(String(255), default="")
+    state_history: Mapped[str] = mapped_column(Text, default="")             # 状态流转轨迹 JSON：[{at,from,to,by,reason}]（§18）
     used_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.now, index=True)
 
 

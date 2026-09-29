@@ -1,0 +1,7 @@
+{
+  "min_profit": "0.5",
+  "min_margin": "",
+  "max_order_cost": "",
+  "overhead": "0",
+  "cost_fallback_ratio": "1.0"
+}

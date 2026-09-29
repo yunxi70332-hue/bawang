@@ -45,6 +45,8 @@ def startup():
     setup_logging(log_name="payportal")
     init_oplog(process="pay-portal")
     log_op("system.startup", params={"pid": os.getpid(), "port": 8010})
+    from services.net_proxy import start_net_proxy
+    start_net_proxy()  # 网络出口管理：收银台进程同样接管茶姬域出站（配置与主 API 共享 proxy_config.json）
     # 只建表/迁移，不启动任何后台线程（校准/事件链 watcher/日志监控属主 API 进程
     # 职责——日志监控只跑主 API 一份，双进程同跑会重复告警）
     init_db()

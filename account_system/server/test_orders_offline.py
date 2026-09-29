@@ -281,6 +281,9 @@ def test_create_zero_with_coupon():
         assert rec.status == 3 and rec.status_label == "制作中"
         assert rec.pickup_no == "TA0001" and rec.pay_amount == "0"
         assert rec.total_amount == "20" and rec.store_no == STORE_NO
+        # 零元单成单即核销（§17）：券档案直接迁移历史桶，不等支付确认通道
+        crec = db.query(CouponRecord).filter(CouponRecord.coupon_code == COUPON_HYW).one()
+        assert crec.bucket == "historical" and crec.last_order_no == ORDER_NO
         audit = (db.query(AuditLog)
                    .filter(AuditLog.action == "feature.order_create", AuditLog.target == ACC_LABEL)
                    .order_by(AuditLog.id.desc()).first())
@@ -318,9 +321,9 @@ def test_create_with_rate_coupon():
             assert rec.pay_amount == "15.4" and rec.total_amount == "22"
             usage = (db.query(CouponUsageLog)
                        .filter(CouponUsageLog.coupon_code == RATE_COUPON_CODE,
-                               CouponUsageLog.result == "success")
+                               CouponUsageLog.result == "pending")
                        .order_by(CouponUsageLog.id.desc()).first())
-            assert usage is not None and usage.deduction == "6.60"   # 服务端事实（旧口径记 7）
+            assert usage is not None and usage.deduction == "6.60"   # 差额单预记待支付（§18），服务端事实（旧口径记 7）
             crec = db.query(CouponRecord).filter(CouponRecord.coupon_code == RATE_COUPON_CODE).one()
             assert crec.amount == ""                                 # 折扣率券不落元面额
             # 清场：本单 status=1 会卡后续用例的单次一单守卫，置已完成
@@ -704,6 +707,68 @@ def test_usage_logs_and_stats():
     assert r.status_code == 200 and r.json()["total"] >= 1
     item = r.json()["items"][0]
     assert item["template_name"] and item["token_fingerprint"]
+
+
+def test_usage_logs_order_link_fields():
+    """「查看订单」数据面（2026-09-29 对账联动）：券日志行回填 account_id/order_status(_label)
+    （join OrderRecord）+ 订单详情端点 live 优先 / 失败本地快照兜底 / 无记录走失败路径。"""
+    h = _auth()
+    # OrderRecord 置为已完成（6）→ 券日志行 order_status=6（前端按钮展示条件）
+    with database.SessionLocal() as db:
+        rec = db.query(OrderRecord).filter(OrderRecord.order_no == ORDER_NO).one()
+        rec.status = 6
+        rec.status_label = "已完成"
+        rec.goods_desc = "伯牙绝弦（大杯） x1"
+        rec.coupon_code = COUPON_HYW
+        db.commit()
+
+    d = CLIENT.get("/api/ops/coupon-usage-logs",
+                   params={"keyword": COUPON_HYW}, headers=h).json()
+    row = next(i for i in d["items"] if i["order_no"] == ORDER_NO)
+    assert row["account_id"] == ACC_ID
+    assert row["order_status"] == 6 and row["order_status_label"] == "已完成", row
+    # 未成单行（rejected 记录 order_no 空）→ order_status None（无按钮）
+    rj = next((i for i in d["items"] if i["result"] == "rejected"), None)
+    if rj is not None:
+        assert rj["order_no"] == "" and rj["order_status"] is None
+
+    # 详情端点：live 优先（FakeClient getOrderDetail 正常回放）
+    r = CLIENT.get(f"/api/ops/accounts/{ACC_ID}/orders/{ORDER_NO}", headers=h)
+    assert r.status_code == 200, r.text
+    live = r.json()
+    assert live["detail_source"] == "live" and live["order_no"]
+
+    # live 详情按 wire 夹具回填状态 3（制作中）——重置回 6 再验证兜底快照口径
+    with database.SessionLocal() as db:
+        rec = db.query(OrderRecord).filter(OrderRecord.order_no == ORDER_NO).one()
+        rec.status = 6
+        rec.status_label = "已完成"
+        db.commit()
+
+    # live 失败（模拟账号离线/凭证失效）→ 本地 OrderRecord 快照兜底（字段与 wire 同构）
+    orig_build = bridge.build_client
+
+    class DeadClient:
+        def order_detail(self, order_no):
+            raise RuntimeError("token expired (offline)")
+
+    def dead_factory(account):
+        return DeadClient()
+
+    bridge.build_client = dead_factory
+    try:
+        r = CLIENT.get(f"/api/ops/accounts/{ACC_ID}/orders/{ORDER_NO}", headers=h)
+        assert r.status_code == 200, r.text
+        snap = r.json()
+        assert snap["detail_source"] == "local_snapshot", snap
+        assert snap["status"] == 6 and snap["order_no"] == ORDER_NO
+        assert snap["items"] and snap["items"][0]["name"].startswith("伯牙绝弦")
+        assert snap["promotions"] and snap["promotions"][0]["promotionId"] == COUPON_HYW
+        # 本地无记录 + live 失败 → 原失败路径（统一异常链 HTTPException）
+        r = CLIENT.get(f"/api/ops/accounts/{ACC_ID}/orders/NO-SUCH-ORDER-404", headers=h)
+        assert r.status_code >= 400, r.text
+    finally:
+        bridge.build_client = orig_build
 
 
 # ---------- 5. 运行器 ----------

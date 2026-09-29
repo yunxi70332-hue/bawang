@@ -39,6 +39,9 @@
           <el-alert v-if="!hasOnline" type="warning" :closable="false" class="acc-tip"
             title="暂无「在线」账号：下单依赖登录态协议链，请先到「账号管理」完成协议登录后再回来。" />
         </template>
+        <el-empty v-else-if="accountsError" description="账号列表加载失败：请确认后端服务已启动，然后点击重试">
+          <el-button type="primary" @click="loadAccounts">重试加载账号</el-button>
+        </el-empty>
         <el-empty v-else description="暂无账号：请先到「账号管理」页创建账号并完成协议登录">
           <el-button type="primary" plain @click="router.push('/accounts')">前往账号管理</el-button>
         </el-empty>
@@ -77,6 +80,46 @@
           </el-tag>
         </div>
 
+        <!-- 商品快捷搜索：名称/编码/描述/分类 模糊匹配（大小写不敏感），400ms 防抖 -->
+        <div v-if="menuMeta" class="menu-toolbar">
+          <div class="menu-search-wrap">
+            <el-input v-model="searchRaw" class="menu-search" clearable :prefix-icon="Search"
+              placeholder="搜索商品：名称 / 编码 / 描述，如「伯牙」"
+              @focus="suggestOpen = true" @blur="onSearchBlur"
+              @keydown.escape.prevent="suggestOpen = false" @clear="clearSearch" />
+            <div v-if="suggestVisible" class="suggest-panel">
+              <div class="suggest-head">
+                搜索建议（{{ suggestions.length }}{{ filteredMenu.length > suggestLimit ? '+' : '' }} 项，点击直接选 SKU）
+              </div>
+              <div class="suggest-list">
+                <div v-for="row in suggestions" :key="row.spuId" class="suggest-item"
+                  :class="{ disabled: row.saleOut }" @mousedown.prevent @click="pickSuggestion(row)">
+                  <img v-if="row.img" :src="row.img" class="suggest-img" alt="" loading="lazy">
+                  <div v-else class="suggest-img suggest-img-fallback">茶</div>
+                  <div class="suggest-main">
+                    <div class="suggest-name" :title="row.spuName">
+                      <template v-for="(p, i) in highlightParts(row.spuName, activeKeyword)" :key="i">
+                        <b v-if="p.hit" class="hl">{{ p.text }}</b>
+                        <template v-else>{{ p.text }}</template>
+                      </template>
+                    </div>
+                    <div class="suggest-sub">
+                      <el-tag size="small" effect="plain">{{ row.categoryName }}</el-tag>
+                      <span v-if="row.price != null" class="price">¥{{ row.price }}</span>
+                      <span class="mono muted">{{ row.spuId }}</span>
+                      <el-tag v-if="row.saleOut" type="danger" size="small" effect="plain">售罄</el-tag>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <el-tag v-if="activeKeyword" type="info" effect="plain" closable class="menu-meta"
+            @close="clearSearch">
+            「{{ activeKeyword }}」命中 {{ filteredMenu.length }} / {{ menuMeta.items.length }} 个 SPU
+          </el-tag>
+        </div>
+
         <el-table v-loading="loadingMenu" :data="pagedMenu" stripe class="wb-menu"
           :row-class-name="rowClassName" @row-click="openGoods">
           <el-table-column label="图片" width="76">
@@ -105,12 +148,16 @@
             </template>
           </el-table-column>
           <template #empty>
-            <el-empty :description="storeNo ? '该门店暂无菜单数据' : '请先选择城市与门店'" />
+            <el-empty v-if="activeKeyword"
+              :description="`未找到与「${activeKeyword}」匹配的商品：试试更短的关键词（名称 / 编码 / 描述均支持模糊搜索）`">
+              <el-button type="primary" plain size="small" @click="clearSearch">清除搜索</el-button>
+            </el-empty>
+            <el-empty v-else :description="storeNo ? '该门店暂无菜单数据' : '请先选择城市与门店'" />
           </template>
         </el-table>
 
-        <div v-if="menuMeta && menuMeta.items.length > pageSize" class="pager">
-          <el-pagination background layout="prev, pager, next" :total="menuMeta.items.length"
+        <div v-if="filteredMenu.length > pageSize" class="pager">
+          <el-pagination background layout="prev, pager, next" :total="filteredMenu.length"
             v-model:current-page="page" :page-size="pageSize" />
         </div>
       </template>
@@ -598,7 +645,7 @@
 import { computed, onMounted, onUnmounted, reactive, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { ArrowDown, CopyDocument, InfoFilled, Refresh, WarningFilled } from '@element-plus/icons-vue'
+import { ArrowDown, CopyDocument, InfoFilled, Refresh, Search, WarningFilled } from '@element-plus/icons-vue'
 import { apiAccounts, apiDecision, apiOps } from '../api'
 import { fmtCountdown, fmtTime, orderStatusTag } from '../utils/format'
 import { nowMs } from '../utils/clock'
@@ -612,11 +659,26 @@ const narrow = ref(false)
 /* 步骤1：账号 */
 const accounts = ref([])
 const accountId = ref(null)
+const accountsError = ref(false) // 账号列表加载失败（后端未启动/代理 500 等），与"确实没有账号"区分
 const hasOnline = computed(() => accounts.value.some((a) => a.status === 'online'))
 const accountLabel = computed(() => {
   const a = accounts.value.find((x) => x.id === accountId.value)
   return a ? `${a.label}（${a.phone_masked}）` : '—'
 })
+
+/* 账号列表加载：onMounted 与"重试"按钮共用；失败置错误态，避免停留在误导性的"暂无账号"空态 */
+const loadAccounts = async () => {
+  accountsError.value = false
+  try {
+    const data = await apiAccounts.list({ page: 1, page_size: 100 })
+    accounts.value = data.items
+    const online = data.items.find((a) => a.status === 'online')
+    if (online) accountId.value = online.id
+  } catch (e) {
+    accounts.value = []
+    accountsError.value = true
+  }
+}
 
 /* 步骤2：城市/门店/菜单（数据链同 MenuExplorerView，游客态） */
 const cities = ref([])
@@ -630,6 +692,101 @@ const menuMeta = ref(null)
 const page = ref(1)
 const pageSize = 20
 const storeName = computed(() => stores.value.find((s) => s.storeNo === storeNo.value)?.storeName || storeNo.value)
+
+/* ---------------- 商品快捷搜索（步骤② 菜单表） ----------------
+ * 即时输入 searchRaw → 400ms 防抖 → activeKeyword 生效；清空即时复位不等待。
+ * 匹配：名称 spuName / 编码 spuId / 描述 description / 分类 categoryName，
+ * toLowerCase 大小写不敏感 + includes 部分匹配（indexOf 字面比较，正则元字符天然安全）。 */
+const SEARCH_DEBOUNCE_MS = 400
+const suggestLimit = 8
+const searchRaw = ref('')       // 输入框当前值（未防抖）
+const activeKeyword = ref('')   // 防抖后生效的关键词（trim 后）
+const suggestOpen = ref(false)  // 建议面板开关（focus 开 / blur·Esc·选中后关）
+let searchTimer = null          // 防抖句柄（onUnmounted 清理）
+
+watch(searchRaw, (v) => {
+  if (searchTimer) clearTimeout(searchTimer)
+  const kw = String(v || '').trim()
+  if (!kw) {           // 清空：立即复位列表与页码，不等待防抖
+    activeKeyword.value = ''
+    page.value = 1
+    return
+  }
+  searchTimer = setTimeout(() => {
+    activeKeyword.value = kw
+    suggestOpen.value = true   // Esc 收起后继续输入：重新展开建议面板
+    page.value = 1     // 关键词变化后回到第 1 页
+  }, SEARCH_DEBOUNCE_MS)
+})
+
+/* 字段命中分值：名称前缀 < 名称包含 < 编码 < 描述 < 分类（仅用于建议排序，越小越靠前） */
+function scoreOf(item, kw) {
+  const name = String(item.spuName || '').toLowerCase()
+  if (name.startsWith(kw)) return 0
+  if (name.includes(kw)) return 1
+  if (String(item.spuId ?? '').toLowerCase().includes(kw)) return 2
+  if (String(item.description || '').toLowerCase().includes(kw)) return 3
+  if (String(item.categoryName || '').toLowerCase().includes(kw)) return 4
+  return 9
+}
+
+const filteredMenu = computed(() => {
+  const items = menuMeta.value?.items || []
+  const kw = activeKeyword.value.toLowerCase()
+  if (!kw) return items
+  return items.filter((it) => scoreOf(it, kw) < 9)
+})
+
+/* 建议下拉：命中项按相关度取前 N（复用 filteredMenu，与表格结果一致） */
+const suggestions = computed(() => {
+  const kw = activeKeyword.value.toLowerCase()
+  if (!kw) return []
+  return filteredMenu.value
+    .slice()
+    .sort((a, b) => scoreOf(a, kw) - scoreOf(b, kw))
+    .slice(0, suggestLimit)
+})
+
+const suggestVisible = computed(() =>
+  suggestOpen.value && !!activeKeyword.value && suggestions.value.length > 0 && !loadingMenu.value)
+
+/* 命中片段高亮：大小写不敏感 indexOf 切片，纯文本渲染（无 v-html，天然防注入） */
+function highlightParts(text, kw) {
+  const t = String(text || '')
+  const k = String(kw || '').toLowerCase()
+  if (!k) return [{ text: t, hit: false }]
+  const tl = t.toLowerCase()
+  const parts = []
+  let i = 0
+  for (;;) {
+    const at = tl.indexOf(k, i)
+    if (at < 0) break
+    if (at > i) parts.push({ text: t.slice(i, at), hit: false })
+    parts.push({ text: t.slice(at, at + k.length), hit: true })
+    i = at + k.length
+  }
+  if (i < t.length) parts.push({ text: t.slice(i), hit: false })
+  return parts
+}
+
+/* 建议行点击：收起面板并直达 SKU 抽屉（售罄行 openGoods 内部已禁点） */
+function pickSuggestion(row) {
+  suggestOpen.value = false
+  openGoods(row)
+}
+
+function clearSearch() {
+  if (searchTimer) clearTimeout(searchTimer)
+  searchRaw.value = ''
+  activeKeyword.value = ''
+  suggestOpen.value = false
+  page.value = 1
+}
+
+/* blur 延迟收起：给 mousedown 建议行留出触发时间（行上已 prevent 掉焦点转移，双保险） */
+function onSearchBlur() {
+  setTimeout(() => { suggestOpen.value = false }, 150)
+}
 
 /* SKU 抽屉 */
 const dlgGoods = ref(false)
@@ -668,7 +825,6 @@ function onPlanChange(planId) {
   const plan = orderPlans.value.find((p) => p.id === Number(planId))
   if (plan && plan.drink_info) {
     drinkInfo.value = String(plan.drink_info)
-    drinkInfoError.value = false
   }
 }
 
@@ -816,10 +972,7 @@ const payDeadlineText = computed(() => {
 onMounted(async () => {
   onResize()
   window.addEventListener('resize', onResize)
-  const data = await apiAccounts.list({ page: 1, page_size: 100 })
-  accounts.value = data.items
-  const online = data.items.find((a) => a.status === 'online')
-  if (online) accountId.value = online.id
+  await loadAccounts()
   loadingCities.value = true
   try {
     const c = await apiOps.cities()
@@ -837,7 +990,6 @@ watch(accountId, () => {
   clearResult()
   clearSettle()
   drinkInfo.value = ''
-  drinkInfoError.value = false
   if (applyingRec) {
     applyingRec = false
     return
@@ -880,6 +1032,7 @@ function onStoreChange() {
 async function loadMenu() {
   loadingMenu.value = true
   page.value = 1
+  clearSearch()   // 换门店：关键词随旧菜单失效
   try {
     const data = await apiOps.menu(storeNo.value)
     data.items.sort((a, b) => Number(a.saleOut) - Number(b.saleOut)) // 在售靠前
@@ -890,8 +1043,7 @@ async function loadMenu() {
 }
 
 const pagedMenu = computed(() => {
-  const items = menuMeta.value?.items || []
-  return items.slice((page.value - 1) * pageSize, page.value * pageSize)
+  return filteredMenu.value.slice((page.value - 1) * pageSize, page.value * pageSize)
 })
 
 function rowClassName({ row }) {
@@ -1447,6 +1599,7 @@ onUnmounted(() => {
   stopPayTimer()
   stopPolling()
   stopCashierPoll()
+  if (searchTimer) clearTimeout(searchTimer)
   window.removeEventListener('resize', onResize)
 })
 
@@ -1561,6 +1714,101 @@ function pickCoupon(c) {
 }
 .menu-meta {
   font-size: 13px;
+}
+/* 商品快捷搜索工具栏（步骤②）：输入框 + 命中统计，窄屏自动换行收缩 */
+.menu-toolbar {
+  position: relative;
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  flex-wrap: wrap;
+  margin-bottom: 12px;
+}
+.menu-search-wrap {
+  position: relative;
+  flex: 0 1 360px;
+  min-width: 220px;
+}
+.suggest-panel {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  z-index: 30;
+  width: 100%;
+  min-width: 300px;
+  background: #fff;
+  border: 1px solid #e3ebe7;
+  border-radius: 10px;
+  box-shadow: 0 6px 18px rgba(34, 48, 44, 0.12);
+  overflow: hidden;
+}
+.suggest-head {
+  padding: 8px 12px 6px;
+  font-size: 12px;
+  color: var(--muted);
+  border-bottom: 1px solid #f0f4f1;
+}
+.suggest-list {
+  max-height: 304px;
+  overflow-y: auto;
+}
+.suggest-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px;
+  cursor: pointer;
+  transition: background 0.12s;
+}
+.suggest-item:hover {
+  background: var(--tea-100);
+}
+.suggest-item.disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+.suggest-img {
+  width: 36px;
+  height: 36px;
+  border-radius: 6px;
+  object-fit: cover;
+  flex-shrink: 0;
+}
+.suggest-img-fallback {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--tea-100);
+  color: var(--tea-300);
+  font-size: 14px;
+}
+.suggest-main {
+  min-width: 0;
+  flex: 1;
+}
+.suggest-name {
+  font-size: 13.5px;
+  color: var(--tea-800);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.suggest-name .hl {
+  color: var(--tea-700);
+  font-weight: 700;
+}
+.suggest-sub {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-top: 2px;
+  font-size: 12px;
+}
+@media (max-width: 640px) {
+  .menu-search-wrap {
+    flex: 1 1 100%;
+  }
 }
 .muted {
   color: var(--muted);

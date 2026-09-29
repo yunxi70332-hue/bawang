@@ -211,7 +211,7 @@ def _seed_expired_pending(order_no: str, coupon_code: str, *, account_id: int = 
                               account_id=account_id, account_label=f"{label}#{account_id}",
                               operator="admin", order_no=order_no, deduction=deduction,
                               total_amount="20", pay_amount="10", scenario="partial",
-                              result="success"))
+                              result="pending"))
         db.commit()
 
 
@@ -300,7 +300,7 @@ def test_create_not_blocked_after_reconcile():
 
 
 def test_timeout_paid_keeps_coupon_used():
-    """超时单茶姬侧已支付(3)：订单回填制作中、券保持已使用（真实核销）、无 rolled_back 日志。"""
+    """超时单茶姬侧已支付(3)：订单回填制作中、券迁移历史桶（核销确认）、无 rolled_back 日志。"""
     order_no, coupon = "RC-PAID-1", "COUP-PAID-1"
     _seed_expired_pending(order_no, coupon)
     _reset_fake(status=3)
@@ -315,6 +315,7 @@ def test_timeout_paid_keeps_coupon_used():
             c = db.query(CouponRecord).filter(CouponRecord.coupon_code == coupon).one()
             assert c.last_order_no == order_no            # 非空：券保持已使用
             assert c.last_used_at is not None
+            assert c.bucket == "historical"               # 支付确认 → 核销迁移历史桶（§17）
             assert (db.query(CouponUsageLog)
                       .filter(CouponUsageLog.coupon_code == coupon,
                               CouponUsageLog.result == "rolled_back").count()) == 0
@@ -417,7 +418,8 @@ def test_rollback_idempotent():
 
 
 def test_stats_endpoint_counts_rolled_back():
-    """券使用日志统计：rolled_back 计数；累计抵扣 = success − rolled_back（下限 0）；result 过滤。"""
+    """券使用日志统计（§18 单行生命周期）：五类计数 + 累计抵扣只计已核销（pending/rolled_back 不计，
+    旧「success−rolled_back 补偿扣减」废止）+ result 过滤。"""
     coupon = "COUP-STATS-1"
     with database.SessionLocal() as db:
         db.add(CouponUsageLog(coupon_code=coupon, coupon_name="统计10元代金券",
@@ -437,9 +439,9 @@ def test_stats_endpoint_counts_rolled_back():
         d = r.json()
         assert d["total"] == 2
         assert d["stats"]["success"] == 1 and d["stats"]["rolled_back"] == 1
-        assert Decimal(d["stats"]["total_deduction"]) == Decimal("6.00")    # 10 − 4
+        assert Decimal(d["stats"]["total_deduction"]) == Decimal("10")    # 仅 success 计入
         # result=rolled_back 过滤：只返回该条且 result_label 含「已回滚」；
-        # 筛选集内只有回滚 → 0 − 4 触发累计抵扣下限 0
+        # 筛选集内无已核销行 → 累计抵扣 0
         r = CLIENT.get("/api/ops/coupon-usage-logs",
                        params={"keyword": coupon, "result": "rolled_back"}, headers=h)
         assert r.status_code == 200, r.text

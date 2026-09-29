@@ -26,6 +26,7 @@ _TOPIC_PERMS = {
     "dashboard": "account:read",        # 仪表盘统计实时推送
     "pickup_scan": "feature:pickup",    # 全量取餐码扫描进度推流
     "intake": "feature:order",          # 异步订单中枢：登记单状态迁移实时推送
+    "proxy": "settings:manage",         # 代理出口状态实时推送（切代理/回退/恢复/周期检测）
 }
 
 _HEARTBEAT_SECONDS = 15.0
@@ -55,6 +56,11 @@ def events_stream(topics: str = Query(..., description="逗号分隔的订阅主
                 cached = dashboard_push.latest_stats()
                 if cached:
                     yield events_bus.sse_frame("stats", cached)
+            if "proxy" in topic_list:
+                from services import net_proxy
+                cached = net_proxy.latest_status()
+                if cached:
+                    yield events_bus.sse_frame("status", cached)
             while True:
                 try:
                     yield q.get(timeout=_HEARTBEAT_SECONDS)

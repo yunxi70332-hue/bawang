@@ -237,6 +237,11 @@
               <el-tag :type="orderStatusTag(detail.status).type" effect="dark">
                 {{ detail.status_label || orderStatusTag(detail.status).label }}
               </el-tag>
+              <!-- live 拉取失败时的本地落库快照（对账兜底）：金额/商品为快照口径 -->
+              <el-tag v-if="detail.detail_source === 'local_snapshot'" size="small" type="info"
+                effect="plain" title="账号离线或凭证失效，展示本地订单库快照（金额/商品为落库口径，非实时）">
+                本地快照
+              </el-tag>
               <span class="mono muted">{{ detail.order_no }}</span>
             </div>
             <div class="pickup-hero">
@@ -498,12 +503,19 @@ onUnmounted(() => {
 })
 
 // 仪表盘统计卡联动入口：/ops/pickup?view=all&status=3&scenario=zero&keyword=…
+// 券使用记录「查看订单」深链：&order_no=xxx[&account_id=N] → 全量模式按单号搜索并自动开详情抽屉
+let pendingDeepOrder = null   // { order_no, account_id }：首次 loadAll 落地后消费
 function applyRouteQuery() {
   const q = route.query
   if (q.view === 'all') mode.value = 'all'
   if (q.status) allQuery.status = Number(q.status)
   if (q.scenario) allQuery.scenario = String(q.scenario)
   if (q.keyword) allQuery.keyword = String(q.keyword)
+  if (q.order_no) {
+    pendingDeepOrder = { order_no: String(q.order_no), account_id: Number(q.account_id) || 0 }
+    allQuery.keyword = String(q.order_no)   // 列表同步按单号过滤，抽屉上下文可见
+    mode.value = 'all'
+  }
 }
 
 watch(mode, (m) => {
@@ -587,11 +599,28 @@ async function loadAll() {
     allOrders.value = data.items || []
     allTotal.value = data.total || 0
     allStats.value = data.stats || { by_status: {}, with_pickup: 0 }
+    consumeDeepOrderLink()
   } catch {
     allOrders.value = []
     allTotal.value = 0
   } finally {
     allLoading.value = false
+  }
+}
+
+/* 深链落地（券使用记录「查看订单」）：搜索结果命中即开详情抽屉；
+ * 未命中提示先全量扫描（本地订单库无该单时深链无从打开） */
+function consumeDeepOrderLink() {
+  if (!pendingDeepOrder) return
+  const { order_no } = pendingDeepOrder
+  pendingDeepOrder = null
+  const rows = allOrders.value || []
+  const row = rows.find((o) => o.order_no === order_no)
+    || rows.find((o) => String(o.order_no || '').includes(order_no))
+  if (row) {
+    openAllDetail(row)
+  } else {
+    ElMessage.warning(`本地订单库未找到 ${order_no}：可先执行「全量扫描」回填订单后再试`)
   }
 }
 

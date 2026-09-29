@@ -225,11 +225,13 @@
                 <el-input v-model="row.name" size="small" :placeholder="`如：20元DN券 · 留空=第${$index + 1}优先`" />
               </template>
             </el-table-column>
-            <el-table-column label="匹配规则（匹配方式 + 匹配值 + 面额校验）" min-width="330">
+            <el-table-column label="优惠券绑定 → 匹配规则（绑定 + 匹配方式 + 匹配值 + 面额校验）" min-width="380">
               <template #default="{ row, $index }">
+                <CouponTypeBindSelect class="tier-bind" :model-value="tierBindValue(row)"
+                  @select="(t) => applyTierBinding(row, t)" @clear="clearTierBinding(row)" />
                 <CouponRuleFields v-model="form.priorities[$index]" :clearable="false" />
                 <div v-if="$index === 0 && !String(row.match_value).trim()" class="muted tier-hint">
-                  如：券名包含「20元代金券-DN」
+                  如：绑定「霸王茶姬20元代金券-DN」或手填 券名包含「20元代金券-DN」
                 </div>
               </template>
             </el-table-column>
@@ -243,7 +245,8 @@
             </template>
           </el-table>
           <p class="muted tier-note">
-            典型用法：第一优先 券名包含「20元代金券-DN」，第二优先 券名包含「10元代金券-LT」；
+            「优惠券绑定」下拉实时读券档案库（coupon_records，与「优惠券查询·功能4」全量查询落库同步），
+            支持搜索与分页加载；选中券类型自动填充 匹配方式=券名精确 + 完整券名 + 面额校验，也可手填匹配规则；
             未填匹配值的空行保存时自动忽略，层级按行序重新编号（1..N）
           </p>
         </el-tab-pane>
@@ -418,6 +421,7 @@ import { apiDecision } from '../api'
 import { fmtTime } from '../utils/format'
 import { PLAN_STRATEGIES, strategyLabel, strategyTag } from '../constants/decision'
 import CouponRuleFields from '../components/CouponRuleFields.vue'
+import CouponTypeBindSelect from '../components/CouponTypeBindSelect.vue'
 import MenuSkuPicker from '../components/MenuSkuPicker.vue'
 
 const pageTab = ref('plans')
@@ -587,6 +591,33 @@ function moveTier(index, dir) {
   if (target < 0 || target >= form.priorities.length) return
   const arr = form.priorities
   ;[arr[index], arr[target]] = [arr[target], arr[index]]
+}
+
+/* ---------------- 优惠券绑定：券类型下拉选中 → 回填层级行规则字段 ---------------- */
+/* 名称类匹配（券名精确/包含）才镜像到绑定下拉显示；正则/券码前缀属手填规则不回显 */
+const NAME_MATCH_TYPES = new Set(['template_exact', 'template_contains'])
+
+function tierBindValue(tier) {
+  return NAME_MATCH_TYPES.has(tier.match_type) ? String(tier.match_value || '') : ''
+}
+
+/* 选中券类型：匹配方式=券名精确 + 完整模板名（档案 template_name，与 rule_satisfied
+   的 template_exact 全等语义对齐）；面额校验取档案面额（折扣/兑换券无面额不动）；
+   层名留空时以权益文案兜底（如「20元代金」） */
+function applyTierBinding(tier, t) {
+  tier.match_type = 'template_exact'
+  tier.match_value = t.template_name
+  const amount = String(t.amount || '').trim()
+  if (amount) tier.face_value = amount
+  if (!String(tier.name || '').trim()) {
+    tier.name = String(t.benefit_text || '').trim() || String(t.template_name).slice(0, 32)
+  }
+}
+
+/* 清空绑定：仅清匹配值与面额（匹配方式保留，行仍在保存时因匹配值为空被忽略） */
+function clearTierBinding(tier) {
+  tier.match_value = ''
+  tier.face_value = ''
 }
 
 /* ---------------- 饮品管理：共享选品器批量加入 ---------------- */
@@ -897,6 +928,10 @@ onMounted(() => {
 .tier-move {
   display: flex;
   gap: 2px;
+}
+.tier-bind {
+  width: 100%;
+  margin-bottom: 6px;
 }
 .tier-hint {
   font-size: 12px;

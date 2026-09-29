@@ -444,7 +444,9 @@ async function doLogin(row, onDone) {
   loginBusy.value = true
   try {
     const res = await apiAccounts.login(row.id, smsCode.value)
-    ElMessage.success(`登录成功：${res.nickname || '茶友'}（customerId ${res.customer_id || '—'}）`)
+    const synced = res.coupons_synced
+    const syncNote = synced && synced.total ? `；已同步 ${synced.total} 张券入库` : ''
+    ElMessage.success(`登录成功：${res.nickname || '茶友'}（customerId ${res.customer_id || '—'}）${syncNote}`)
     onDone()
     load()
   } finally {

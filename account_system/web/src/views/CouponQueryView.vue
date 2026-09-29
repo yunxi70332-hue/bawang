@@ -137,12 +137,16 @@
                   <span v-else class="muted">不限</span>
                 </template>
               </el-table-column>
-              <el-table-column label="有效期" min-width="175">
+              <el-table-column label="有效期" min-width="190">
                 <template #default="{ row }">
-                  <span v-if="row.useStartTimeStr || row.useEndTimeStr">
-                    {{ row.useStartTimeStr || '?' }} ~ {{ row.useEndTimeStr || '?' }}
-                  </span>
-                  <span v-else class="muted">—</span>
+                  <div class="validity-cell">
+                    <CouponValidityTag v-if="row.validity_status" :days="row.days_remaining"
+                      :status="row.validity_status" />
+                    <span v-if="row.useStartTimeStr || row.useEndTimeStr" class="muted validity-range">
+                      {{ row.useStartTimeStr || '?' }} ~ {{ row.useEndTimeStr || '?' }}
+                    </span>
+                    <span v-else class="muted">—</span>
+                  </div>
                 </template>
               </el-table-column>
             </el-table>
@@ -176,6 +180,7 @@
               <el-button type="primary" :icon="Search" :loading="archiveLoading" @click="searchArchive">搜索档案</el-button>
               <span v-if="archiveTotal !== null" class="muted">
                 命中 {{ archiveTotal }} 张 · 可用 {{ archiveStats.effective }} / 历史 {{ archiveStats.historical }} / 试算 {{ archiveStats.settle_available }} / 已使用 {{ archiveStats.used }}
+                <span class="expire-stat">· 临期 {{ archiveStats.expiring ?? 0 }} / 已过期 {{ archiveStats.expired ?? 0 }}</span>
               </span>
             </div>
             <el-table :data="archiveItems" stripe size="small">
@@ -223,12 +228,16 @@
                   <span v-else class="muted">不限</span>
                 </template>
               </el-table-column>
-              <el-table-column label="有效期" min-width="175">
+              <el-table-column label="有效期" min-width="190">
                 <template #default="{ row }">
-                  <span v-if="row.use_start_time || row.use_end_time">
-                    {{ fmtMs(row.use_start_time) || '?' }} ~ {{ fmtMs(row.use_end_time) || '?' }}
-                  </span>
-                  <span v-else class="muted">—</span>
+                  <div class="validity-cell">
+                    <CouponValidityTag v-if="row.validity_status" :days="row.days_remaining"
+                      :status="row.validity_status" />
+                    <span v-if="row.use_start_time || row.use_end_time" class="muted validity-range">
+                      {{ fmtMs(row.use_start_time) || '?' }} ~ {{ fmtMs(row.use_end_time) || '?' }}
+                    </span>
+                    <span v-else class="muted">—</span>
+                  </div>
                 </template>
               </el-table-column>
               <el-table-column label="使用痕迹" width="150">
@@ -268,6 +277,7 @@ import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { Refresh, Search } from '@element-plus/icons-vue'
 import { apiAccounts, apiOps, apiDecision } from '../api'
+import CouponValidityTag from '../components/CouponValidityTag.vue'
 
 const route = useRoute()
 const router = useRouter()
@@ -536,6 +546,20 @@ async function queryOne() {
 }
 .scene-tag {
   margin-right: 4px;
+}
+/* 剩余有效期列：标签 + 日期区间两行堆叠（标签醒目、区间灰字辅助） */
+.validity-cell {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  align-items: flex-start;
+}
+.validity-range {
+  font-size: 11.5px;
+  line-height: 1.3;
+}
+.expire-stat {
+  color: var(--el-color-warning);
 }
 .cost-cell {
   line-height: 1.7;

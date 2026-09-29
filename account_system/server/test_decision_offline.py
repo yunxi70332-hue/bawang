@@ -1735,6 +1735,119 @@ def test_29_decide_plan_pay_threshold():
     _clear_decision_domain()
 
 
+def test_30_coupon_types_endpoint():
+    """券类型聚合下拉（优先级层级「优惠券绑定」）：分组聚合口径 / keyword 搜索 /
+    分页排序 / 新券落库即时同步 / 空模板名排除 / 绑定往返（template_exact 全名）+ viewer 403。"""
+    _clear_decision_domain()
+    with _db() as db:
+        db.query(CouponRecord).delete()
+        db.commit()
+    h = _auth()
+    _add_coupon("T-DN-1", "霸王茶姬20元代金券-DN", "20元", "20")                            # 模板A·账号A·可用
+    _add_coupon("T-DN-2", "霸王茶姬20元代金券-DN", "20元", "20", account_id=ACC2_ID)        # 模板A·账号B·可用
+    _add_coupon("T-DN-3", "霸王茶姬20元代金券-DN", "20元", "20",
+                account_id=ACC2_ID, bucket="historical")                                    # 模板A·历史桶
+    _add_coupon("T-LT-1", "霸王茶姬10元代金券-LT", "10元", "10")                            # 模板B·可用
+    _add_coupon("T-EMPTY", "", "5元", "5")                                                  # 空模板名 → 排除
+
+    d = CLIENT.get("/api/ops/decision/coupon-types", headers=h).json()
+    assert d["total"] == 2, d                                    # 按模板名分组=2 种（空名排除）
+    a = next(i for i in d["items"] if i["template_name"] == "霸王茶姬20元代金券-DN")
+    assert a["total_count"] == 3 and a["available_count"] == 2, a   # historical 不计可用
+    assert a["account_count"] == 2 and a["amount"] == "20" and a["benefit_text"] == "20元"
+    b = next(i for i in d["items"] if i["template_name"] == "霸王茶姬10元代金券-LT")
+    assert b["total_count"] == 1 and b["available_count"] == 1
+    assert d["items"][0]["template_name"] == "霸王茶姬20元代金券-DN"   # 可用多者在前
+
+    # keyword 模糊：精确词只命中一个模板
+    d = CLIENT.get("/api/ops/decision/coupon-types",
+                   params={"keyword": "LT"}, headers=h).json()
+    assert d["total"] == 1 and d["items"][0]["template_name"] == "霸王茶姬10元代金券-LT"
+
+    # 分页：page_size=1 两页取全，翻页无重叠
+    p1 = CLIENT.get("/api/ops/decision/coupon-types",
+                    params={"page": 1, "page_size": 1}, headers=h).json()
+    p2 = CLIENT.get("/api/ops/decision/coupon-types",
+                    params={"page": 2, "page_size": 1}, headers=h).json()
+    assert p1["total"] == 2 and len(p1["items"]) == 1 and len(p2["items"]) == 1
+    assert p1["items"][0]["template_name"] != p2["items"][0]["template_name"]
+
+    # 同步：新类型落库后立即可见（现查无缓存）
+    _add_coupon("T-NEW-1", "全品类双杯7折券", "7折", "")
+    d = CLIENT.get("/api/ops/decision/coupon-types",
+                   params={"keyword": "7折券"}, headers=h).json()
+    assert d["total"] == 1 and d["items"][0]["template_name"] == "全品类双杯7折券"
+    assert d["items"][0]["amount"] == ""                      # 折扣券无面额
+
+    # 绑定往返：前端绑定下拉选中后保存的形态 —— template_exact + 完整模板名 + 档案面额
+    plan = CLIENT.post("/api/ops/decision/order-plans", headers=h, json={
+        "name": "DN绑定方案", "strategy": "cost_first", "drink_info": "默认少冰半糖",
+        "max_pay_amount": "20", "priorities": [
+            {"level": 1, "name": "20元代金", "match_type": "template_exact",
+             "match_value": "霸王茶姬20元代金券-DN", "face_value": "20"}]}).json()
+    assert plan["priorities"][0]["match_value"] == "霸王茶姬20元代金券-DN"
+    assert plan["priorities"][0]["face_value"] == "20"
+    CLIENT.delete(f"/api/ops/decision/order-plans/{plan['id']}", headers=h)
+
+    # viewer 无 decision:manage → 403
+    vh = _auth("viewer_smoke", "Viewer@123")
+    r = CLIENT.get("/api/ops/decision/coupon-types", headers=vh)
+    assert r.status_code == 403, r.text
+    _clear_decision_domain()
+
+
+def test_31_coupon_validity_matrix_and_types_days():
+    """「剩余 N 天」：coupon_validity 纯函数矩阵（时区自然日口径 + 五状态边界）
+    + coupon-types.days_remaining（最早到期的可用桶券）。"""
+    from datetime import datetime
+
+    def local_ms(y, m, d, h=12, mi=0):
+        return int(datetime(y, m, d, h, mi).timestamp() * 1000)
+
+    now = local_ms(2026, 1, 15, 12, 0)
+    # 当日到期 → days=0 expiring（含今日）
+    v = dsvc.coupon_validity(None, local_ms(2026, 1, 15, 23, 59), now)
+    assert v["days_remaining"] == 0 and v["validity_status"] == "expiring" and v["valid_until"] == "2026-01-15"
+    # 恰好剩 3 天（临期阈值上界）/ 4 天（active 下界）
+    v = dsvc.coupon_validity(None, local_ms(2026, 1, 18, 23, 59), now)
+    assert v["days_remaining"] == 3 and v["validity_status"] == "expiring"
+    v = dsvc.coupon_validity(None, local_ms(2026, 1, 19, 0, 0), now)
+    assert v["days_remaining"] == 4 and v["validity_status"] == "active"
+    # 已过期（自然日差为负）
+    v = dsvc.coupon_validity(None, local_ms(2026, 1, 14, 23, 59), now)
+    assert v["days_remaining"] == -1 and v["validity_status"] == "expired"
+    # 未生效（start 在未来；days 仍按截止日计）
+    v = dsvc.coupon_validity(local_ms(2026, 1, 17), local_ms(2026, 2, 1), now)
+    assert v["days_remaining"] == 17 and v["validity_status"] == "pending" and v["valid_from"] == "2026-01-17"
+    # 无截止标注：None / 0 → unknown（长期）
+    for empty in (None, 0):
+        v = dsvc.coupon_validity(None, empty, now)
+        assert v["days_remaining"] is None and v["validity_status"] == "unknown"
+    # 时区/日界：23:30 查询、次日 00:30 到期（毫秒差仅 1 小时）→ 自然日差 1 天，
+    # 不因毫秒除法四舍五入为 0（epoch→本地日期直接相减，无字符串时区歧义）
+    v = dsvc.coupon_validity(None, local_ms(2026, 1, 16, 0, 30), local_ms(2026, 1, 15, 23, 30))
+    assert v["days_remaining"] == 1 and v["validity_status"] == "expiring"
+
+    # coupon-types.days_remaining = 最早到期的「可用桶」券（历史桶更早也不计；无截止=None）
+    _clear_decision_domain()
+    with _db() as db:
+        db.query(CouponRecord).delete()
+        db.commit()
+    h = _auth()
+    day = 86400000
+    now_ms = int(time.time() * 1000)
+    _add_coupon("V-A", "有效期券X", "10元", "10", end_ms=now_ms + 2 * day)                # 可用·剩2天
+    _add_coupon("V-B", "有效期券X", "10元", "10", bucket="historical", end_ms=now_ms + day)  # 历史桶·剩1天但不计
+    _add_coupon("V-C", "有效期券X", "10元", "10", end_ms=now_ms + 9 * day)                # 可用·剩9天
+    _add_coupon("V-D", "无截止券Y", "免1杯", "", end_ms=None)                             # 无截止 → None
+    d = CLIENT.get("/api/ops/decision/coupon-types", headers=h).json()
+    x = next(i for i in d["items"] if i["template_name"] == "有效期券X")
+    assert x["available_count"] == 2 and x["days_remaining"] == 2 and x["validity_status"] == "expiring", x
+    y = next(i for i in d["items"] if i["template_name"] == "无截止券Y")
+    assert y["days_remaining"] is None and y["validity_status"] == "unknown"
+    _clear_decision_domain()
+
+
 
 
 def main() -> int:

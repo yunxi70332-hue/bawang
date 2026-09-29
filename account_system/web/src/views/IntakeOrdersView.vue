@@ -82,8 +82,9 @@
           </el-table-column>
           <el-table-column label="操作" width="150" fixed="right">
             <template #default="{ row }">
-              <el-button v-if="['registered', 'enqueued'].includes(row.status)" size="small" @click="doCancel(row)">取消</el-button>
-              <el-button v-if="['failed', 'cancelled'].includes(row.status)" size="small" type="primary"
+              <!-- 取消/重放入队是管理动作（后端 intake:manage），仅登记权限用户不渲染 -->
+              <el-button v-perm="'intake:manage'" v-if="['registered', 'enqueued'].includes(row.status)" size="small" @click="doCancel(row)">取消</el-button>
+              <el-button v-perm="'intake:manage'" v-if="['failed', 'cancelled'].includes(row.status)" size="small" type="primary"
                 @click="doRequeue(row)">重新入队</el-button>
             </template>
           </el-table-column>
@@ -112,7 +113,7 @@
           </el-table-column>
           <el-table-column label="操作" width="110" fixed="right">
             <template #default="{ row }">
-              <el-button size="small" type="primary" @click="doDeadRequeue(row)">重放</el-button>
+              <el-button v-perm="'intake:manage'" size="small" type="primary" @click="doDeadRequeue(row)">重放</el-button>
             </template>
           </el-table-column>
         </el-table>
@@ -121,7 +122,7 @@
       <!-- ================= 接入密钥 ================= -->
       <el-tab-pane label="接入密钥" name="keys">
         <div class="filters" style="margin-bottom: 10px">
-          <el-button type="primary" :icon="Plus" @click="keyDialog = true">新建密钥</el-button>
+          <el-button v-perm="'intake:manage'" type="primary" :icon="Plus" @click="keyDialog = true">新建密钥</el-button>
           <el-button :icon="Refresh" circle @click="loadKeys" />
         </div>
         <el-table :data="keyItems" stripe>
@@ -145,7 +146,7 @@
           </el-table-column>
           <el-table-column label="操作" width="110" fixed="right">
             <template #default="{ row }">
-              <el-button v-if="row.active" size="small" type="danger" @click="doKeyDisable(row)">吊销</el-button>
+              <el-button v-perm="'intake:manage'" v-if="row.active" size="small" type="danger" @click="doKeyDisable(row)">吊销</el-button>
             </template>
           </el-table-column>
         </el-table>

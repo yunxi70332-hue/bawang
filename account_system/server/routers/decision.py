@@ -33,6 +33,7 @@ from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from pydantic import ValidationError
+from sqlalchemy import case, func
 from sqlalchemy.orm import Session
 
 from audit import log_audit
@@ -719,6 +720,57 @@ def coupon_inventory(
     total = len(items)
     start = (page - 1) * page_size
     return {"total": total, "items": items[start:start + page_size]}
+
+
+@router.get("/coupon-types")
+def coupon_types(keyword: str = Query("", max_length=64),
+                 page: int = Query(1, ge=1), page_size: int = Query(20, ge=1, le=100),
+                 db: Session = Depends(get_db),
+                 _: SystemUser = Depends(require_perm("decision:manage"))):
+    """券类型聚合下拉（方案优先级层级「优惠券绑定」）：coupon_records 按 template_name
+    分组的库存视图——可用张数（effective/settle_available）/ 档案张数 / 持有账号数 /
+    面额 / 权益 / 有效期窗口。keyword 模糊 + 分页；每次现查无缓存，与「优惠券查询·
+    功能4」全量查询的最新落库记录保持同步。前端远程搜索 + 展开时刷新首页实现联动。"""
+    base = db.query(CouponRecord).filter(CouponRecord.template_name != "")
+    if keyword.strip():
+        base = base.filter(CouponRecord.template_name.like(f"%{keyword.strip()}%"))
+    total = base.group_by(CouponRecord.template_name).count()
+    avail_expr = func.sum(case((CouponRecord.bucket.in_(("effective", "settle_available")),
+                                1), else_=0))
+    # 最早到期的可用券（MIN 忽略 NULL）：绑定视角的紧迫度——可用桶里最快过期那张还剩几天
+    min_end_avail = func.min(case((CouponRecord.bucket.in_(("effective", "settle_available")),
+                                   CouponRecord.use_end_time), else_=None))
+    rows = (base.with_entities(
+                CouponRecord.template_name,
+                func.count().label("total_count"),
+                avail_expr.label("available_count"),
+                func.count(func.distinct(CouponRecord.account_id)).label("account_count"),
+                func.max(CouponRecord.benefit_text).label("benefit_text"),
+                func.max(CouponRecord.amount).label("amount"),
+                func.max(CouponRecord.usable_scenes).label("usable_scenes"),
+                func.min(CouponRecord.use_start_time).label("use_start_time"),
+                func.max(CouponRecord.use_end_time).label("use_end_time"),
+                min_end_avail.label("min_end_avail"),
+                func.max(CouponRecord.updated_at).label("updated_at"))
+            .group_by(CouponRecord.template_name)
+            .order_by(avail_expr.desc(), func.count().desc(), CouponRecord.template_name)
+            .offset((page - 1) * page_size).limit(page_size).all())
+    items = []
+    for r in rows:
+        validity = decision_svc.coupon_validity(None, r.min_end_avail)
+        items.append({
+            "template_name": r.template_name,
+            "benefit_text": r.benefit_text or "", "amount": r.amount or "",
+            "usable_scenes": r.usable_scenes or "",
+            "total_count": int(r.total_count or 0), "available_count": int(r.available_count or 0),
+            "account_count": int(r.account_count or 0),
+            "use_start_time": r.use_start_time, "use_end_time": r.use_end_time,
+            # 最早到期的可用券剩余天数（None=该类型当前无可用券或无截止标注）
+            "days_remaining": validity["days_remaining"],
+            "validity_status": validity["validity_status"],
+            "updated_at": _fmt_dt(r.updated_at),
+        })
+    return {"total": total, "items": items}
 
 
 # ---------------- 全局配置 ----------------

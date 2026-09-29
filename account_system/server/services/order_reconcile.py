@@ -11,6 +11,7 @@ getOrderStatus（data 裸 int）做校准：
 CHAGEE_RECONCILE_INTERVAL_SECONDS，默认 60 秒）。
 """
 
+import json
 import logging
 import os
 import threading
@@ -35,49 +36,90 @@ PAY_WINDOW_SECONDS = 600        # 支付窗（与 routers/orders.py 一致；复
 _STATUS_LABELS = {1: "待支付", 3: "制作中", 6: "已完成", 7: "已取消"}
 
 
-def rollback_coupon_usage(db: Session, coupon_code: str, order_no: str,
-                          operator: str = "system") -> bool:
-    """事务内回滚一张券的使用痕迹（订单超时未支付、茶姬侧实际未核销时调用）。
+def _append_history(log: CouponUsageLog, from_state: str, to_state: str,
+                    by: str, reason: str = "") -> None:
+    """使用日志状态流转轨迹（§18）：JSON 追加一条 {at, from, to, by, reason}；坏数据容错为空表。"""
+    try:
+        hist = json.loads(log.state_history or "[]")
+        if not isinstance(hist, list):
+            hist = []
+    except Exception:
+        hist = []
+    hist.append({"at": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                 "from": from_state, "to": to_state,
+                 "by": by or "system", "reason": (reason or "")[:200]})
+    log.state_history = json.dumps(hist, ensure_ascii=False)
 
-    CouponRecord 复位为未使用（bucket→effective / last_used_at→None / last_order_no→""），
-    并补一条 result="rolled_back" 的 CouponUsageLog（金额/账号字段取该券最近一条 success
-    日志快照，无则券名取档案 template_name、金额留空）。券不存在返回 False（不算错误）；
-    任何异常 rollback 后向上抛出。返回 True 表示券确实被回滚。
+
+def _latest_usage_log(db: Session, coupon_code: str, order_no: str) -> CouponUsageLog | None:
+    """取该券该单最新一条使用日志（单行生命周期锚点）。"""
+    return (db.query(CouponUsageLog)
+              .filter(CouponUsageLog.coupon_code == coupon_code,
+                      CouponUsageLog.order_no == order_no)
+              .order_by(CouponUsageLog.id.desc()).first())
+
+
+def confirm_coupon_usage(db: Session, coupon_code: str, order_no: str,
+                         operator: str = "system") -> bool:
+    """支付确认后把券档案标记为已核销（bucket→historical，与 rollback_coupon_usage 对称成对）。
+
+    成单时已预记 last_used_at/last_order_no，此处只迁移桶位；使用日志单行生命周期：
+    pending 行原地迁移 success（金额快照保留，不新增行——避免使用统计/抵扣双算），
+    流转 actor 与原因记入 state_history。幂等：桶位未变化、日志非 pending 则各自跳过。
+    券不存在返回 False（不算错误）；任何异常 rollback 后向上抛出。返回 True 表示券存在。
     """
     try:
         rec = db.query(CouponRecord).filter(CouponRecord.coupon_code == coupon_code).first()
         if not rec:
             return False
-        last = (db.query(CouponUsageLog)
-                  .filter(CouponUsageLog.coupon_code == coupon_code,
-                          CouponUsageLog.result == "success")
-                  .order_by(CouponUsageLog.id.desc()).first())
-        if last:
-            name, account_id, account_label = last.coupon_name, last.account_id, last.account_label
-            deduction, total_amount, pay_amount = (last.deduction, last.total_amount,
-                                                   last.pay_amount)
-        else:
-            name, account_id, account_label = rec.template_name, 0, ""
-            deduction = total_amount = pay_amount = ""
+        changed = rec.bucket != "historical"
+        rec.bucket = "historical"
+        log = _latest_usage_log(db, coupon_code, order_no)
+        if log and log.result == "pending":
+            log.result = "success"
+            _append_history(log, "pending", "success", operator, "支付确认，券真实核销")
+        db.commit()
+        if changed:
+            log_op("coupon.confirm", actor=operator, target=order_no,
+                   params={"coupon_code": coupon_code})
+        return True
+    except Exception:
+        db.rollback()
+        raise
+
+
+def rollback_coupon_usage(db: Session, coupon_code: str, order_no: str,
+                          operator: str = "system") -> bool:
+    """订单取消时回滚券使用痕迹，使用日志原地迁移 rolled_back（§18 单行生命周期）。
+
+    CouponRecord 复位为未使用（bucket→effective / last_used_at→None / last_order_no→""）；
+    CouponUsageLog：pending/success 行原地置 rolled_back（金额/账号快照保留、operator 保持
+    原下单人，流转 actor 记入 state_history），无行时补一条 rolled_back 兜底行（早期数据）。
+    幂等：已 rolled_back 的行再调只复位档案字段，不重复迁移/不加行。
+    券不存在返回 False（不算错误）；任何异常 rollback 后向上抛出。返回 True 表示券确实被回滚。
+    """
+    try:
+        rec = db.query(CouponRecord).filter(CouponRecord.coupon_code == coupon_code).first()
+        if not rec:
+            return False
         rec.bucket = "effective"
         rec.last_used_at = None
         rec.last_order_no = ""
-        # 幂等防护：该券该单已回滚过（崩溃恢复 / 线程与手动取消竞态）则只复位字段，不重复写日志
-        dup = (db.query(CouponUsageLog)
-                 .filter(CouponUsageLog.coupon_code == coupon_code,
-                         CouponUsageLog.order_no == order_no,
-                         CouponUsageLog.result == "rolled_back")
-                 .first())
-        if not dup:
+        log = _latest_usage_log(db, coupon_code, order_no)
+        if log is None:
+            # 兜底：成单日志缺失（极早期数据）→ 从券档案补一条回滚行
             db.add(CouponUsageLog(
-                coupon_code=coupon_code, coupon_name=name,
-                account_id=account_id, account_label=account_label,
-                operator=operator, order_no=order_no,
-                deduction=deduction, total_amount=total_amount, pay_amount=pay_amount,
-                result="rolled_back",
+                coupon_code=coupon_code, coupon_name=rec.template_name,
+                account_id=rec.account_id, account_label="", operator=operator,
+                order_no=order_no, result="rolled_back",
                 fail_reason="订单超时未支付，券状态自动回滚为未使用",
-                used_at=datetime.now(),
-            ))
+                used_at=datetime.now()))
+        elif log.result in ("pending", "success"):
+            from_state = log.result
+            log.result = "rolled_back"
+            log.fail_reason = "订单超时未支付，券状态自动回滚为未使用"
+            _append_history(log, from_state, "rolled_back", operator,
+                            "订单取消（茶姬侧未核销），券回退为未使用")
         db.commit()
         log_op("coupon.rollback", actor=operator, target=order_no,
                params={"coupon_code": coupon_code})
@@ -149,9 +191,12 @@ def reconcile_order(db: Session, order: OrderRecord, account: ChageeAccount,
             db.rollback()
             raise
     if st in (3, 6):
-        # 已支付：券真实核销，本地保持已使用不动；仅回填订单状态（3=制作中, 6=已完成）
+        # 已支付：券真实核销，迁移历史桶（痕迹保留，不写使用日志避免双算）；
+        # 仅回填订单状态（3=制作中, 6=已完成）。与 watcher/H5 探针并发发现时各自幂等
         order.status = st
         order.status_label = _STATUS_LABELS[st]
+        if order.coupon_code:
+            confirm_coupon_usage(db, order.coupon_code, order.order_no, operator=operator)
         db.commit()
         log_op("order.reconcile", actor=operator, target=order.order_no,
                result="paid_confirmed", params={"order_status": st})

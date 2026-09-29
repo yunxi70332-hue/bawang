@@ -10,6 +10,7 @@
   → Consistency→409（含差异说明） → Trade/Chagee→502 → 其余→502
 """
 
+import json
 import logging
 import re
 import threading
@@ -34,7 +35,8 @@ from services import decision as decision_svc
 from services import events_bus
 from services import pay_params
 from services.order_reconcile import (
-    RECONCILE_GRACE_SECONDS, reconcile_expired_pending_orders, reconcile_order, rollback_coupon_usage,
+    RECONCILE_GRACE_SECONDS, confirm_coupon_usage, reconcile_expired_pending_orders,
+    reconcile_order, rollback_coupon_usage,
 )
 from services.pay_session import (
     EVENT_CASHIER_UPDATED, EVENT_ORDER_CANCELLED, PaySessionError, build_h5_url,
@@ -812,6 +814,10 @@ def create_core(db: Session, account: ChageeAccount, body: OrderCreateRequest,
                       pickup_no=outcome.pickup_no)
         if coupon_code:
             _mark_coupon_used(db, coupon_code, outcome.order_no)
+            # 零元单成单即核销（无支付腿，born status 3）：直接迁移历史桶，
+            # 不等支付确认通道（差额单才走 watcher/探针/校准的 paid 收口）
+            confirm_coupon_usage(db, coupon_code, outcome.order_no,
+                                 operator=user.username if user else "system")
             _log_coupon_usage(db, account, user, coupon_code,
                               coupon_entry.get("templateName") or "", "success",
                               order_no=outcome.order_no,
@@ -856,8 +862,11 @@ def create_core(db: Session, account: ChageeAccount, body: OrderCreateRequest,
         db.commit()
     if coupon_code:
         _mark_coupon_used(db, coupon_code, link.order_no)
+        # 差额单成单先记「待支付」：支付确认通道（watcher/H5探针/校准）迁 success，
+        # 超时取消/手动取消/原价切换原地迁 rolled_back（§18 单行生命周期，避免取消单被
+        # 计入「使用成功」与累计抵扣）
         _log_coupon_usage(db, account, user, coupon_code,
-                          coupon_entry.get("templateName") or "", "success",
+                          coupon_entry.get("templateName") or "", "pending",
                           order_no=link.order_no,
                           deduction=_fmt_money(coupon_deduction),
                           total_amount=_fmt_money(settle.total_trade_price),
@@ -1201,6 +1210,28 @@ def order_list_endpoint(account_id: int, request: Request,
     return {"total": len(rows), "items": items}
 
 
+def _order_detail_local_snapshot(rec: OrderRecord) -> dict:
+    """订单详情本地快照（live 拉取失败兜底，2026-09-29 对账场景）：字段与 wire 详情同构，
+    前端详情抽屉原样渲染；商品以 goods_desc 快照合成单行、券核销以落库券码合成，
+    detail_source=local_snapshot 供前端标注（金额/商品为落库快照，非实时）。"""
+    status = int(rec.status or 0)
+    return {
+        "order_no": rec.order_no, "status": status,
+        "status_label": rec.status_label or ORDER_STATUS_LABELS.get(status, str(status)),
+        "pay_amount": rec.pay_amount or "", "total_amount": rec.total_amount or "",
+        "pay_type_text": "", "pickup_no": rec.pickup_no or "",
+        "unique_pos_order_no": rec.unique_pos_order_no or "",
+        "store_no": rec.store_no or "", "store_name": rec.store_name or "",
+        "order_time": rec.order_time or "", "pay_time": "",
+        "items": ([{"name": rec.goods_desc, "quantity": rec.quantity or 1, "amount": None}]
+                  if rec.goods_desc else []),
+        "promotions": ([{"promotionId": rec.coupon_code, "promotionName": "优惠券（本地快照）",
+                         "discountAmount": ""}] if rec.coupon_code else []),
+        "payment_expiry_ts": None,
+        "detail_source": "local_snapshot",
+    }
+
+
 @router.get("/{order_no}")
 def order_detail_endpoint(account_id: int, order_no: str, request: Request,
                           db: Session = Depends(get_db),
@@ -1210,7 +1241,11 @@ def order_detail_endpoint(account_id: int, order_no: str, request: Request,
         api = bridge.trade_api(account)
         d = api.order_detail(order_no)
     except Exception as e:
-        _fail(account, db, request, user, "feature.order_detail", e)
+        # 本地快照兜底：账号离线/凭证失效时对账人员仍可查看已落库订单（无记录才走失败路径）
+        rec = db.query(OrderRecord).filter(OrderRecord.order_no == order_no).first()
+        if rec is None:
+            _fail(account, db, request, user, "feature.order_detail", e)
+        return _order_detail_local_snapshot(rec)
     st = int(d.get("orderStatus") or 0)
     label = _status_label(st, d.get("orderStatusText") or "")
     promotions = [{
@@ -1241,6 +1276,7 @@ def order_detail_endpoint(account_id: int, order_no: str, request: Request,
         "items": d.get("orderItems") or [],
         "promotions": promotions,
         "payment_expiry_ts": d.get("paymentExpiryTimestamp"),   # 仅待支付态非空
+        "detail_source": "live",
     }
 
 
@@ -1336,15 +1372,25 @@ def pay_events(
 
 # ---------------- 券使用记录与券档案查询（需求6：查询与统计分析） ----------------
 
-_RESULT_LABELS = {"success": "使用成功", "rejected": "验证拒绝", "failed": "下单失败",
+_RESULT_LABELS = {"pending": "待支付（使用中）", "success": "使用成功（已核销）",
+                  "rejected": "验证拒绝", "failed": "下单失败",
                   "rolled_back": "已回滚（取消退券）"}
+
+
+def _parse_state_history(raw: str | None) -> list:
+    """state_history JSON 容错解析（坏数据 → 空表；下发面用，前端只渲染）。"""
+    try:
+        hist = json.loads(raw or "[]")
+        return hist if isinstance(hist, list) else []
+    except Exception:
+        return []
 
 
 @global_router.get("/coupon-usage-logs")
 def coupon_usage_logs(
     keyword: str = Query("", max_length=64),
     account_id: int = Query(0),
-    result: str = Query("", pattern="^(success|rejected|failed|rolled_back)?$"),
+    result: str = Query("", pattern="^(pending|success|rejected|failed|rolled_back)?$"),
     page: int = Query(1, ge=1), page_size: int = Query(20, ge=1, le=100),
     db: Session = Depends(get_db),
     user: SystemUser = Depends(require_perm("feature:order")),
@@ -1382,8 +1428,9 @@ def coupon_usage_logs(
             out["account_phone_full"] = acc.phone
         return out
 
-    # 统计摘要（当前筛选下的分类计数与累计抵扣）
-    stat = {"success": 0, "rejected": 0, "failed": 0, "rolled_back": 0,
+    # 统计摘要（当前筛选下的分类计数与累计抵扣）。§18 单行生命周期口径：
+    # 累计抵扣只计 result=success（支付确认已核销）；pending 未支付、rolled_back 已回退均不计
+    stat = {"success": 0, "pending": 0, "rejected": 0, "failed": 0, "rolled_back": 0,
             "total_deduction": Decimal("0")}
     for r in q.with_entities(CouponUsageLog.result, CouponUsageLog.deduction).all():
         if r[0] in stat:
@@ -1393,14 +1440,11 @@ def coupon_usage_logs(
                 stat["total_deduction"] += Decimal(str(r[1] or "0"))
             except Exception:
                 pass
-        elif r[0] == "rolled_back":
-            # 回滚视为券未使用，从累计抵扣中扣除（下限 0）
-            try:
-                stat["total_deduction"] -= Decimal(str(r[1] or "0"))
-            except Exception:
-                pass
-    if stat["total_deduction"] < 0:
-        stat["total_deduction"] = Decimal("0")
+    # 「查看订单」联动（2026-09-29 财务对账）：按订单号批量回填 OrderRecord 状态——
+    # 前端仅对 已完成(status=6) 且有订单号的行展示「查看订单」按钮（深链取餐查询详情抽屉）
+    order_nos = {r.order_no for r in rows if r.order_no}
+    order_map = {o.order_no: o for o in
+                 db.query(OrderRecord).filter(OrderRecord.order_no.in_(order_nos)).all()} if order_nos else {}
     return {
         "total": total,
         "stats": {**stat, "total_deduction": _fmt_money(stat["total_deduction"])},
@@ -1408,11 +1452,15 @@ def coupon_usage_logs(
             "id": r.id, "used_at": r.used_at,
             "result": r.result, "result_label": _RESULT_LABELS.get(r.result, r.result),
             "coupon_code": r.coupon_code, "coupon_name": r.coupon_name,
-            "account_label": r.account_label, **_phone_fields(r.account_id),
+            "account_label": r.account_label, "account_id": r.account_id or 0,
+            **_phone_fields(r.account_id),
             "operator": r.operator,
             "order_no": r.order_no, "deduction": r.deduction,
             "total_amount": r.total_amount, "pay_amount": r.pay_amount,
             "scenario": r.scenario, "fail_reason": r.fail_reason,
+            "order_status": (o.status if (o := order_map.get(r.order_no)) else None),
+            "order_status_label": (o.status_label if (o := order_map.get(r.order_no)) else ""),
+            "state_history": _parse_state_history(r.state_history),
         } for r in rows],
     }
 
@@ -1447,6 +1495,7 @@ def coupon_records(
             "amount": r.amount, "usable_scenes": r.usable_scenes,
             "threshold_tips": r.threshold_tips,
             "use_start_time": r.use_start_time, "use_end_time": r.use_end_time,
+            **decision_svc.coupon_validity(r.use_start_time, r.use_end_time),
             "can_discount": r.can_discount, "bucket": r.bucket,
             "token_fingerprint": r.token_fingerprint,
             "last_used_at": r.last_used_at, "last_order_no": r.last_order_no,
@@ -1538,8 +1587,9 @@ def coupons_search(
         return kind, r.benefit_text
 
     # 命中集合的维度统计（与分页及 cost_category 过滤解耦，基于同一筛选全集；
-    # by_category 含 0=未分类，键为字符串化的子类 id）
+    # by_category 含 0=未分类，键为字符串化的子类 id；expiring/expired 为剩余有效期口径
     stat = {"effective": 0, "historical": 0, "settle_available": 0, "used": 0,
+            "expiring": 0, "expired": 0,
             "by_category": {}}
     cost_by_code: dict[str, dict] = {}
     for r in rows:
@@ -1547,8 +1597,15 @@ def coupons_search(
             stat[r.bucket] += 1
         if r.last_order_no:
             stat["used"] += 1
+        v = decision_svc.coupon_validity(r.use_start_time, r.use_end_time)
+        if v["validity_status"] == "expiring":
+            stat["expiring"] += 1
+        elif v["validity_status"] == "expired":
+            stat["expired"] += 1
         fields = _cost_fields(r)
-        cost_by_code[r.coupon_code] = fields
+        cost_by_code[r.coupon_code] = {**fields,
+                                       "days_remaining": v["days_remaining"],
+                                       "validity_status": v["validity_status"]}
         key = str(fields["cost_category_id"])
         stat["by_category"][key] = stat["by_category"].get(key, 0) + 1
 

@@ -143,6 +143,54 @@ def classify_coupon(benefit_text, benefit2_text, template_name, biz_type="") -> 
     return {"kind": "unknown", "face": parse_benefit(template_name), "rate": None}
 
 
+# ---------------- 券剩余有效期（「剩余 N 天」唯一权威计算，2026-09-29） ----------------
+
+# 临期阈值：剩余 ≤3 天视为即将过期（前端橙色警示；0=今日到期）
+COUPON_EXPIRING_SOON_DAYS = 3
+
+
+def coupon_validity(use_start_ms, use_end_ms, now_ms=None) -> dict:
+    """券剩余有效期计算（前后端唯一权威口径，服务端计算下发、前端只渲染）。
+
+    时区：有效期窗口为毫秒 epoch（绝对时刻），经 fromtimestamp 转服务器本地时区
+    （本部署 Asia/Shanghai）后按「自然日差」计天数——days_remaining = 截止日所在
+    本地日期 − 今天本地日期。同一天内任何时刻查询结果稳定（不受时:分影响），
+    避免毫秒差除法导致的日内跳变；epoch 直转本地日期，无字符串时区歧义。
+
+    返回 {days_remaining: int|None, validity_status, valid_from, valid_until}：
+    - days_remaining None = 无有效期标注（长期/未知）；负数 = 已过期天数
+    - validity_status: pending 未生效 / active 有效 / expiring 临期(≤3天，含今日
+      到期 days=0) / expired 已过期 / unknown 无截止标注
+    """
+    if now_ms is None:
+        now_ms = int(datetime.now().timestamp() * 1000)
+    today = datetime.fromtimestamp(now_ms / 1000).date()
+
+    def _local_date(ms):
+        try:
+            if not isinstance(ms, int) or isinstance(ms, bool) or ms <= 0:
+                return None
+            return datetime.fromtimestamp(ms / 1000).date()
+        except (OverflowError, OSError, ValueError):
+            return None
+
+    start_d, end_d = _local_date(use_start_ms), _local_date(use_end_ms)
+    days = (end_d - today).days if end_d is not None else None
+    if end_d is None:
+        status = "unknown"
+    elif days < 0:
+        status = "expired"
+    elif start_d is not None and start_d > today:
+        status = "pending"        # 未到生效日（days 仍按截止日计，供参考）
+    elif days <= COUPON_EXPIRING_SOON_DAYS:
+        status = "expiring"       # 含 days=0 今日到期
+    else:
+        status = "active"
+    return {"days_remaining": days, "validity_status": status,
+            "valid_from": start_d.isoformat() if start_d else "",
+            "valid_until": end_d.isoformat() if end_d else ""}
+
+
 # ---------------- 成本与抵扣 ----------------
 
 def _match_hit(match_type, match_value, template_name, benefit_text, coupon_code) -> bool:

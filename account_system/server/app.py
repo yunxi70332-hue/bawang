@@ -23,7 +23,7 @@ from services.keepalive import start_keepalive_thread
 
 app = FastAPI(
     title="霸王茶姬多账号管理系统 API",
-    version="1.0.0",
+    version="1.0",
     description="基于六功能纯协议层（scripts/chagee_*.py）的多账号管理与 RBAC 系统",
 )
 
@@ -66,7 +66,7 @@ if os.path.isdir(_STATIC_DIR):
 
 @app.get("/api/health", tags=["meta"])
 def health():
-    return {"ok": True, "service": "chagee-account-system", "version": "1.0.0"}
+    return {"ok": True, "service": "chagee-account-system", "version": app.version}
 
 
 @app.on_event("startup")

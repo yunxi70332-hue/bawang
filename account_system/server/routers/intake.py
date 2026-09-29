@@ -63,7 +63,18 @@ def intake_submit(body: IntakeOrderRequest, request: Request,
                   db: Session = Depends(get_db),
                   user: SystemUser = Depends(require_perm("feature:order"))):
     """登记客户订单（内部标准格式）：幂等（customer_order_no 重复返回 200 现状）、
-    预检 422（sku/规格文案/金额）、成功 202 已入队。"""
+    预检 422（sku/规格文案/金额）、成功 202 已入队。
+
+    使用示例::
+        curl -X POST http://127.0.0.1:8000/api/intake/orders \\
+          -H "Authorization: Bearer $JWT" -H "Content-Type: application/json" \\
+          -d '{"customer_order_no":"C20260930-0001","store_no":"CN07078",
+               "sku_id":"102233","quantity":1,"spec_texts":["五分甜"],
+               "customer_price":"11.70","callback_url":"https://cb.example/intake"}'
+        # 202 {"duplicate":false,"status":"enqueued","query":"/api/intake/orders/C20260930-0001",...}
+        # 200 同单号重报 → {"duplicate":true,...现状}（幂等，不重复入队）
+        # 422 {"detail":{"message":"规格文案「半糖」存在歧义...","candidates":[...]}}
+    """
     payload = intake_registry.validate_and_normalize(db, body)
     payload["customer_order_no"] = body.customer_order_no
     co, created = intake_registry.register_order(
@@ -213,7 +224,9 @@ def intake_queue_messages(
 def intake_dead_requeue(msg_id: int, request: Request,
                         db: Session = Depends(get_db),
                         user: SystemUser = Depends(require_perm("intake:manage"))):
-    """死信重放：消息回 pending（额度重置）；关联登记单若处终态同步回 enqueued。"""
+    """死信重放：消息回 pending（额度重置）；关联登记单若处终态同步回 enqueued。
+    使用示例：curl -X POST .../api/intake/queue/messages/42/requeue -H "Authorization: Bearer $JWT"
+    → {"requeued":true,"msg_id":42}（404=消息不在死信态）。"""
     msg = db.get(OrderMessage, msg_id)
     if not msg or msg.status != "dead":
         raise HTTPException(404, "死信消息不存在")
@@ -251,6 +264,10 @@ def intake_keys(db: Session = Depends(get_db),
 def intake_keys_create(body: IntakeKeyRequest, request: Request,
                        db: Session = Depends(get_db),
                        user: SystemUser = Depends(require_perm("intake:manage"))):
+    """创建接入密钥。使用示例：
+    curl -X POST .../api/intake/keys -H "Authorization: Bearer $JWT" \\
+         -H "Content-Type: application/json" -d '{"label":"KFC客户平台A","source":"kfc-a"}'
+    → {"id":3,"api_key":"ck-J8x…（明文仅此一次返回）",...}；source 会成为登记单前缀 external:kfc-a。"""
     row, plaintext = intake_registry.create_api_key(db, body.label, body.source)
     log_audit(db, request, user, "intake.key_create", f"key#{row.id}",
               {"label": body.label, "source": body.source})
@@ -293,7 +310,17 @@ def intake_submit_v1(body: IntakeExternalOrderRequest,
                      key: IntakeApiKey = Depends(_require_api_key),
                      db: Session = Depends(get_db)):
     """外部平台登记（KFC 系格式）：linkId→skuId、specs 文案解析、storeNo 缺省回落
-    配置默认门店；错误 422（带 message/candidates）、幂等 200、成功 202。"""
+    配置默认门店；错误 422（带 message/candidates）、幂等 200、成功 202。
+
+    使用示例::
+        curl -X POST http://<host>:8000/api/intake/v1/orders \\
+          -H "X-Api-Key: ck-xxxx" -H "Content-Type: application/json" \\
+          -d '{"orderNo":"KF998877","linkId":"102233","count":1,
+               "specs":["五分甜"],"payAmount":"11.70","callbackUrl":"https://cb.example/kf"}'
+        # 202 {"duplicate":false,"orderNo":"KF998877","status":"enqueued","query":".../v1/orders/KF998877"}
+        # 401 密钥缺失/无效/已吊销；429 每密钥超 CHAGEE_INTAKE_RATE_LIMIT（默认120/分钟）
+        # 回调事件：order_created（差额单）/ completed / pickup / cancelled，HMAC 验签见 docs/intake_api_reference.md §5
+    """
     internal = intake_registry.external_to_internal(body)
     payload = intake_registry.validate_and_normalize(db, internal)
     payload["customer_order_no"] = internal.customer_order_no

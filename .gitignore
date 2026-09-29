@@ -43,3 +43,9 @@ Thumbs.db
 
 # 运行时账号凭证
 account_system/data/accounts/
+
+# 代理出口配置含服务商凭证，不入库（服务器上手工配置）
+account_system/data/proxy_config.json
+# 测试重定向配置与手工 DB 备份产物
+account_system/data/test_*.json
+account_system/data/*.bak_*

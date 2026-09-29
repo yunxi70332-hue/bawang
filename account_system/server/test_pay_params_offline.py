@@ -36,6 +36,7 @@ import os
 import sys
 import time
 import urllib.parse
+from datetime import datetime, timedelta
 
 BASE = os.path.dirname(os.path.abspath(__file__))                 # .../account_system/server
 ROOT = os.path.dirname(os.path.dirname(BASE))                     # 项目根
@@ -398,6 +399,43 @@ def test_09_payload_fields_and_wiring():
             raise AssertionError("坏串应抛 ValueError")
         except ValueError:
             pass
+    finally:
+        _wipe(order_a)
+        _wipe(order_b)
+
+
+def test_10_pay_pending_endpoint():
+    """GET /api/ops/pay/pending 聚合轮询端点（支付助手 exe 唯一数据源）：
+    200 全字段（server_time/count/items 含 cashier_url/pay_param_str/h5_url）；
+    过窗单不进列表；无 token 401；已支付单不进列表。"""
+    url = "/api/ops/pay/pending"
+    assert CLIENT.get(url).status_code == 401
+    order_a, order_b = "PP-PEND-1", "PP-PEND-2"
+    try:
+        with database.SessionLocal() as db:
+            ps.ensure_pay_session(db, ACC_ID, order_a, _link(order_a))
+            ps.ensure_pay_session(db, ACC_ID, order_b, _link(order_b))
+            # b 置为已过窗（后台校准线程职责，此处直接模拟终态）
+            s_b = db.query(PaySession).filter(PaySession.order_no == order_b).one()
+            s_b.pay_deadline = datetime.now() - timedelta(seconds=1)
+            db.commit()
+        cashier_mint._fill_back(order_a, SAMPLE_URL, "protocol-mint")
+        d = CLIENT.get(url, headers=_auth()).json()
+        assert d["count"] == 1 and len(d["items"]) == 1
+        assert d["server_time"] > 0
+        it = d["items"][0]
+        assert it["order_no"] == order_a
+        assert it["account_id"] == ACC_ID and it["account_label"]
+        assert it["cashier_url"] == SAMPLE_URL
+        assert it["generated"] is True and it["source"] == "protocol-mint"
+        assert it["pay_param_str"] == _rec(order_a).param_str
+        assert "/pay/" in it["h5_url"]
+        assert int(it["pay_deadline_ts"]) > 0
+        # 会话支付收口后不再出现在待付列表
+        with database.SessionLocal() as db:
+            ps.mark_session(db, order_a, "paid")
+        d = CLIENT.get(url, headers=_auth()).json()
+        assert d["count"] == 0
     finally:
         _wipe(order_a)
         _wipe(order_b)

@@ -29,6 +29,8 @@ _COLUMN_MIGRATIONS = [
     ("order_plans", "drink_info", "VARCHAR(255) DEFAULT '' NOT NULL"),
     # 下单方案支付金额上限（2026-09-29）：方案级差额实付上限（空=未配置，fail-closed 拒单）
     ("order_plans", "max_pay_amount", "VARCHAR(32) DEFAULT '' NOT NULL"),
+    # 券使用日志状态机（2026-09-30 §18）：状态流转轨迹 JSON
+    ("coupon_usage_logs", "state_history", "TEXT DEFAULT '' NOT NULL"),
 ]
 
 
@@ -49,9 +51,86 @@ def _migrate_columns() -> None:
                     print(f"[seed] 迁移失败（忽略）：{table}.{column}: {e}")
 
 
+def _hist_append(log, from_state: str, to_state: str, by: str, reason: str = "") -> None:
+    """state_history 追加一条流转（自包含实现，避免 seed 反向依赖 services 层）。"""
+    import json as _json
+    from datetime import datetime as _dt
+    try:
+        hist = _json.loads(log.state_history or "[]")
+        if not isinstance(hist, list):
+            hist = []
+    except Exception:
+        hist = []
+    hist.append({"at": _dt.now().strftime("%Y-%m-%d %H:%M:%S"),
+                 "from": from_state, "to": to_state,
+                 "by": by or "seed-migration", "reason": (reason or "")[:200]})
+    log.state_history = _json.dumps(hist, ensure_ascii=False)
+
+
+def _migrate_usage_log_lifecycle() -> None:
+    """券使用日志状态机数据回填（§18，幂等，启动时执行）。
+
+    修正两类历史脏数据（旧「乐观预记 success + 回滚补行」形态造成的分类失真）：
+      ① 旧双行形态：同券同单同时存在 success 行与 rolled_back 行 → 合并为单行
+         rolled_back（金额快照保留在原 success 行，历史并入 state_history，删除重复行）；
+      ② 残留 success 行按订单实况校正：order.status=7（已取消）→ rolled_back；
+         order.status=1（仍待支付）→ pending。订单缺失/已支付(3/6) 不动（零元单 born 3 合法）。
+    """
+    from models import CouponUsageLog, OrderRecord
+
+    with SessionLocal() as db:
+        # ① 合并旧双行（success + rolled_back 同券同单）
+        merged = 0
+        pairs = (db.query(CouponUsageLog.coupon_code, CouponUsageLog.order_no)
+                   .filter(CouponUsageLog.result.in_(("success", "rolled_back")),
+                           CouponUsageLog.order_no != "")
+                   .distinct().all())
+        for code, order_no in pairs:
+            rows = (db.query(CouponUsageLog)
+                      .filter(CouponUsageLog.coupon_code == code,
+                              CouponUsageLog.order_no == order_no)
+                      .order_by(CouponUsageLog.id).all())
+            succ = [r for r in rows if r.result == "success"]
+            rolled = [r for r in rows if r.result == "rolled_back"]
+            if not (succ and rolled):
+                continue
+            keep = succ[0]
+            keep.result = "rolled_back"
+            keep.fail_reason = rolled[0].fail_reason or "历史回填：订单已取消，券未核销"
+            _hist_append(keep, "success", "rolled_back", "seed-migration",
+                         "历史双行合并（订单取消回滚）")
+            for extra in rolled + succ[1:]:
+                db.delete(extra)
+            merged += 1
+        # ② 残留 success 行按订单状态校正
+        fixed = 0
+        leftovers = (db.query(CouponUsageLog)
+                       .filter(CouponUsageLog.result == "success",
+                               CouponUsageLog.order_no != "").all())
+        if leftovers:
+            status_map = {o.order_no: int(o.status or 0) for o in
+                          db.query(OrderRecord).filter(OrderRecord.order_no.in_(
+                              [r.order_no for r in leftovers])).all()}
+            for r in leftovers:
+                st = status_map.get(r.order_no)
+                if st == 7:
+                    r.result = "rolled_back"
+                    r.fail_reason = r.fail_reason or "历史回填：订单已取消，券未核销"
+                    _hist_append(r, "success", "rolled_back", "seed-migration", "订单已取消")
+                    fixed += 1
+                elif st == 1:
+                    r.result = "pending"
+                    _hist_append(r, "success", "pending", "seed-migration", "订单待支付")
+                    fixed += 1
+        db.commit()
+        if merged or fixed:
+            print(f"[seed] 券日志状态机回填：合并旧双行 {merged} 组，校正误记成功 {fixed} 行")
+
+
 def init_db() -> None:
     Base.metadata.create_all(engine)
     _migrate_columns()
+    _migrate_usage_log_lifecycle()
     with SessionLocal() as db:  # type: Session
         changed = False
         for spec in BUILTIN_ROLES:

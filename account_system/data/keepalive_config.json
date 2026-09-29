@@ -1,0 +1,14 @@
+{
+  "enabled": "true",
+  "run_at": "10:30",
+  "province_city_prefix": "44",
+  "min_interval_seconds": "5",
+  "max_interval_seconds": "12",
+  "max_stores_per_run": "0",
+  "min_stores_per_account": "2",
+  "request_timeout": "20",
+  "max_retries": "2",
+  "whoami_check": "true",
+  "alert_failure_rate": "0.5",
+  "alert_min_failures": "3"
+}

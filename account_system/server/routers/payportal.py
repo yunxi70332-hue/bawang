@@ -44,7 +44,7 @@ from services.pay_session import (
     mark_session, pay_deadline_ts, record_event, remaining_seconds, server_now_ms,
     switch_order_to_full_price, token_prefix, upsert_order_record,
 )
-from services.order_reconcile import rollback_coupon_usage
+from services.order_reconcile import confirm_coupon_usage, rollback_coupon_usage
 
 logger = logging.getLogger(__name__)
 
@@ -241,6 +241,16 @@ def _probe_remote(db: Session, sess: PaySession, account: ChageeAccount) -> None
                                 total_amount=str(detail.get("totalAmount") or "") or None)
         record_event(db, sess.order_no, prefix, EVENT_PICKUP_FETCHED,
                      {"pickup_no": sess.pickup_no or "", "order_status": st})
+        # 券核销收口（与取消分支的回滚对称）：支付确认 → 券档案迁移历史桶；
+        # 幂等（watcher 先收口时此处为无操作），失败仅 WARN，校准线程会补迁
+        if sess.coupon_code:
+            try:
+                confirm_coupon_usage(db, sess.coupon_code, sess.order_no,
+                                     operator="pay-portal")
+            except Exception:
+                db.rollback()
+                logger.warning("订单 %s 支付确认后券核销迁移失败（校准线程会补迁）",
+                               sess.order_no, exc_info=True)
     elif st == 7:
         if mark_session(db, sess.order_no, "cancelled"):
             record_event(db, sess.order_no, prefix, EVENT_ORDER_CANCELLED,

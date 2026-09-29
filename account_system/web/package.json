@@ -1,6 +1,6 @@
 {
   "name": "chagee-account-web",
-  "version": "1.0.0",
+  "version": "1.0",
   "private": true,
   "description": "霸王茶姬多账号管理系统前端（Vue 3 + Element Plus）",
   "scripts": {

@@ -306,3 +306,81 @@ api/index.js 新增 `apiDecision`（全部端点封装）：`packets(params)` `p
 - **已知旁路**（评估记录）：switch_order_to_full_price 原价重下产生无 DecisionLog 绑定的新单 → pay 环节查不到方案放行；仅 body.plan_id（无 decision_log_id）下的单同理。如需封死，需 OrderRecord 增加 plan_id 列（本次未做）
 - **前端**：方案编辑弹窗基础信息 Tab 必填「支付金额上限(元)」（正则校验同 schema）+ 安全提示；方案列表「金额上限」列（空=红 tag「未配置」）；工作台方案下拉/结果信息展示上限
 - **测试**：test_decision_offline test_28/29（CRUD+decide 六分支）、test_orders_offline +4（create 超限/未配置/自动模式/pay 环节）
+
+## 15. 券类型聚合下拉 coupon-types（2026-09-29，方案优先级层级「优惠券绑定」）
+
+**背景**：优惠券全量查询（功能4）把查询结果落库 `coupon_records`（券档案）；下单方案的优先级层级原只能手填匹配规则。本节新增「优惠券绑定」下拉，从券档案实时聚合券类型供选择绑定。
+
+- **端点**：`GET /api/ops/decision/coupon-types?keyword=&page=1&page_size=20`（权限 decision:manage；routers/decision.py）
+  - 语义：coupon_records 按 `template_name`（券类型）GROUP BY 实时聚合，**现查无缓存**——与功能4 全量查询/decide 扫描的最新落库记录天然同步
+  - item 字段：template_name / benefit_text / amount / usable_scenes / total_count（档案张数）/ available_count（bucket∈{effective,settle_available} 张数）/ account_count（DISTINCT 持有账号数）/ use_start_time(min) / use_end_time(max) / updated_at
+  - 过滤：keyword 对 template_name LIKE；空模板名行排除。排序：available_count desc → total_count desc → template_name。分页 page/page_size（≤100）
+- **绑定语义**（前端 CouponTypeBindSelect.vue + OrderPlanView.vue 层级行）：
+  - 下拉 = el-select 远程搜索（输入 300ms 防抖拉首页）+ 展开即刷新首页（visible-change，与库同步）+ 底部「加载更多」逐页追加（seq 竞态防护）
+  - 选项展示：券类型名 + 权益 · 可用 x/y 张 · N 账号 · 有效期至
+  - 选中回填层级行：match_type=`template_exact`（与 rule_satisfied 全等语义对齐）+ match_value=完整模板名 + face_value=档案面额（折扣/兑换券无面额不动）；层名留空时以 benefit_text 兜底
+  - 镜像显示：层级行已有名称类规则（template_exact/template_contains）时绑定框回显 match_value；正则/券码前缀属手填规则不回显；清空绑定仅清 match_value/face_value
+- **兼容**：不改库表、不改 decide 选券判定（绑定产物即普通层级规则）；与 §11 优先级层级完全同构
+- **测试**：test_decision_offline test_30（聚合口径/keyword/分页/落库即时同步/空模板名排除/绑定往返/viewer 403）
+
+## 16. 券剩余有效期「剩余 N 天」（2026-09-29，全链路服务端权威计算）
+
+**口径（services/decision.coupon_validity，前后端唯一出处）**：有效期窗口为毫秒 epoch（绝对时刻），经 fromtimestamp 转服务器本地时区后按**自然日差**计——days_remaining = 截止日本地日期 − 今日本地日期（同日任何时刻查询稳定；避免毫秒差除法的日内跳变与字符串时区歧义）。
+
+- **状态机**：pending 未生效（start>今天）/ active / expiring 临期（0≤days≤3，含今日到期 days=0）/ expired（days<0）/ unknown 无截止标注（长期，days=None）
+- **落库设计**：不新增冗余列——coupon_records 已有 created_at（落库时间）+ use_start_time/use_end_time（有效期窗口两端点毫秒）；剩余天数为纯派生值，服务端实时计算不落库（与窗口字段保持单一事实源）
+- **下发面**（服务端计算、前端只渲染）：
+  - GET /coupons/search：每行 days_remaining/validity_status + stats.expiring/expired（命中口径）
+  - GET /accounts/{id}/coupons/records：每行同名字段
+  - POST /coupons/sync-all 与单账号 POST /accounts/{id}/coupons：响应 coupons 逐张附带（ops._validity_fields，fail-soft）
+  - GET /decision/coupon-types：days_remaining = **最早到期的可用桶券**（MIN 忽略 NULL；历史桶更早不计；无可用=None）
+- **前端**：components/CouponValidityTag.vue 统一渲染——已过期=红 / 今日到期与剩≤3天=橙（醒目）/ 未生效=蓝 / 剩>3天=灰字 / 无截止=「长期」；优惠券查询页明细+档案库两表「有效期」列（标签+日期区间两行）与统计行「临期/已过期」；方案绑定下拉元信息以「剩 N 天」替换「至 日期」（≤3 天整段橙色强调）
+- **桶标覆盖修复（同日根因）**：wire historical-list 实测含全部券（可用40/历史40 完全重叠），_persist_coupon_records 原顺序先可用后历史，同券码 upsert 后写覆盖 → 40 张全 historical。修复：按「历史先写、可用后写」排序，同码两列表并见时 effective 胜出（routers/ops.py；仅历史列表的券不受影响）
+- **测试**：test_decision_offline test_31（纯函数矩阵：当日/3天/4天/过期/未生效/无截止/23:30→次日00:30 日界 + coupon-types 最早到期口径）、test_coupons_offline test_coupon_days_fields_and_bucket_overlap（sync-all/search 字段 + 天数按同口径现场计算抗日期漂移 + 同码重叠桶标回归）
+
+## 17. 券生命周期自动收口（2026-09-30，核销迁移历史桶 + 登录自动入库）
+
+**背景（两处手动依赖收口）**：成单仅预记使用痕迹（last_used_at/last_order_no），已支付核销后 bucket 原地不动 → 可用数不随真实消耗扣减，须手动 F4 才迁移历史桶；新账号登录后券档案为空，亦须手动查询入库。
+
+- **核销自动迁移（bucket→historical）**：`services/order_reconcile.confirm_coupon_usage(db, coupon_code, order_no, operator)`（与 rollback_coupon_usage 对称成对），四个触发点：
+  1. pay-watcher `_handle_paid`（services/payment_events.py，CAS 胜者；operator=pay-watcher）
+  2. H5 收银台探针 `_probe_remote` paid 分支（routers/payportal.py，另一 CAS 胜者；operator=pay-portal）
+  3. 订单校准 paid 分支（order_reconcile.reconcile_order，st∈{3,6}；60s 线程/手动端点/create_core 内联三入口共用）
+  4. create_core 零元单分支（成单即核销，无支付腿不等确认通道）
+- **不变式一（无双算）**：confirm 只迁移桶位、保留使用痕迹，**不写 CouponUsageLog**——success 使用日志成单时已预记，抵扣/使用统计不重复计数
+- **不变式二（手动 F4 仍为校准权威）**：后续 F4 查询 upsert 覆盖本地桶标（如退款后茶姬重显「可用」→ effective 胜出回迁，自愈）
+- **两链互斥幂等**：cancelled→rollback（bucket→effective + 清痕迹 + rolled_back 日志，语义不变）；paid→confirm（bucket→historical + 留痕迹）；订单不可能既取消又支付，watcher/探针/校准并发双发时各自幂等（桶位未变则跳过 oplog）
+- **登录自动同步券入库**：POST /api/accounts/{id}/login 成功后内联 best-effort 拉取 F4 两列表全量落库（复用 ops._persist_coupon_records，可用后写胜出口径同 §16）：
+  - 响应新增 `coupons_synced: {total, effective, historical} | null`（失败为 null，绝不影响登录结果）；audit action=account.login 附 coupons_synced 计数
+  - 开关 `CHAGEE_LOGIN_COUPON_SYNC`（默认 1；0 关闭）；失败 WARN 留痕 action=coupon.login_sync
+  - 前端 AccountsView 登录成功 toast 追加「已同步 N 张券入库」
+- **SSE/仪表盘零改动**：dashboard_push 5s 指纹推送天然联动——核销后 coupons_effective−1/historical+1、登录同步后 coupons_total 增加，均自动推送
+- **测试**：test_coupon_lifecycle_offline（confirm 单元/幂等、三支付通道迁移、零元单成单迁移、登录同步成功/失败容错、指纹联动）；test_reconcile_offline test_timeout_paid_keeps_coupon_used 增补 bucket 断言；test_orders_offline 零元单增补 bucket 断言
+
+## 18. 券使用日志状态机（2026-09-30，pending 预记 + 实时流转 + 历史回填）
+
+**背景（分类失真根因）**：旧口径差额单成单即预记 `result="success"`（乐观记法），订单未支付即取消后 success 行残留 → 「使用成功 N 笔/累计抵扣」把未核销交易计入（回滚另补 rolled_back 行造成双行 + 补偿式扣减）。
+
+**状态定义（CouponUsageLog.result 五态）**：
+- `pending` 待支付（使用中）——差额单成单预记；券已占用但支付未完成
+- `success` 使用成功（已核销）——零元单成单即达（born status 3，无支付腿）；差额单经支付确认通道迁移到达
+- `rolled_back` 已回滚（取消退券）——订单取消（超时 autoCancel / 手动取消 / 原价切换）时迁移到达
+- `rejected` / `failed` 终态——五重校验拒绝 / createOrder 异常，无订单关联，不变
+
+**流转规则（单行生命周期：一次使用事件 = 一行日志，原地迁移不加行）**：
+- `pending → success`：支付确认四通道（§17 watcher / H5 探针 / 校准 / ——零元单不经此态）触发 `confirm_coupon_usage`：bucket→historical + 日志原地迁移
+- `pending → rolled_back`（或遗留 success → rolled_back）：`rollback_coupon_usage`：bucket→effective + 清使用痕迹 + 日志原地迁移（金额快照保留、operator 保持原下单人）
+- 两链互斥幂等：已终态行再触发只复位档案字段不加行不重复迁移
+
+**状态变更日志（state_history JSON 列，coupon_usage_logs 表）**：每次流转追加 `{at, from, to, by, reason}`（by=触发方：pay-watcher/pay-portal/system/操作人/seed-migration）；GET /coupon-usage-logs 每行下发 `state_history` 数组，前端结果标签带 `*` 悬停可见全轨迹。
+
+**统计口径修正**：
+- GET /coupon-usage-logs stats：五类计数（新增 pending）；**累计抵扣只计 result=success**（已核销），pending/rolled_back 不计；旧「success − rolled_back 补偿扣减」废止（单行生命周期下无双重计数）
+- result 过滤参数增 `pending`；_RESULT_LABELS 五态中文
+- dashboard_stats：使用趋势/卡片增 pending 维度（coupon_pending_pay）；仪表盘抵扣口径随 result 语义自动修正
+
+**历史数据回填（seed._migrate_usage_log_lifecycle，启动时幂等执行）**：
+① 旧双行（同券同单 success + rolled_back）→ 合并为单行 rolled_back（金额快照保留、历史并入 state_history、删除重复行）
+② 残留 success 行按订单实况校正：order.status=7 → rolled_back；=1 → pending；订单缺失或已支付(3/6) 不动（零元单 born 3 合法）
+
+**测试**：test_coupon_lifecycle_offline test_08/09/10（差额单 pending→success/rolled_back 全链路 + 统计口径 + 回填合并/校正/幂等）；test_reconcile_offline（stats 新口径 + 种子行改 pending）；test_orders_offline（rate 券差额单断言改 pending）；test_payportal_offline（原地迁移 + state_history actor 断言）

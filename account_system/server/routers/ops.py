@@ -17,6 +17,7 @@ from database import get_db
 from models import ChageeAccount, SystemUser
 from security import require_perm
 from services import chagee_bridge as bridge
+from services import decision as decision_svc
 from services import menu_spec as menu_spec_service
 from services.menu_spec import SpecResolveError
 
@@ -92,6 +93,8 @@ def menu(store: str = "", _: SystemUser = Depends(require_perm("feature:menu")))
                 "categoryId": cat.get("menuCategoryId") or cat.get("id"),
                 "categoryName": cat.get("menuCategoryName") or cat.get("name", ""),
                 "spuId": spu.get("spuId"), "spuName": spu.get("name") or spu.get("spuName") or "",
+                # 商品描述（sellingPoint 兜底）：工作台商品搜索覆盖字段之一
+                "description": spu.get("description") or spu.get("sellingPoint") or "",
                 "saleOut": bool(spu.get("saleOut")),
                 "price": price,
                 "img": (spu.get("imageUrlList") or [None])[0] or "",
@@ -239,10 +242,18 @@ def pickup_context(_: SystemUser = Depends(require_perm("feature:menu"))):
 
 def _persist_coupon_records(db: Session, account, result: dict) -> int:
     """券档案全量入库：完整名称 + 券ID↔token 映射 + 使用范围（可用/历史两桶，来源 coupon_query）。
-    返回本账号落库券数（同步失败不阻塞，逐张容错）。"""
+    返回本账号落库券数（同步失败不阻塞，逐张容错）。
+
+    桶标优先级（2026-09-29 修复）：wire 的 historical-list 实测含全部券（可用40/历史40
+    完全重叠），classify 顺序可用在前/历史在后，同券码 upsert 后写覆盖——若不排序，
+    历史标签必然覆盖可用标签（此前生产 40 张全被标 historical 的根因）。故按
+    「历史先写、可用后写」排序，同码两列表并见时可用（effective）胜出；仅出现在
+    历史列表的券（真已用/过期）不受影响。"""
     from routers.orders import _upsert_coupon
     n = 0
-    for c in (result.get("coupons") or []):
+    entries = sorted(result.get("coupons") or [],
+                     key=lambda c: 1 if c.get("bucket") == "可用" else 0)   # 历史先写、可用后写
+    for c in entries:
         entry = {
             "couponCode": c.get("couponCode"),
             "templateName": c.get("templateName"),
@@ -288,6 +299,8 @@ def account_coupons(account_id: int, request: Request,
                "effective_usable_times": result.get("summary", {}).get("effective_usable_times"),
                "historical": result.get("summary", {}).get("historical_total")})
     _persist_coupon_records(db, account, result)
+    for c in (result.get("coupons") or []):   # 剩余有效期随响应下发（前端只渲染不计算）
+        c.update(_validity_fields(c))
     return {"run_at": time.strftime("%Y-%m-%d %H:%M:%S"),
             "account": {"id": account.id, "label": account.label,
                         "nickname": account.nickname, "phone_masked": account.phone or ""},
@@ -352,7 +365,8 @@ def coupons_sync_all(request: Request, db: Session = Depends(get_db),
                 all_codes.add(code)
                 coupons.append({**c,
                                 "account_id": account.id,
-                                "account_label": f"{account.label}#{account.id}"})
+                                "account_label": f"{account.label}#{account.id}",
+                                **_validity_fields(c)})   # 剩余有效期随响应下发
         account_rows.append(row)
 
     log_audit(db, request, user, "feature.coupon_sync_all", "全账号",
@@ -382,6 +396,18 @@ def _to_ms(t: str) -> int | None:
         return int(datetime.strptime(str(t), "%Y-%m-%d %H:%M").timestamp() * 1000)
     except (TypeError, ValueError):
         return None
+
+
+def _validity_fields(c: dict) -> dict:
+    """wire 券条目（*Str 时间字段）→ 剩余有效期字段（services.decision.coupon_validity
+    唯一口径；失败 fail-soft 给 unknown，不阻塞查询响应）。"""
+    try:
+        v = decision_svc.coupon_validity(_to_ms(c.get("useStartTimeStr")),
+                                         _to_ms(c.get("useEndTimeStr")))
+        return {"days_remaining": v["days_remaining"],
+                "validity_status": v["validity_status"]}
+    except Exception:
+        return {"days_remaining": None, "validity_status": "unknown"}
 
 
 # ---------------- 功能6：取餐查询（已开放，实际数据走 orders 路由） ----------------

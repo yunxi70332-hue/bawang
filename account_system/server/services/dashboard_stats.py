@@ -132,7 +132,8 @@ def collect_dashboard_stats(db: Session) -> dict:
     deduction_rows = (db.query(func.strftime("%m-%d", CouponUsageLog.used_at), CouponUsageLog.deduction)
                       .filter(CouponUsageLog.used_at >= trend_start,
                               CouponUsageLog.result == "success").all())
-    usage_map: dict[str, dict] = {k: {"success": 0, "rejected": 0, "failed": 0} for k in day_keys}
+    usage_map: dict[str, dict] = {k: {"success": 0, "pending": 0, "rejected": 0, "failed": 0}
+                                  for k in day_keys}
     for day, result, cnt in usage_rows:
         if day in usage_map and result in usage_map[day]:
             usage_map[day][result] = cnt
@@ -178,6 +179,7 @@ def collect_dashboard_stats(db: Session) -> dict:
             "coupons_settle_available": by_bucket.get("settle_available", 0),
             "coupons_used": coupons_used,
             "coupon_used_success": usage_by_result.get("success", 0),
+            "coupon_pending_pay": usage_by_result.get("pending", 0),
             "coupon_rejected": usage_by_result.get("rejected", 0),
             "coupon_failed": usage_by_result.get("failed", 0),
             "coupon_deduction_total": _fmt_money(deduction_total),

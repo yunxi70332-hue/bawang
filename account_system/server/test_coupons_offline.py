@@ -239,4 +239,53 @@ def test_dashboard_stats_coupon_and_order_domain():
 def test_permission_guard():
     # 未登录 401
     assert client.get("/api/ops/coupons/search").status_code == 401
+
+
+def test_coupon_days_fields_and_bucket_overlap():
+    """「剩余 N 天」端到端 + 桶覆盖修复（2026-09-29）：
+    - sync-all 响应每张券带 days_remaining/validity_status（服务端唯一口径）；
+    - coupons/search 每行同名字段 + stats.expiring/expired 统计（期望天数按同一
+      自然日口径现场计算，抗运行日期漂移）；
+    - wire 真实形态（historical-list 含全部券）：同券码在可用+历史两列表并见时，
+      effective 必须胜出（此前历史后写覆盖致 40 张全 historical 的根因修复）。"""
+    from datetime import date, datetime
+
+    # 前序 no_available_accounts 用例把账号全置 disabled：先恢复在线，本用例要再跑全量同步
+    db = fresh_db()
+    for aid in (1, 3, 4):
+        db.get(ChageeAccount, aid).status = "online"
+    db.commit()
+    db.close()
+    r = client.post("/api/ops/coupons/sync-all", headers=H)
+    assert r.status_code == 200
+    for c in r.json()["coupons"]:
+        assert "days_remaining" in c and "validity_status" in c
+
+    end_ms = 1792684799000   # 夹具券统一截止毫秒（2026-11-22 23:59:59 CST）
+    expected = (datetime.fromtimestamp(end_ms / 1000).date() - date.today()).days
+    d = client.get("/api/ops/coupons/search", headers=H, params={"keyword": "C1001"}).json()
+    assert d["total"] == 1
+    item = d["items"][0]
+    assert item["days_remaining"] == expected, item
+    assert item["validity_status"] in ("active", "expiring", "expired", "unknown")
+    assert "expiring" in d["stats"] and "expired" in d["stats"]
+
+    from routers.ops import _persist_coupon_records
+    db = fresh_db()
+    acc = db.get(ChageeAccount, 1)
+    dup = {"templateName": "重叠券", "benefitText": "5元",
+           "useStartTimeStr": "2026-09-01 00:00", "useEndTimeStr": "2026-10-01 00:00"}
+    result = {"coupons": [
+        {**dup, "couponCode": "OVL1", "bucket": "可用"},
+        {**dup, "couponCode": "OVL1", "bucket": "历史"},
+        {**dup, "couponCode": "OVL2", "bucket": "历史"},
+    ]}
+    assert _persist_coupon_records(db, acc, result) == 3
+    b1 = db.query(CouponRecord).filter_by(coupon_code="OVL1").one().bucket
+    b2 = db.query(CouponRecord).filter_by(coupon_code="OVL2").one().bucket
+    assert b1 == "effective", "同券码两列表并见时可用标签必须胜出"
+    assert b2 == "historical"
+    db.query(CouponRecord).filter(CouponRecord.coupon_code.in_(("OVL1", "OVL2"))).delete()
+    db.commit()
+    db.close()
     assert client.post("/api/ops/coupons/sync-all").status_code == 401

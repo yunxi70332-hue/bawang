@@ -13,8 +13,9 @@
         <div style="display: flex; gap: 12px; align-items: center">
           <el-tag v-if="status.running" type="warning" effect="dark">运行中 #{{ status.current_run_id }}</el-tag>
           <el-tag v-else-if="status.next_run_at" type="info">下次：{{ status.next_run_at }}</el-tag>
-          <el-switch v-model="form.enabled" :loading="saving" active-text="定时开关" @change="saveConfig" />
-          <el-button type="primary" :loading="status.running" @click="trigger">手动运行一轮</el-button>
+          <!-- 写配置/触发需 account:login（与后端 PUT /config、POST /trigger 同口径），只读用户不渲染入口 -->
+          <el-switch v-perm="'account:login'" v-model="form.enabled" :loading="saving" active-text="定时开关" @change="saveConfig" />
+          <el-button v-perm="'account:login'" type="primary" :loading="status.running" @click="trigger">手动运行一轮</el-button>
         </div>
       </div>
       <el-descriptions v-if="status.last_run" :column="4" border size="small" style="margin-top: 8px">
@@ -72,7 +73,7 @@
           <el-input v-model="form.alert_failure_rate" style="width: 80px" />
         </el-form-item>
         <el-form-item>
-          <el-button type="primary" :loading="saving" @click="saveConfig">保存配置</el-button>
+          <el-button v-perm="'account:login'" type="primary" :loading="saving" @click="saveConfig">保存配置</el-button>
         </el-form-item>
       </el-form>
     </div>

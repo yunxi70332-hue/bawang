@@ -7,6 +7,7 @@
   4) check    —— whoami 自检；单会话语义下失效则状态 → expired
 """
 
+import os
 from datetime import datetime, timedelta
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
@@ -15,6 +16,7 @@ from sqlalchemy.orm import Session
 from audit import log_audit
 from database import get_db
 from models import ACCOUNT_STATUS, ChageeAccount, LoginTicket, STATUS_LABELS, SystemUser
+from oplog import log_op
 from schemas import AccountCreate, AccountOut, AccountUpdate, SmsCodeRequest, mask_phone
 from security import require_perm
 from services import chagee_bridge as bridge
@@ -255,10 +257,31 @@ def login_with_code(account_id: int, body: SmsCodeRequest, request: Request,
         db.commit()
     except Exception:
         pass
+    # 登录即同步券档案：F4 拉取可用/历史两列表全量入库（操作员免手动查询）。
+    # best-effort：失败仅 WARN 留痕，绝不影响登录结果；CHAGEE_LOGIN_COUPON_SYNC=0 可关闭
+    coupons_synced = None
+    if os.environ.get("CHAGEE_LOGIN_COUPON_SYNC", "1") != "0":
+        try:
+            client.token = token
+            client.proto.token = token
+            result = bridge.proto_coupons(client)
+            from routers.ops import _persist_coupon_records   # 惰性导入防环
+            summary = result.get("summary", {}) or {}
+            coupons_synced = {
+                "total": _persist_coupon_records(db, account, result),
+                "effective": summary.get("effective_total", 0),
+                "historical": summary.get("historical_total", 0),
+            }
+        except Exception as e:
+            coupons_synced = None
+            log_op(level="WARN", action="coupon.login_sync", actor=user.username,
+                   target=f"{account.label}#{account.id}", result="failed", error=e)
     log_audit(db, request, user, "account.login", f"{account.label}#{account.id}",
-              {"customerId": account.customer_id, "nick": account.nickname})
+              {"customerId": account.customer_id, "nick": account.nickname,
+               "coupons_synced": coupons_synced["total"] if coupons_synced else None})
     return {"ok": True, "status": "online", "nickname": account.nickname,
-            "customer_id": account.customer_id, "token_fingerprint": token[:16] + f"...len={len(token)}"}
+            "customer_id": account.customer_id, "coupons_synced": coupons_synced,
+            "token_fingerprint": token[:16] + f"...len={len(token)}"}
 
 
 @router.post("/{account_id}/logout")

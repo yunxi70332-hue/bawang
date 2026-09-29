@@ -612,8 +612,14 @@ def test_10_status_probe_cancelled_rolls_back():
                      .filter(CouponUsageLog.coupon_code == coup,
                              CouponUsageLog.result == "rolled_back")
                      .order_by(CouponUsageLog.id.desc()).first())
-            assert log is not None and log.order_no == order and log.operator == "pay-portal"
-            assert log.deduction == "10.00"               # 承接原 success 快照
+            assert log is not None and log.order_no == order and log.operator == "admin"
+            assert log.deduction == "10.00"               # 原行金额快照保留（§18 单行生命周期）
+            # 原地迁移：不新增行；流转 actor=pay-portal 记入 state_history
+            assert (db.query(CouponUsageLog)
+                      .filter(CouponUsageLog.coupon_code == coup).count()) == 1
+            hist = json.loads(log.state_history or "[]")
+            assert any(h.get("by") == "pay-portal" and h.get("to") == "rolled_back"
+                       for h in hist)
     finally:
         _reset_fake()
         _wipe_pay(order)
@@ -686,7 +692,9 @@ def test_11_switch_full_price_flow():
             log = (db.query(CouponUsageLog)
                      .filter(CouponUsageLog.coupon_code == coup,
                              CouponUsageLog.result == "rolled_back").first())
-            assert log is not None and log.order_no == order and log.operator == "pay-portal"
+            assert log is not None and log.order_no == order and log.operator == "admin"
+            assert any(h.get("by") == "pay-portal" and h.get("to") == "rolled_back"
+                       for h in json.loads(log.state_history or "[]"))   # 流转 actor 入轨迹（§18）
     finally:
         _reset_fake()
         _wipe_pay(order)

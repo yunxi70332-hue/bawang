@@ -34,7 +34,8 @@ from database import SessionLocal
 from models import ChageeAccount, PaySession
 from oplog import heartbeat, log_op
 from services import chagee_bridge as bridge
-from services.order_reconcile import RECONCILE_GRACE_SECONDS, rollback_coupon_usage
+from services.order_reconcile import (RECONCILE_GRACE_SECONDS, confirm_coupon_usage,
+                                      rollback_coupon_usage)
 from services.pay_session import (
     EVENT_CALLBACK_DISPATCHED, EVENT_CALLBACK_FAILED, EVENT_ORDER_CANCELLED,
     EVENT_PAID_DETECTED, EVENT_PICKUP_FETCHED, EVENT_PROBE, EVENT_ROLLED_BACK,
@@ -110,6 +111,16 @@ def _handle_paid(db: Session, sess: PaySession, account, api, st: int) -> str:
                         pickup_no=sess.pickup_no or None,
                         pay_amount=str(detail.get("payAmount") or "") or None,
                         total_amount=str(detail.get("totalAmount") or "") or None)
+    # 券核销收口：支付确认 → 券档案迁移历史桶（幂等，与取消回滚链对称；
+    # 失败仅 WARN——order_reconcile 线程的 paid 分支稍后会补迁，不影响收口主流程）
+    if sess.coupon_code:
+        try:
+            confirm_coupon_usage(db, sess.coupon_code, sess.order_no,
+                                 operator=WATCHER_OPERATOR)
+        except Exception:
+            db.rollback()
+            logger.warning("订单 %s 券核销迁移失败（校准线程会补迁）",
+                           sess.order_no, exc_info=True)
     record_event(db, sess.order_no, prefix, EVENT_PICKUP_FETCHED,
                  {"source": WATCHER_OPERATOR, "order_status": st,
                   "pickup_no": sess.pickup_no or ""})

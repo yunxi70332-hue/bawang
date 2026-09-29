@@ -20,6 +20,7 @@ PERMISSION_CATALOG = [
     ("audit:read",     "审计日志",   "系统管理", "查看操作审计日志"),
     ("decision:manage", "决策管理", "下单决策", "套餐配置/券成本规则/决策配置管理、券库存扫描、盈利报表与决策流水查询"),
     ("intake:manage",  "订单中枢管理", "异步订单", "客户订单登记单/队列/死信/接入密钥管理（异步下单中枢）"),
+    ("settings:manage", "系统设置", "系统管理", "代理出口配置/连接诊断/切换日志（账号相关请求大陆 IP 出口管理）"),
 ]
 
 PERMISSION_CODES = [p[0] for p in PERMISSION_CATALOG]
