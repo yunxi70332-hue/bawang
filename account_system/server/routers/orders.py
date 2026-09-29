@@ -23,8 +23,9 @@ from sqlalchemy.orm import Session
 
 from audit import log_audit
 from database import SessionLocal, get_db
-from models import (ChageeAccount, CouponRecord, CouponUsageLog, DecisionLog, OrderRecord,
-                    PayEventLog, SystemUser, VoucherCostCategory, VoucherCostRule)
+from models import (ChageeAccount, CouponRecord, CouponUsageLog, DecisionLog, OrderPlan,
+                    OrderRecord, PayEventLog, SystemUser, VoucherCostCategory,
+                    VoucherCostRule)
 from oplog import log_op
 from schemas import CashierUrlRequest, OrderCreateRequest, OrderSettleRequest, PayModeRequest
 from security import require_perm
@@ -505,13 +506,14 @@ def order_settle(account_id: int, body: OrderSettleRequest, request: Request,
 # ---------------- F5：下单（zero / partial 双分支） ----------------
 
 def _fallback_rank_codes(db: Session, draft: dict, primary_code: str, body) -> list[str]:
-    """券自动切换的次优候选序列（§10 四级漏斗第 2/3 级）：从本次试算在列券
+    """券自动切换的次优候选序列（§10 四级漏斗第 2/3 级 + §11 方案）：从本次试算在列券
     （settle_base.available_coupons = 服务端对本账号+购物车的权威可用集）构建候选，
-    按成本规则折算 + 阈值过滤 + 三因子排序（成本→面额→临期），返回券码列表（不含首选）。
+    按成本规则折算 + 阈值过滤 + 策略排序 + 方案优先级层重排，返回券码列表（不含首选）。
 
     阈值口径：带 decision_log_id 时复用该决策流水的 threshold_json 与 revenue（与决策
-    一致）；否则用全局配置且 revenue 未知 → 利润类阈值跳过、仅 max_order_cost 成本上限
-    生效（执行期兜底语义——create 语境没有客户支付价，无法算利润）。"""
+    一致）；否则用全局配置且 revenue 未知 → 利润类阈值跳过、仅 max_order_cost 生效
+    （执行期兜底语义——create 语境没有客户支付价，无法算利润）。
+    方案口径：decision_log 的 plan_json.plan_id 优先，其次 body.plan_id（§11）。"""
     entries = [e for e in (draft["settle_base"].available_coupons or [])
                if str(e.get("couponCode") or "") not in ("", primary_code)]
     if not entries:
@@ -519,6 +521,8 @@ def _fallback_rank_codes(db: Session, draft: dict, primary_code: str, body) -> l
     rules = db.query(VoucherCostRule).all()
     cfg = decision_svc.load_config()
     min_profit = min_margin = max_cost = revenue = ""
+    plan = None
+    log_plan_id = 0
     if int(getattr(body, "decision_log_id", 0) or 0):
         row = db.get(DecisionLog, int(body.decision_log_id))
         if row is not None:
@@ -527,10 +531,16 @@ def _fallback_rank_codes(db: Session, draft: dict, primary_code: str, body) -> l
             min_margin = str(tj.get("min_margin") or "")
             max_cost = str(tj.get("max_order_cost") or "")
             revenue = str(row.revenue or "")
+            log_plan_id = int((row.plan_json or {}).get("plan_id") or 0)
     else:
         min_profit = str(cfg.get("min_profit") or "")
         min_margin = str(cfg.get("min_margin") or "")
         max_cost = str(cfg.get("max_order_cost") or "")
+    for pid in (log_plan_id, int(getattr(body, "plan_id", 0) or 0)):
+        if pid and plan is None:
+            plan = db.get(OrderPlan, pid)
+            break
+    strategy = plan.strategy if plan is not None else "cost_first"
     candidates = []
     for e in entries:
         code = str(e.get("couponCode") or "")
@@ -545,7 +555,10 @@ def _fallback_rank_codes(db: Session, draft: dict, primary_code: str, body) -> l
                            "use_end_time": e.get("useEndTime")})
     ranked = decision_svc.rank_candidates(
         candidates, revenue, draft["settle_base"].total_trade_price,
-        str(cfg.get("overhead") or "0"), min_profit, min_margin, max_cost)
+        str(cfg.get("overhead") or "0"), min_profit, min_margin, max_cost,
+        strategy=strategy)
+    if plan is not None and plan.priorities:
+        ranked, _tier_map = decision_svc.apply_priority_tiers(ranked, plan.priorities)
     return [c["record"]["coupon_code"] for c in ranked]
 
 @router.post("/create")
@@ -657,7 +670,8 @@ def order_create(account_id: int, body: OrderCreateRequest, request: Request,
                                                .get("totalDiscountAmount") or "0"))
                 break
             if coupon_entry is None:
-                raise HTTPException(400, "券自动切换全部失败，已尝试 " + "；".join(tried))
+                # §11 库存检查话术：所有优先级券均使用失败 → 暂无库存
+                raise HTTPException(400, "暂无库存：券自动切换全部失败，已尝试 " + "；".join(tried))
             if coupon_code != (body.coupon_code or "").strip():
                 log_op(level="INFO", action="coupon.fallback_applied", actor=user.username,
                        target=f"{account.label}#{account.id}", result="ok",

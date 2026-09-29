@@ -186,6 +186,9 @@ class OrderCreateRequest(BaseModel):
     # 从本次试算可用券列表按四级漏斗取次优重试（同账号，最多试 3 张，含首选）；
     # 缺省 false = 行为与决策系统引入前完全一致（向后兼容）
     auto_fallback: bool = Field(default=False)
+    # 下单方案（§11）：fallback 候选按方案策略与优先级层排序；0=自动。带 decision_log_id
+    # 时以流水中记录的方案为准（decision_log_id 优先），两者都无则全局自动
+    plan_id: int = Field(default=0, ge=0)
 
 
 class PayModeRequest(BaseModel):
@@ -269,6 +272,24 @@ class DecisionConfigRequest(BaseModel):
     cost_fallback_ratio: str = Field(default="1.0", max_length=16)  # 规则未命中按面额×该系数
 
 
+class OrderPlanPriorityBody(BaseModel):
+    """券优先级层级（方案 priorities 元素）：level=1 即第一优先，匹配语义与成本规则一致。"""
+    level: int = Field(default=1, ge=1, le=99)                 # 层级（1=第一优先）
+    name: str = Field(default="", max_length=64)                # 层名（如「20元DN券」）
+    match_type: str = Field(pattern="^(template_exact|template_contains|benefit_regex|coupon_prefix)$")
+    match_value: str = Field(min_length=1, max_length=128)      # 匹配值（regex 时为正则）
+    face_value: str = Field(default="", max_length=16)          # 面额校验（空=不限）
+
+
+class OrderPlanRequest(BaseModel):
+    """下单方案（§11）：策略 + 券优先级层级链。PUT 同构（priorities 全量替换）。"""
+    name: str = Field(min_length=1, max_length=64)
+    strategy: str = Field(pattern="^(cost_first|zero_pay|expiry_first)$")   # 成本最优|零元优先|临期优先
+    note: str = Field(default="", max_length=255)
+    enabled: bool = True
+    priorities: list[OrderPlanPriorityBody] = Field(default_factory=list)   # 空=不设层，纯策略排序
+
+
 class ScanRequest(BaseModel):
     """券库存扫描：account_ids 空=全部可登录账号（status!=disabled 且 token 非空）。"""
     account_ids: list[int] = Field(default_factory=list)
@@ -284,3 +305,4 @@ class DecideRequest(BaseModel):
     packet_id: int = Field(default=0, ge=0)                    # 可选，指定则校验在命中集内
     allow_full_price: bool = False                             # 无券时是否允许原价单
     deep: bool = False                                         # true=对 top1 候选账号真实 settle 探针
+    plan_id: int = Field(default=0, ge=0)                      # 下单方案（§11）：0=自动（系统推荐）

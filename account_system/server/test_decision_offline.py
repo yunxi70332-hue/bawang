@@ -69,8 +69,8 @@ from fastapi.testclient import TestClient  # noqa: E402
 
 import app as app_module  # noqa: E402
 from models import (ChageeAccount, CouponRecord, CouponUsageLog, DecisionLog,  # noqa: E402
-                    OrderRecord, PacketConfig, Role, SystemUser,
-                    VoucherCostCategory, VoucherCostRule)
+                    OrderPlan, OrderPlanCouponPriority, OrderRecord, PacketConfig,
+                    Role, SystemUser, VoucherCostCategory, VoucherCostRule)
 from security import hash_password  # noqa: E402
 from services import chagee_bridge as bridge  # noqa: E402
 from services import decision as dsvc  # noqa: E402
@@ -226,6 +226,8 @@ def _clear_decision_domain():
     with _db() as db:
         for packet in db.query(PacketConfig).all():
             db.delete(packet)          # items 随 cascade 删除
+        for plan in db.query(OrderPlan).all():
+            db.delete(plan)            # priorities 随 cascade 删除
         db.query(VoucherCostRule).delete()
         db.query(VoucherCostCategory).delete()
         db.query(DecisionLog).delete()
@@ -1252,7 +1254,8 @@ def test_24_order_create_auto_fallback():
     r = CLIENT.post(f"/api/ops/accounts/{ACC_ID}/orders/create",
                     json={"draft_id": draft_id, "coupon_code": "BAD-EXPIRED",
                           "auto_fallback": True}, headers=h)
-    assert r.status_code == 400 and "券自动切换全部失败" in r.json()["detail"], r.text
+    assert r.status_code == 400 and "暂无库存" in r.json()["detail"], r.text
+    assert "券自动切换全部失败" in r.json()["detail"]
     assert "BAD-EXPIRED" in r.json()["detail"]
 
     # ② 降级成功：decide 评估 → 注入坏券为首选 + HYW 在列 → 自动切换 HYW 成单
@@ -1282,6 +1285,97 @@ def test_24_order_create_auto_fallback():
         assert order is not None and order.coupon_code == COUPON_HYW
         row = db.get(DecisionLog, log_id)
         assert row.coupon_code == COUPON_HYW and row.order_no == ORDER_NO
+
+
+# ---------- 7. 下单方案：策略 + 券优先级层级（2026-09-29 §11） ----------
+
+def test_25_order_plan_crud_and_decide():
+    """方案 CRUD 往返 + decide 按优先级层选券 + 暂无库存话术。"""
+    _clear_decision_domain()
+    h = _auth()
+    with _db() as db:
+        db.query(CouponRecord).delete()
+        db.commit()
+    CLIENT.post("/api/ops/decision/cost-rules", headers=h, json={
+        "name": "代金券成本", "match_type": "template_contains", "match_value": "代金券",
+        "face_value": "", "cost_price": "8.00", "priority": 10, "enabled": True, "note": ""})
+    # 两张可过阈值的券：20元DN（成本8 全覆盖 total20 → cost8）+ 10元LT（成本3 差额10 → cost13? 20-10=10+3=13）
+    _add_coupon("D-FACE-20", "霸王茶姬20元代金券-DT", "20元", "20")
+    _add_coupon("D-LT-10", "霸王茶姬10元代金券-LT", "10元", "10")
+    CLIENT.post("/api/ops/decision/cost-rules", headers=h, json={
+        "name": "LT成本", "match_type": "template_contains", "match_value": "LT",
+        "face_value": "", "cost_price": "3.00", "priority": 5, "enabled": True, "note": ""})
+    # 默认（无方案）cost_first：DN(cost8) 优于 LT(cost13)；客户价 20 时两券均过阈值
+    body = {"sku_id": BYJX_SKU_BIG, "quantity": 1, "spec_list": [],
+            "store_no": STORE_NO, "customer_price": "20.00"}
+    d = CLIENT.post("/api/ops/orders/decide", json=body, headers=h).json()
+    assert d["verdict"] == "pass" and d["coupon"]["coupon_code"] == "D-FACE-20", d
+    assert d["plan"] is None
+
+    # ① 建方案：第一优先 LT、第二优先 DN → decide 选 LT（层序压过成本序）
+    plan = CLIENT.post("/api/ops/decision/order-plans", headers=h, json={
+        "name": "LT优先方案", "strategy": "cost_first", "note": "测试",
+        "priorities": [
+            {"level": 1, "name": "第一优先LT", "match_type": "template_contains",
+             "match_value": "LT", "face_value": ""},
+            {"level": 2, "name": "第二优先DN", "match_type": "template_contains",
+             "match_value": "代金券-DT", "face_value": ""},
+        ]}).json()
+    assert plan["id"] and plan["priority_count"] == 2
+    assert plan["strategy_label"] == "成本最优"
+    # 重名 400 / level 重复 400
+    assert CLIENT.post("/api/ops/decision/order-plans", headers=h, json={
+        "name": "LT优先方案", "strategy": "cost_first",
+        "priorities": []}).status_code == 400
+    assert CLIENT.post("/api/ops/decision/order-plans", headers=h, json={
+        "name": "层重复", "strategy": "cost_first",
+        "priorities": [
+            {"level": 1, "match_type": "template_contains", "match_value": "a"},
+            {"level": 1, "match_type": "template_contains", "match_value": "b"},
+        ]}).status_code == 400
+    # decide 带方案：LT 第一优先胜出；响应 plan 块 + 备选 tier 信息
+    d = CLIENT.post("/api/ops/orders/decide", json={**body, "plan_id": plan["id"]},
+                    headers=h).json()
+    assert d["verdict"] == "pass" and d["coupon"]["coupon_code"] == "D-LT-10", d
+    assert d["plan"]["plan_name"] == "LT优先方案" and d["plan"]["strategy"] == "cost_first"
+    alts = {a["coupon_code"]: a for a in d["alternatives"]}
+    assert alts["D-FACE-20"]["tier_level"] == 2 and alts["D-FACE-20"]["tier_name"] == "第二优先DN"
+    # DecisionLog 快照带方案（create fallback 据此按方案链降级）
+    with _db() as db:
+        row = db.get(DecisionLog, d["decision_log_id"])
+        assert (row.plan_json or {}).get("plan_id") == plan["id"]
+    # PUT 全量替换层级（DN 提为第一）→ 选 DN；DELETE 后级联删层
+    upd = CLIENT.put(f"/api/ops/decision/order-plans/{plan['id']}", headers=h, json={
+        "name": "LT优先方案", "strategy": "zero_pay", "note": "改零元优先",
+        "priorities": [
+            {"level": 1, "name": "DN第一", "match_type": "template_contains",
+             "match_value": "代金券-DT", "face_value": ""},
+        ]}).json()
+    assert upd["strategy"] == "zero_pay" and upd["priority_count"] == 1
+    d = CLIENT.post("/api/ops/orders/decide", json={**body, "plan_id": plan["id"]},
+                    headers=h).json()
+    assert d["coupon"]["coupon_code"] == "D-FACE-20"
+    # 不存在的 plan_id → 422
+    r = CLIENT.post("/api/ops/orders/decide", json={**body, "plan_id": 99999}, headers=h)
+    assert r.status_code == 422
+
+    # ② 暂无库存话术：把两张券都标记已使用 → 方案无券可用 → blocked 且以「暂无库存：」开头
+    with _db() as db:
+        for code in ("D-FACE-20", "D-LT-10"):
+            rec = db.query(CouponRecord).filter(CouponRecord.coupon_code == code).one()
+            rec.last_order_no = "USED"
+        db.commit()
+    d = CLIENT.post("/api/ops/orders/decide", json={**body, "plan_id": plan["id"]},
+                    headers=h).json()
+    assert d["verdict"] == "blocked" and d["blocked_reason"].startswith("暂无库存："), d
+    assert "第一优先" in d["blocked_reason"] and "LT优先方案" in d["blocked_reason"]
+    # 无方案时保持原话术（不「暂无库存」开头）
+    d = CLIENT.post("/api/ops/orders/decide", json=body, headers=h).json()
+    assert d["verdict"] == "blocked" and not d["blocked_reason"].startswith("暂无库存")
+    assert CLIENT.delete(f"/api/ops/decision/order-plans/{plan['id']}", headers=h).status_code == 200
+    with _db() as db:
+        assert db.query(OrderPlanCouponPriority).count() == 0   # 级联删除
+    _clear_decision_domain()
 
 
 def main() -> int:

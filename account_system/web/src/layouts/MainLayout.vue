@@ -45,6 +45,7 @@
           <el-sub-menu index="grp-decision" v-if="auth.can('decision:manage')">
             <template #title><el-icon><Coin /></el-icon><span>下单决策</span></template>
             <el-menu-item index="/decision/packets">套餐配置</el-menu-item>
+            <el-menu-item index="/decision/plans">下单方案</el-menu-item>
             <el-menu-item index="/decision/costs">券成本与阈值</el-menu-item>
           </el-sub-menu>
 

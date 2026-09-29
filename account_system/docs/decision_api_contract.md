@@ -245,3 +245,14 @@ api/index.js 新增 `apiDecision`（全部端点封装）：`packets(params)` `p
 **auto_fallback（OrderCreateRequest.auto_fallback: bool，默认 false）**：true 时首选券（不在列/验证拒绝/settle 复跑异常）→ `_fallback_rank_codes` 从 draft.settle_base.available_coupons 按四级漏斗排次优（阈值口径：带 decision_log_id 复用其 threshold_json+revenue，否则全局且利润类跳过、仅 max_order_cost 生效）→ 逐张完整验证+settle 复跑，最多 3 张；跳过记 CouponUsageLog(rejected, fail_reason 前缀「券自动切换跳过」)+oplog coupon.fallback_skip；耗尽 400「券自动切换全部失败，已尝试…」；成单记实际用券 + oplog coupon.fallback_applied；createOrder 不在重试范围。跨账号切换不在本期（decide 推荐已覆盖）。
 
 **max_order_cost（最大承受下单金额）**：`total_cost > max_order_cost` → blocked「订单成本 X 元超过最大承受金额 Y 元」。全局 decision_config.json（默认 ""=不限）+ 套餐级 packet_configs.max_order_cost 覆盖（任一套餐级阈值非空 → threshold.source="packet"）；check_threshold 追加第 4 参数（默认 "" 向后兼容）；rank_candidates 排序键第 ③ 因子=use_end_time；decide 响应 threshold 块与 alternatives 元素均含 max_order_cost/use_end_time。
+
+## 11. 下单方案：策略 + 券优先级层级（2026-09-29）
+
+**方案 = 用户可建可选的下单控制单元**：一个排序策略 + 有序券优先级层级链。decide 与 create 自动切换按方案执行；未选方案（plan_id=0）保持 §10 自动行为。
+
+- 表：`order_plans`（name unique/strategy/note/enabled）+ `order_plan_coupon_priorities`（plan_id FK/level 1..N UQ(plan_id,level)/name/match_type 四类/match_value/face_value 校验）
+- 策略枚举（rank_candidates 第 strategy 参数）：`cost_first` 成本最优（默认原行为）/ `zero_pay` 零元优先（pay_cost==0 在前）/ `expiry_first` 临期优先
+- 纯函数 `apply_priority_tiers(ranked, tiers) -> (重排后, tier_map)`：按 level 升序逐层匹配（_match_hit + face_value），层间按层序、层内保持策略排序，不匹配任何层的候选排全部层后；tier_map={coupon_code:{level,name}}
+- 端点：`GET/POST /decision/order-plans`、`PUT/DELETE /decision/order-plans/{id}`（priorities 全量替换 clear+flush；重名/层重复 400；decision:manage）
+- `DecideRequest.plan_id`（0=自动；不存在 422）：响应新增 `plan` 块 {plan_id,plan_name,strategy,strategy_label}|null；alternatives 元素加 tier_level(0=不匹配)/tier_name；**blocked 且带方案 → blocked_reason 以「暂无库存：方案「X」各优先级券（第一优先「…」…）均不可用…」开头**；DecisionLog.plan_json 快照 plan_id/plan_name/strategy
+- `OrderCreateRequest.plan_id`：fallback 候选按方案策略+层序排序（decision_log_id 的 plan_json.plan_id 优先于 body.plan_id）；**fallback 耗尽 400 detail 以「暂无库存：券自动切换全部失败…」开头**（无方案时同样话术，substring 兼容旧断言）

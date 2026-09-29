@@ -465,6 +465,12 @@
             <el-input v-model="decidePrice" size="small" placeholder="客户支付价" style="width: 150px">
               <template #prepend>¥</template>
             </el-input>
+            <el-select v-if="plansReady" v-model="decidePlanId" size="small" filterable clearable
+              placeholder="下单方案" style="width: 210px" @clear="decidePlanId = 0">
+              <el-option label="自动 · 系统推荐" :value="0" />
+              <el-option v-for="p in orderPlans" :key="p.id" :value="p.id"
+                :label="`${p.name}（${p.strategy_label}）`" />
+            </el-select>
             <el-button type="primary" size="small" :loading="decideBusy" @click="runDecide">评估成本利润</el-button>
           </div>
           <p v-if="decideSpecPreview.length" class="muted decide-spec">
@@ -472,7 +478,11 @@
           </p>
 
           <template v-if="decideResult">
-            <el-alert v-if="decideResult.verdict !== 'pass'" type="error" :closable="false" show-icon
+            <!-- 方案券库存耗尽：更醒目的警示 + 处置引导 -->
+            <el-alert v-if="decideResult.verdict !== 'pass' && isStockBlocked" type="warning" :closable="false"
+              show-icon class="decide-gap" :title="`拦截：${decideResult.blocked_reason || '暂无库存'}`"
+              description="可到 下单决策 → 下单方案 调整优先级，或到 优惠券查询 扫描券库存" />
+            <el-alert v-else-if="decideResult.verdict !== 'pass'" type="error" :closable="false" show-icon
               class="decide-gap" :title="`拦截：${decideResult.blocked_reason || '未达到利润阈值'}`" />
 
             <div class="decide-body">
@@ -508,6 +518,9 @@
                   <span class="mono muted">{{ decideResult.coupon.coupon_code }}</span>
                 </div>
                 <div v-else class="muted">推荐方案：不使用优惠券（原价单）</div>
+                <div v-if="decideResult.plan" class="decide-plan">
+                  方案：<b>{{ decideResult.plan.plan_name }}</b>（{{ decideResult.plan.strategy_label }}）
+                </div>
                 <div class="muted">
                   推荐账号：{{ decideResult.account_label || decideResult.account_id || '—' }}
                   <template v-if="decideResult.packet"> · 套餐：{{ decideResult.packet.name }}</template>
@@ -518,6 +531,8 @@
                 <div v-if="alternatives.length" class="decide-alts">
                   <div class="muted decide-alt-title">备选方案</div>
                   <div v-for="(a, i) in alternatives" :key="i" class="decide-alt">
+                    <el-tag v-if="Number(a.tier_level) > 0" size="small" effect="plain" class="alt-tier"
+                      :title="a.tier_name || `第${a.tier_level}优先`">第{{ a.tier_level }}优先</el-tag>
                     {{ a.account_label }} · {{ a.template_name || a.coupon_code }} · 成本 ¥{{ a.total_cost }} · 利润 ¥{{ a.profit }}
                   </div>
                 </div>
@@ -629,6 +644,20 @@ const decideBusy = ref(false)
 const decideResult = ref(null)        // decide 响应（verdict/cost_breakdown/threshold/coupon/…）
 const decisionApplied = ref(null)     // 已应用的推荐方案 { accountId, couponCode, decisionLogId }
 let applyingRec = false               // 程序化切换账号的一次性标志（watch 中消费）
+/* 下单方案选项（策略 + 券优先级层级链）：fail-soft 加载，失败隐藏下拉、评估回退系统自动 */
+const decidePlanId = ref(0)           // 评估所用方案（0=自动 · 系统推荐）
+const orderPlans = ref([])            // 启用中的下单方案
+const plansReady = ref(false)
+
+async function loadOrderPlans() {
+  try {
+    const data = await apiDecision.orderPlans({ silent: true })
+    orderPlans.value = (data.items || []).filter((p) => p.enabled)
+    plansReady.value = true
+  } catch (err) {
+    console.warn('下单方案选项加载失败，隐藏方案下拉（评估按系统自动选券）', err)
+  }
+}
 
 const decideQty = computed(() => Number(skuQty[decideSkuId.value] || 1))
 const cb = computed(() => decideResult.value?.cost_breakdown || {})
@@ -644,6 +673,9 @@ const thresholdLabel = computed(() => {
   if (!t) return '阈值'
   return t.source === 'packet' ? '套餐阈值' : '全局阈值'
 })
+/* 方案券库存耗尽（blocked_reason 以「暂无库存：」开头）：改用 warning 警示并附处置引导 */
+const isStockBlocked = computed(() =>
+  String(decideResult.value?.blocked_reason || '').startsWith('暂无库存'))
 const isAppliedCurrent = computed(() => {
   const r = decideResult.value
   return !!r?.decision_log_id && decisionApplied.value?.decisionLogId === r.decision_log_id
@@ -837,6 +869,7 @@ function rowClassName({ row }) {
 async function openGoods(row) {
   if (row.saleOut) return // 售罄行禁用点击
   dlgGoods.value = true
+  if (!plansReady.value) loadOrderPlans()   // 首次开抽屉：fail-soft 拉取下单方案选项（供决策评估选择）
   goods.value = { spuId: row.spuId, spuName: row.spuName, img: row.img || '', description: '', skus: [], detailImages: [] }
   Object.keys(attrSel).forEach((k) => delete attrSel[k])
   Object.keys(extraSel).forEach((k) => delete extraSel[k])
@@ -1029,6 +1062,7 @@ async function runDecide() {
       spec_list: currentSpecTexts(sku),
       store_no: storeNo.value,
       customer_price: price.toFixed(2),
+      plan_id: Number(decidePlanId.value) || 0,   // 0=系统自动；下拉加载失败亦回退自动
     })
     decideResult.value = data
     if (data.verdict === 'pass') ElMessage.success('决策评估通过')
@@ -1091,7 +1125,10 @@ async function doCreate() {
       coupon_code: selectedCouponCode.value || null,
     }
     // 决策挂钩：暂存了 decision_log_id 且所选券==推荐券才携带；否则 payload 与旧流程完全一致
-    if (decisionLogAttached.value) payload.decision_log_id = decisionApplied.value.decisionLogId
+    if (decisionLogAttached.value) {
+      payload.decision_log_id = decisionApplied.value.decisionLogId
+      payload.plan_id = Number(decidePlanId.value) || 0   // 评估所选下单方案随决策流水一并提交（0=自动）
+    }
     // 券自动切换：开启时服务端换次优券重试（关时不带，保持旧语义）
     if (autoFallback.value) payload.auto_fallback = true
     const res = await apiOps.orderCreate(accountId.value, payload)
@@ -1637,6 +1674,12 @@ function pickCoupon(c) {
   font-size: 12.5px;
   color: var(--muted);
   line-height: 1.6;
+}
+.alt-tier {
+  margin-right: 4px;
+}
+.decide-plan {
+  font-size: 13px;
 }
 .decide-hint {
   margin: 4px 0 0;

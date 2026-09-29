@@ -357,14 +357,15 @@ def check_threshold(breakdown, min_profit, min_margin, max_order_cost=""):
 
 
 def rank_candidates(candidates, revenue, total, overhead, min_profit, min_margin,
-                    max_order_cost="") -> list[dict]:
+                    max_order_cost="", strategy="cost_first") -> list[dict]:
     """候选券评估排序（契约 §4/§10 四级漏斗的第 2/3 级）：candidates 每项
     {record, cost, source, kind, face, rate, use_end_time?}，逐个算 cost_breakdown
     （补充 deduction_estimated/cost_source/coupon_kind）+ 三阈值判定（min_profit /
-    min_margin / max_order_cost），仅保留 pass，按
-    total_cost 升序 → 同成本面额大者优先 → 同成本同面额有效期近者优先（临期因子，
-    cand["use_end_time"] 毫秒时间戳升序，None 排最后）。
-    每个返回元素：{record, cost, source, kind, face, rate, cost_breakdown, verdict, reason}。"""
+    min_margin / max_order_cost），仅保留 pass，再按 strategy 排序（§11）：
+      cost_first  total_cost 升序 → 面额大者优先 → 有效期近者优先（默认，原行为）
+      zero_pay    零元覆盖优先（pay_cost==0 在前）→ total_cost → 面额 → 临期
+      expiry_first 有效期近者优先 → total_cost → 面额
+    每个返回元素：{record, cost, source, kind, face, rate, use_end_time, cost_breakdown, verdict, reason}。"""
     ranked = []
     for cand in (candidates or []):
         cand = cand or {}
@@ -394,12 +395,69 @@ def rank_candidates(candidates, revenue, total, overhead, min_profit, min_margin
             "reason": reason,
         })
     _BIG = 2 ** 62   # 临期排序哨兵：无 use_end_time（如 unknown 券型）排最后
-    ranked.sort(key=lambda x: (
-        _dec(x["cost_breakdown"]["total_cost"]),                        # ① total_cost 升序
-        -(_dec(x["face"]) if x["face"] is not None else Decimal("0")),  # ② 同成本面额大者优先
-        int(x.get("use_end_time") or _BIG),                             # ③ 同成本同面额临期优先
-    ))
+
+    def _cost(x):
+        return _dec(x["cost_breakdown"]["total_cost"])
+
+    def _face_desc(x):
+        return -(_dec(x["face"]) if x["face"] is not None else Decimal("0"))
+
+    def _expiry(x):
+        return int(x.get("use_end_time") or _BIG)
+
+    if strategy == "zero_pay":
+        ranked.sort(key=lambda x: (
+            _dec(x["cost_breakdown"]["pay_cost"]) > 0,   # ① 零元覆盖（无差额实付）优先
+            _cost(x), _face_desc(x), _expiry(x),
+        ))
+    elif strategy == "expiry_first":
+        ranked.sort(key=lambda x: (_expiry(x), _cost(x), _face_desc(x)))
+    else:   # cost_first（默认，§10 原行为）
+        ranked.sort(key=lambda x: (_cost(x), _face_desc(x), _expiry(x)))
     return ranked
+
+
+def apply_priority_tiers(ranked, tiers) -> tuple[list[dict], dict]:
+    """券优先级层级重排（§11）：tiers 为 [{level, name, match_type, match_value, face_value}]
+    （ORM/dict 双态），按 level 升序逐层匹配 ranked 候选（record 的 coupon_code/
+    template_name/benefit_text/amount；匹配语义与 resolve_cost 的 _match_hit 一致，
+    face_value 非空须等于面额）——命中第 k 层的候选排到第 k 组，组间按层序、组内保持
+    传入排序（即层内仍按 strategy 排）；不匹配任何层的候选排在全部层之后（不浪费）。
+
+    返回 (重排后的 ranked, tier_map)：tier_map = {coupon_code: {"level": n, "name": 层名}}。"""
+    ordered_tiers = sorted(
+        (t for t in (tiers or []) if str(_field(t, "match_value") or "").strip()),
+        key=lambda t: int(_field(t, "level", 99) or 99))
+    tier_map: dict[str, dict] = {}
+
+    def _tier_index(cand) -> int:
+        record = (cand or {}).get("record") or {}
+        template_name = str(_field(record, "template_name") or "")
+        benefit_text = str(_field(record, "benefit_text") or "")
+        coupon_code = str(_field(record, "coupon_code") or "")
+        face = _dec_or_none(_field(record, "amount"))
+        if face is None:
+            face = cand.get("face")
+        for idx, tier in enumerate(ordered_tiers):
+            try:
+                if not _match_hit(str(_field(tier, "match_type") or ""),
+                                  str(_field(tier, "match_value") or ""),
+                                  template_name, benefit_text, coupon_code):
+                    continue
+                face_check = str(_field(tier, "face_value") or "").strip()
+                if face_check and (face is None or _dec(face_check) != _dec(face)):
+                    continue
+                if coupon_code:
+                    tier_map[coupon_code] = {"level": int(_field(tier, "level", idx + 1)),
+                                             "name": str(_field(tier, "name") or "")}
+                return idx
+            except Exception:
+                continue   # 非法 regex 等：该层视为不命中，继续下一层
+        return len(ordered_tiers)   # 不匹配任何层 → 排最后
+
+    ranked = list(ranked or [])
+    ranked.sort(key=_tier_index)   # Python sort 稳定：组内保持传入顺序
+    return ranked, tier_map
 
 
 # ---------------- 全局配置：data/decision_config.json ----------------

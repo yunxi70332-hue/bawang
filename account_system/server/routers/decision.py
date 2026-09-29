@@ -35,11 +35,14 @@ from sqlalchemy.orm import Session
 
 from audit import log_audit
 from database import get_db
-from models import (ChageeAccount, CouponRecord, DecisionLog, PacketConfig, PacketItem,
-                    SystemUser, VoucherCostCategory, VoucherCostRule)
+from models import (ChageeAccount, CouponRecord, DecisionLog, OrderPlan,
+                    OrderPlanCouponPriority, PacketConfig, PacketItem,
+                    PLAN_STRATEGY_LABELS, SystemUser, VoucherCostCategory,
+                    VoucherCostRule)
 from oplog import log_op
 from schemas import (CostCategoryRequest, CostRuleImportRequest, CostRuleRequest,
-                     DecideRequest, DecisionConfigRequest, PacketCreateRequest, ScanRequest)
+                     DecideRequest, DecisionConfigRequest, OrderPlanRequest,
+                     PacketCreateRequest, ScanRequest)
 from security import require_perm
 from services import chagee_bridge as bridge
 from services import decision as decision_svc
@@ -735,6 +738,94 @@ def config_put(body: DecisionConfigRequest, request: Request,
     return saved
 
 
+# ---------------- 下单方案：策略 + 券优先级层级（2026-09-29 §11） ----------------
+
+def _plan_priority_row(p: OrderPlanCouponPriority) -> dict:
+    return {"id": p.id, "plan_id": p.plan_id, "level": p.level, "name": p.name,
+            "match_type": p.match_type, "match_value": p.match_value,
+            "face_value": p.face_value, "created_at": _fmt_dt(p.created_at)}
+
+
+def _plan_detail(plan: OrderPlan) -> dict:
+    return {
+        "id": plan.id, "name": plan.name, "strategy": plan.strategy,
+        "strategy_label": PLAN_STRATEGY_LABELS.get(plan.strategy, plan.strategy),
+        "note": plan.note, "enabled": bool(plan.enabled),
+        "priority_count": len(plan.priorities or []),
+        "priorities": [_plan_priority_row(p) for p in (plan.priorities or [])],
+        "created_at": _fmt_dt(plan.created_at), "updated_at": _fmt_dt(plan.updated_at),
+    }
+
+
+def _build_plan_priorities(plan: OrderPlan, tiers: list) -> None:
+    seen_levels: set[int] = set()
+    for t in (tiers or []):
+        if t.level in seen_levels:
+            raise HTTPException(400, f"优先级层级重复：第 {t.level} 优先出现多次")
+        seen_levels.add(t.level)
+        plan.priorities.append(OrderPlanCouponPriority(
+            level=t.level, name=t.name or f"第 {_CN_ORDINAL.get(t.level, t.level)}优先",
+            match_type=t.match_type, match_value=t.match_value, face_value=t.face_value or ""))
+
+
+_CN_ORDINAL = {1: "一", 2: "二", 3: "三", 4: "四", 5: "五", 6: "六", 7: "七", 8: "八", 9: "九"}
+
+
+@router.get("/order-plans")
+def order_plans_list(db: Session = Depends(get_db),
+                     _: SystemUser = Depends(require_perm("decision:manage"))):
+    """方案列表（含优先级层级明细；decide/create 的工作台下拉也用此端点）。"""
+    plans = db.query(OrderPlan).order_by(OrderPlan.id).all()
+    return {"items": [_plan_detail(p) for p in plans]}
+
+
+@router.post("/order-plans")
+def order_plan_create(body: OrderPlanRequest, db: Session = Depends(get_db),
+                      _: SystemUser = Depends(require_perm("decision:manage"))):
+    if db.query(OrderPlan).filter(OrderPlan.name == body.name.strip()).first():
+        raise HTTPException(400, f"方案名已存在：{body.name.strip()}")
+    plan = OrderPlan(name=body.name.strip(), strategy=body.strategy,
+                     note=body.note or "", enabled=body.enabled)
+    _build_plan_priorities(plan, body.priorities)
+    db.add(plan)
+    db.commit()
+    return _plan_detail(plan)
+
+
+@router.put("/order-plans/{plan_id}")
+def order_plan_update(plan_id: int, body: OrderPlanRequest,
+                      db: Session = Depends(get_db),
+                      _: SystemUser = Depends(require_perm("decision:manage"))):
+    plan = db.get(OrderPlan, plan_id)
+    if plan is None:
+        raise HTTPException(404, "方案不存在")
+    dup = db.query(OrderPlan).filter(OrderPlan.name == body.name.strip(),
+                                     OrderPlan.id != plan_id).first()
+    if dup:
+        raise HTTPException(400, f"方案名已存在：{body.name.strip()}")
+    plan.name = body.name.strip()
+    plan.strategy = body.strategy
+    plan.note = body.note or ""
+    plan.enabled = body.enabled
+    # 层级全量替换（clear 后先 flush 落 DELETE，规避同表 INSERT 先于 DELETE 撞唯一约束）
+    plan.priorities.clear()
+    db.flush()
+    _build_plan_priorities(plan, body.priorities)
+    db.commit()
+    return _plan_detail(plan)
+
+
+@router.delete("/order-plans/{plan_id}")
+def order_plan_delete(plan_id: int, db: Session = Depends(get_db),
+                      _: SystemUser = Depends(require_perm("decision:manage"))):
+    plan = db.get(OrderPlan, plan_id)
+    if plan is None:
+        raise HTTPException(404, "方案不存在")
+    db.delete(plan)   # priorities 随 cascade 删除
+    db.commit()
+    return {"ok": True}
+
+
 # ---------------- 盈利报表 / 决策流水 ----------------
 
 def _parse_day(value: str, end_of_day: bool = False) -> datetime | None:
@@ -1006,13 +1097,29 @@ def orders_decide(body: DecideRequest, request: Request,
         threshold_json["source"] = "packet"
     overhead = str(cfg.get("overhead") or "0")
 
+    # 下单方案（§11）：策略 + 券优先级层级；plan_id=0 = 自动（保持四级漏斗默认行为）
+    plan = None
+    if body.plan_id:
+        plan = db.get(OrderPlan, body.plan_id)
+        if plan is None:
+            raise HTTPException(422, f"下单方案不存在：{body.plan_id}")
+    tier_list = list(plan.priorities or []) if plan is not None else []
+    strategy = plan.strategy if plan is not None else "cost_first"
+
     def _rank(t: Decimal) -> list[dict]:
         return decision_svc.rank_candidates(candidates, _money(revenue), _money(t),
                                             overhead, threshold_json["min_profit"],
                                             threshold_json["min_margin"],
-                                            threshold_json["max_order_cost"])
+                                            threshold_json["max_order_cost"],
+                                            strategy=strategy)
 
-    ranked = _rank(total)
+    def _rank_with_tiers(t: Decimal) -> tuple[list[dict], dict]:
+        rk = _rank(t)
+        if not tier_list:
+            return rk, {}
+        return decision_svc.apply_priority_tiers(rk, tier_list)
+
+    ranked, tier_map = _rank_with_tiers(total)
     # deep=true：对 top1 候选账号真实 settle 探针取服务端总额后重排（失败降级 menu 估值）
     if body.deep and ranked:
         probe_account = db.get(ChageeAccount, ranked[0]["record"].account_id)
@@ -1029,11 +1136,15 @@ def orders_decide(body: DecideRequest, request: Request,
         if server_total is not None:
             total = server_total
             price_source = "settle"
-            ranked = _rank(total)
+            ranked, tier_map = _rank_with_tiers(total)
 
     # 判定：pass 候选优先；无 pass 时按 allow_full_price 决定原价单或 blocked
     top = ranked[0] if ranked else None
     verdict, blocked_reason, chosen, breakdown = "pass", "", None, None
+
+    def _tier_names() -> str:
+        return "、".join(f"第{_CN_ORDINAL.get(t.level, t.level)}优先「{t.name}」"
+                         for t in tier_list) or "未设置优先级层级"
 
     def _full_price_breakdown() -> dict:
         b = decision_svc.evaluate_cost(revenue, total, "0", "0", overhead)
@@ -1070,9 +1181,15 @@ def orders_decide(body: DecideRequest, request: Request,
         chosen, (_v, reason), breakdown = best
         verdict = "blocked"
         blocked_reason = f"最佳券候选未过阈值（{reason}），且 allow_full_price=false 不允许原价单"
+        if plan is not None:   # §11：指定方案时，所有优先级券均失败 → 暂无库存话术
+            blocked_reason = (f"暂无库存：方案「{plan.name}」各优先级券（{_tier_names()}）"
+                              f"均不可用或未过阈值（{reason}）")
     else:
         verdict = "blocked"
         blocked_reason = "无可用券候选（在线账号无未使用的有效券），且 allow_full_price=false 不允许原价单"
+        if plan is not None:
+            blocked_reason = (f"暂无库存：方案「{plan.name}」的各优先级券"
+                              f"（{_tier_names()}）均不可用，且 allow_full_price=false")
         breakdown = _full_price_breakdown()
     breakdown["price_source"] = price_source
     # 券成本子类（业务分类层）：选中券的归类名（无券 ""）；子类只做分类，
@@ -1105,6 +1222,7 @@ def orders_decide(body: DecideRequest, request: Request,
     for alt in ranked[1:1 + ALTERNATIVES_LIMIT]:
         rec = alt["record"]
         acc = db.get(ChageeAccount, rec.account_id)
+        tier_info = tier_map.get(rec.coupon_code) or {}
         alternatives.append({
             "account_id": rec.account_id,
             "account_label": f"{acc.label}#{acc.id}" if acc else "",
@@ -1112,6 +1230,8 @@ def orders_decide(body: DecideRequest, request: Request,
             "total_cost": alt["cost_breakdown"]["total_cost"],
             "profit": alt["cost_breakdown"]["profit"],
             "use_end_time": rec.use_end_time,
+            "tier_level": tier_info.get("level", 0),       # 0=不匹配任何优先级层
+            "tier_name": tier_info.get("name", ""),
         })
 
     # settle 直发预填（字段名对齐 OrderSettleRequest；skuName 缺省回退 SPU 名）
@@ -1145,6 +1265,10 @@ def orders_decide(body: DecideRequest, request: Request,
             "alternatives": alternatives, "price_source": price_source,
             "store_no": body.store_no, "sku_id": body.sku_id, "quantity": quantity,
             "packet_matched_ids": [p.id for p in matched],
+            # 下单方案快照（§11）：create 自动切换据此按方案优先级链降级
+            "plan_id": plan.id if plan is not None else 0,
+            "plan_name": plan.name if plan is not None else "",
+            "strategy": strategy,
         },
     )
     db.add(log_row)
@@ -1159,6 +1283,9 @@ def orders_decide(body: DecideRequest, request: Request,
         "coupon": coupon,
         "cost_breakdown": breakdown,
         "threshold": threshold_json,
+        "plan": {"plan_id": plan.id, "plan_name": plan.name, "strategy": strategy,
+                 "strategy_label": PLAN_STRATEGY_LABELS.get(strategy, strategy)}
+                if plan is not None else None,
         "alternatives": alternatives,
         "settle_prefill": settle_prefill,
         "decision_log_id": log_row.id,

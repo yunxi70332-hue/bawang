@@ -480,3 +480,51 @@ class DecisionLog(Base):
     deduction_actual: Mapped[str] = mapped_column(String(16), default="")        # 成单后服务端确认抵扣
     pay_actual: Mapped[str] = mapped_column(String(16), default="")              # 成单后实付
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.now, index=True)
+
+
+# ---------------- 下单方案（2026-09-29 §11）：策略 + 券优先级层级 ----------------
+# 方案 = 用户可建可选的下单控制单元：一个排序策略（成本最优/零元优先/临期优先）+
+# 有序的券优先级层级（第一/第二/第三…每层一条券匹配规则）。decide 与 create 自动
+# 切换按方案执行；未选方案时保持系统自动行为（§10 四级漏斗）。
+
+# OrderPlan.strategy 排序策略枚举：rank_candidates 的第三级排序因子按此切换
+PLAN_STRATEGIES = ("cost_first", "zero_pay", "expiry_first")
+PLAN_STRATEGY_LABELS = {"cost_first": "成本最优", "zero_pay": "零元优先", "expiry_first": "临期优先"}
+
+
+class OrderPlan(Base):
+    """下单方案：名称 + 策略 + 券优先级层级链。priorities 按 level 升序逐层选券，
+    层内按策略排序；不匹配任何层的券排在全部层之后（不浪费可用券）。"""
+
+    __tablename__ = "order_plans"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    name: Mapped[str] = mapped_column(String(64), unique=True, index=True)      # 方案名称
+    strategy: Mapped[str] = mapped_column(String(16), default="cost_first")    # cost_first|zero_pay|expiry_first
+    note: Mapped[str] = mapped_column(String(255), default="")
+    enabled: Mapped[bool] = mapped_column(Boolean, default=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.now)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.now, onupdate=datetime.now)
+
+    priorities: Mapped[list["OrderPlanCouponPriority"]] = relationship(
+        back_populates="plan", cascade="all, delete-orphan",
+        order_by="OrderPlanCouponPriority.level")   # 读取即按层级排序
+
+
+class OrderPlanCouponPriority(Base):
+    """券优先级层级（plan_id + level 唯一）：level=1 即「第一优先」。匹配语义与
+    成本规则/子类一致（四类 match_type），face_value 非空时须等于券面额才命中。"""
+
+    __tablename__ = "order_plan_coupon_priorities"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    plan_id: Mapped[int] = mapped_column(ForeignKey("order_plans.id"), index=True)
+    level: Mapped[int] = mapped_column(Integer, default=1)                      # 1=第一优先，2=第二…
+    name: Mapped[str] = mapped_column(String(64), default="")                  # 层名（如「20元DN券」）
+    match_type: Mapped[str] = mapped_column(String(32), default="template_contains")
+    match_value: Mapped[str] = mapped_column(String(128), default="")
+    face_value: Mapped[str] = mapped_column(String(16), default="")            # 面额校验（空=不限）
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.now)
+    __table_args__ = (UniqueConstraint("plan_id", "level", name="uq_plan_priority_level"),)
+
+    plan: Mapped["OrderPlan"] = relationship(back_populates="priorities")

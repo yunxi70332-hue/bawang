@@ -137,6 +137,12 @@ export const apiDecision = {
   costCategoryCreate: (data) => http.post('/api/ops/decision/cost-categories', data),
   costCategoryUpdate: (id, data) => http.put(`/api/ops/decision/cost-categories/${id}`, data),
   costCategoryDelete: (id) => http.delete(`/api/ops/decision/cost-categories/${id}`),
+  // 下单方案（策略 + 券优先级层级链：decide/create 指定 plan_id 后按其选券；
+  // 可选 cfg 透传 axios 配置，如下单工作台 fail-soft 场景传 { silent: true } 抑制全局错误弹窗）
+  orderPlans: (cfg) => http.get('/api/ops/decision/order-plans', cfg),
+  orderPlanCreate: (data) => http.post('/api/ops/decision/order-plans', data),
+  orderPlanUpdate: (id, data) => http.put(`/api/ops/decision/order-plans/${id}`, data),
+  orderPlanDelete: (id) => http.delete(`/api/ops/decision/order-plans/${id}`),
   // 全局决策配置（data/decision_config.json）
   configGet: () => http.get('/api/ops/decision/config'),
   configPut: (data) => http.put('/api/ops/decision/config', data),
