@@ -643,19 +643,8 @@ const hasZeroPricePreselect = (e) =>
   (e?.extraOptions || []).some((o) => Number(o.salePrice) === 0 && (o.stock ?? 1) > 0)
 const settleBusy = ref(false)
 const settleSkuId = ref(null)
-// 饮品信息（必填编辑框）：去结算/提交订单前强制校验，值随 settle 请求落库到订单商品描述
+// 饮品信息（选填）：值随 settle 请求落库到订单商品描述快照；选填不阻断（2026-09-29 放开必填）
 const drinkInfo = ref('')
-const drinkInfoError = ref(false)
-
-function ensureDrinkInfo() {
-  if (!drinkInfo.value.trim()) {
-    drinkInfoError.value = true
-    ElMessage.warning('「饮品信息」为必填项，请填写饮品相关信息后再提交订单')
-    return false
-  }
-  drinkInfoError.value = false
-  return true
-}
 
 /* ---------------- 决策评估（步骤② 抽屉内，可选能力，不阻塞手动流程） ----------------
  * 流转：选 SKU + 客户支付价 → decide → pass 时「应用推荐方案」：
@@ -952,7 +941,6 @@ async function doSettle(sku) {
     ElMessage.warning('请先选择账号')
     return
   }
-  if (!ensureDrinkInfo()) return   // 必填校验：饮品信息为空则阻断去结算
   // 数量防御性取整：小数会被 settle 的 int 校验 422 拒绝（与 decide 同一数量源）
   const qty = Math.min(99, Math.max(1, Math.round(Number(skuQty[sku.skuId] || 1)) || 1))
   settleSkuId.value = sku.skuId
@@ -1159,7 +1147,6 @@ function isDecisionCoupon(c) {
 /* ---------------- 步骤4：确认下单 ---------------- */
 async function doCreate() {
   if (!settleData.value) return
-  if (!ensureDrinkInfo()) return   // 提交订单前二次强制校验（防步骤②后清空）
   createBusy.value = true
   try {
     const payload = {
