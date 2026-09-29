@@ -1316,7 +1316,7 @@ def test_25_order_plan_crud_and_decide():
 
     # ① 建方案：第一优先 LT、第二优先 DN → decide 选 LT（层序压过成本序）
     plan = CLIENT.post("/api/ops/decision/order-plans", headers=h, json={
-        "name": "LT优先方案", "strategy": "cost_first", "note": "测试",
+        "name": "LT优先方案", "strategy": "cost_first", "drink_info": "默认少冰半糖", "note": "测试",
         "priorities": [
             {"level": 1, "name": "第一优先LT", "match_type": "template_contains",
              "match_value": "LT", "face_value": ""},
@@ -1327,10 +1327,10 @@ def test_25_order_plan_crud_and_decide():
     assert plan["strategy_label"] == "成本最优"
     # 重名 400 / level 重复 400
     assert CLIENT.post("/api/ops/decision/order-plans", headers=h, json={
-        "name": "LT优先方案", "strategy": "cost_first",
+        "name": "LT优先方案", "strategy": "cost_first", "drink_info": "x",
         "priorities": []}).status_code == 400
     assert CLIENT.post("/api/ops/decision/order-plans", headers=h, json={
-        "name": "层重复", "strategy": "cost_first",
+        "name": "层重复", "strategy": "cost_first", "drink_info": "x",
         "priorities": [
             {"level": 1, "match_type": "template_contains", "match_value": "a"},
             {"level": 1, "match_type": "template_contains", "match_value": "b"},
@@ -1348,7 +1348,7 @@ def test_25_order_plan_crud_and_decide():
         assert (row.plan_json or {}).get("plan_id") == plan["id"]
     # PUT 全量替换层级（DN 提为第一）→ 选 DN；DELETE 后级联删层
     upd = CLIENT.put(f"/api/ops/decision/order-plans/{plan['id']}", headers=h, json={
-        "name": "LT优先方案", "strategy": "zero_pay", "note": "改零元优先",
+        "name": "LT优先方案", "strategy": "zero_pay", "drink_info": "默认少冰半糖", "note": "改零元优先",
         "priorities": [
             {"level": 1, "name": "DN第一", "match_type": "template_contains",
              "match_value": "代金券-DT", "face_value": ""},
@@ -1357,6 +1357,10 @@ def test_25_order_plan_crud_and_decide():
     d = CLIENT.post("/api/ops/orders/decide", json={**body, "plan_id": plan["id"]},
                     headers=h).json()
     assert d["coupon"]["coupon_code"] == "D-FACE-20"
+    # 缺 drink_info → 422（方案级必填编辑框）
+    assert CLIENT.post("/api/ops/decision/order-plans", headers=h, json={
+        "name": "缺饮品信息", "strategy": "cost_first",
+        "priorities": []}).status_code == 422
     # 不存在的 plan_id → 422
     r = CLIENT.post("/api/ops/orders/decide", json={**body, "plan_id": 99999}, headers=h)
     assert r.status_code == 422

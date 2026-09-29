@@ -501,6 +501,7 @@ class OrderPlan(Base):
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     name: Mapped[str] = mapped_column(String(64), unique=True, index=True)      # 方案名称
     strategy: Mapped[str] = mapped_column(String(16), default="cost_first")    # cost_first|zero_pay|expiry_first
+    drink_info: Mapped[str] = mapped_column(String(255), default="")           # 饮品信息（方案级必填编辑框；下单选此方案时自动带入订单）
     note: Mapped[str] = mapped_column(String(255), default="")
     enabled: Mapped[bool] = mapped_column(Boolean, default=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.now)

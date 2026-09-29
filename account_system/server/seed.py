@@ -25,6 +25,8 @@ _COLUMN_MIGRATIONS = [
     ("voucher_cost_rules", "category_id", "INTEGER DEFAULT 0 NOT NULL"),
     # 最大承受下单金额（2026-09-29 §10）：套餐级成本上限覆盖
     ("packet_configs", "max_order_cost", "VARCHAR(16) DEFAULT '' NOT NULL"),
+    # 下单方案饮品信息（2026-09-29 §11）：方案级必填编辑框，下单时自动带入
+    ("order_plans", "drink_info", "VARCHAR(255) DEFAULT '' NOT NULL"),
 ]
 
 

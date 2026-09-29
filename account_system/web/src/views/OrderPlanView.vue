@@ -30,6 +30,12 @@
           </el-tag>
         </template>
       </el-table-column>
+      <el-table-column label="饮品信息" min-width="150">
+        <template #default="{ row }">
+          <span v-if="row.drink_info" :title="row.drink_info">{{ row.drink_info }}</span>
+          <span v-else class="muted">—</span>
+        </template>
+      </el-table-column>
       <el-table-column label="优先级层数" width="100" align="center">
         <template #default="{ row }">
           <span v-if="row.priority_count" class="mono">{{ row.priority_count }}</span>
@@ -74,6 +80,11 @@
               {{ s.label }}<span class="muted strategy-hint">{{ s.hint }}</span>
             </el-radio>
           </el-radio-group>
+        </el-form-item>
+        <el-form-item label="饮品信息" prop="drink_info">
+          <el-input v-model="form.drink_info" type="textarea" :rows="2" maxlength="200"
+            show-word-limit clearable resize="none"
+            placeholder="必填：饮品相关信息（如客户要求、口味备注、杯型说明等）；下单选此方案时自动带入订单，提交订单前强制非空" />
         </el-form-item>
         <el-form-item label="启用">
           <el-switch v-model="form.enabled" />
@@ -233,10 +244,11 @@ const saving = ref(false)
 const formRef = ref()
 const editingId = ref(null)
 const form = reactive({
-  name: '', strategy: 'cost_first', enabled: true, note: '', priorities: [],
+  name: '', strategy: 'cost_first', drink_info: '', enabled: true, note: '', priorities: [],
 })
 const rules = {
   name: [{ required: true, message: '请输入方案名称', trigger: 'blur' }],
+  drink_info: [{ required: true, message: '饮品信息为必填项，请填写饮品相关信息后再保存方案', trigger: 'blur' }],
 }
 
 function newTierRow() {
@@ -253,7 +265,7 @@ function tierPlaceholder(row, index) {
 function openCreate() {
   editingId.value = null
   Object.assign(form, {
-    name: '', strategy: 'cost_first', enabled: true, note: '',
+    name: '', strategy: 'cost_first', drink_info: '', enabled: true, note: '',
     priorities: [newTierRow(), newTierRow()],   // 两行示例引导（占位符提示典型用法）
   })
   dlg.value = true
@@ -264,6 +276,7 @@ function openEdit(row) {
   Object.assign(form, {
     name: row.name,
     strategy: row.strategy || 'cost_first',
+    drink_info: row.drink_info || '',
     enabled: !!row.enabled,
     note: row.note || '',
     priorities: (row.priorities || []).map((p) => ({
@@ -281,6 +294,7 @@ async function save() {
   const payload = {
     name: form.name.trim(),
     strategy: form.strategy,
+    drink_info: form.drink_info.trim(),
     note: form.note,
     enabled: form.enabled,
     priorities: form.priorities

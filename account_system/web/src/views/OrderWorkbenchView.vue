@@ -478,7 +478,8 @@
               <template #prepend>¥</template>
             </el-input>
             <el-select v-if="plansReady" v-model="decidePlanId" size="small" filterable clearable
-              placeholder="下单方案" style="width: 210px" @clear="decidePlanId = 0">
+              placeholder="下单方案" style="width: 210px" @clear="decidePlanId = 0"
+              @change="onPlanChange">
               <el-option label="自动 · 系统推荐" :value="0" />
               <el-option v-for="p in orderPlans" :key="p.id" :value="p.id"
                 :label="`${p.name}（${p.strategy_label}）`" />
@@ -673,6 +674,15 @@ let applyingRec = false               // 程序化切换账号的一次性标志
 const decidePlanId = ref(0)           // 评估所用方案（0=自动 · 系统推荐）
 const orderPlans = ref([])            // 启用中的下单方案
 const plansReady = ref(false)
+
+// 选中下单方案 → 其饮品信息自动带入订单必填编辑框（方案是控制单元，以方案为准；仍可手动改）
+function onPlanChange(planId) {
+  const plan = orderPlans.value.find((p) => p.id === Number(planId))
+  if (plan && plan.drink_info) {
+    drinkInfo.value = String(plan.drink_info)
+    drinkInfoError.value = false
+  }
+}
 
 async function loadOrderPlans() {
   try {

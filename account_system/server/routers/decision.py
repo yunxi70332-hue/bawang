@@ -750,6 +750,7 @@ def _plan_detail(plan: OrderPlan) -> dict:
     return {
         "id": plan.id, "name": plan.name, "strategy": plan.strategy,
         "strategy_label": PLAN_STRATEGY_LABELS.get(plan.strategy, plan.strategy),
+        "drink_info": plan.drink_info or "",
         "note": plan.note, "enabled": bool(plan.enabled),
         "priority_count": len(plan.priorities or []),
         "priorities": [_plan_priority_row(p) for p in (plan.priorities or [])],
@@ -785,6 +786,7 @@ def order_plan_create(body: OrderPlanRequest, db: Session = Depends(get_db),
     if db.query(OrderPlan).filter(OrderPlan.name == body.name.strip()).first():
         raise HTTPException(400, f"方案名已存在：{body.name.strip()}")
     plan = OrderPlan(name=body.name.strip(), strategy=body.strategy,
+                     drink_info=body.drink_info.strip(),
                      note=body.note or "", enabled=body.enabled)
     _build_plan_priorities(plan, body.priorities)
     db.add(plan)
@@ -805,6 +807,7 @@ def order_plan_update(plan_id: int, body: OrderPlanRequest,
         raise HTTPException(400, f"方案名已存在：{body.name.strip()}")
     plan.name = body.name.strip()
     plan.strategy = body.strategy
+    plan.drink_info = body.drink_info.strip()
     plan.note = body.note or ""
     plan.enabled = body.enabled
     # 层级全量替换（clear 后先 flush 落 DELETE，规避同表 INSERT 先于 DELETE 撞唯一约束）
