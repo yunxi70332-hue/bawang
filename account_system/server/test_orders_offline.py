@@ -55,7 +55,7 @@ from fastapi.testclient import TestClient  # noqa: E402
 
 import app as app_module  # noqa: E402
 from models import (AuditLog, ChageeAccount, CouponRecord, CouponUsageLog,  # noqa: E402
-                    OrderRecord, Role, SystemUser)
+                    DecisionLog, OrderPlan, OrderRecord, Role, SystemUser)
 from routers import orders as orders_router  # noqa: E402
 from security import hash_password  # noqa: E402
 from services import chagee_bridge as bridge  # noqa: E402
@@ -135,6 +135,17 @@ class FakeClient:
             return {"errcode": "0", "data": 3}
         if path.endswith("/order/getWaitingInfo"):
             return {"errcode": "0", "data": {"waitingCups": 0, "waitingTime": 300, "queueLimit": 61}}
+        if path.endswith("/order/continuePay"):
+            # 续付重铸（pay 环节方案阈值用例）：最小合成 wire 响应（payUrl 内嵌 JSON，
+            # 实付 15.40 与 rate 夹具同额；orderNo 回显请求单号便于按单断言）
+            return {"errcode": "0", "data": {
+                "orderNo": str((body or {}).get("orderNo") or RATE_ORDER_NO),
+                "payNo": "CHP20260929CONT000000000000",
+                "payUrl": json.dumps({"requestJson": {"orderStr":
+                    "out_trade_no=331LCONT0001&total_amount=15.40&biz_content=" + urllib.parse.quote(
+                        json.dumps({"out_trade_no": "331LCONT0001", "total_amount": "15.40",
+                                    "time_expire": "2026-09-29 23:00:00"}))}}),
+            }}
         raise AssertionError(f"未预期的 POST 协议调用: {path}")
 
 
@@ -411,9 +422,168 @@ def test_no_real_network_endpoints_only():
         "/shoppingCart/change", "/shoppingCart/get", "/order/settlePrice",
         "/order/createOrder", "/order/getOrderDetail", "/order/getOrderList",
         "/order/getOrderStatus", "/order/getWaitingInfo", "/customer/userInfo/query",
+        "/order/continuePay",   # pay 环节方案阈值用例的最小合成响应（同 userInfo 合成口径）
     )
     bad = [p for p in CALLS if not p.endswith(allowed_suffixes)]
     assert not bad, f"出现了未经回放覆盖的协议调用: {bad}"
+
+
+# ---------- 4c. 方案级支付金额上限（2026-09-29：创建/支付两环节 fail-closed） ----------
+
+def _mk_plan(max_pay_amount: str, name: str) -> int:
+    """直插一条下单方案并返回 id（绕过方案 API 的必填校验，覆盖历史空值/非法行场景）。"""
+    with database.SessionLocal() as db:
+        plan = OrderPlan(name=name, strategy="cost_first", enabled=True,
+                         max_pay_amount=max_pay_amount)
+        db.add(plan)
+        db.commit()
+        db.refresh(plan)
+        return plan.id
+
+
+def _cleanup_plans(*plan_ids: int) -> None:
+    with database.SessionLocal() as db:
+        for pid in plan_ids:
+            if pid:
+                plan = db.get(OrderPlan, pid)
+                if plan is not None:
+                    db.delete(plan)
+        db.commit()
+
+
+def test_plan_pay_threshold_create_blocked():
+    """create 环节超限：7折券复跑实付 15.40 > 阈值 15.00 → 422 超限文案，且未触达
+    createOrder（绝不能带超限金额成单）；body.plan_id 与 decision_log_id 两种方案
+    来源同受约束；显式引用不存在方案 → 422（与 decide 同语义）。"""
+    FIXTURE["mode"] = "rate"
+    try:
+        plan_id = _mk_plan("15.00", "阈值冒烟-超限")
+        with database.SessionLocal() as db:
+            dlog = DecisionLog(plan_json={"plan_id": plan_id, "plan_name": "阈值冒烟-超限"})
+            db.add(dlog)
+            db.commit()
+            db.refresh(dlog)
+            log_id = dlog.id
+        try:
+            draft_id, _ = _settle()
+            # ① body.plan_id 直带方案 → 422 超限（金额取选券复跑后的服务端确认实付）
+            before = len(CALLS)
+            r = CLIENT.post(f"/api/ops/accounts/{ACC_ID}/orders/create",
+                            json={"draft_id": draft_id, "coupon_code": RATE_COUPON_CODE,
+                                  "plan_id": plan_id},
+                            headers=_auth())
+            assert r.status_code == 422, r.text
+            detail = r.json()["detail"]
+            assert "当前支付金额超过方案限制" in detail
+            assert "15.40" in detail and "15.00" in detail
+            assert not [p for p in CALLS[before:] if p.endswith("/order/createOrder")], "超限单不得触达 createOrder"
+            # ② decision_log_id 来源（工作台 settle_prefill 主链路）→ 同样 422
+            r = CLIENT.post(f"/api/ops/accounts/{ACC_ID}/orders/create",
+                            json={"draft_id": draft_id, "coupon_code": RATE_COUPON_CODE,
+                                  "decision_log_id": log_id},
+                            headers=_auth())
+            assert r.status_code == 422 and "当前支付金额超过方案限制" in r.json()["detail"], r.text
+            # ③ 显式引用不存在的方案 → 422
+            r = CLIENT.post(f"/api/ops/accounts/{ACC_ID}/orders/create",
+                            json={"draft_id": draft_id, "coupon_code": RATE_COUPON_CODE,
+                                  "plan_id": 999999},
+                            headers=_auth())
+            assert r.status_code == 422 and "下单方案不存在" in r.json()["detail"], r.text
+        finally:
+            with database.SessionLocal() as db:
+                db.query(DecisionLog).filter(DecisionLog.id == log_id).delete()
+                db.commit()
+            _cleanup_plans(plan_id)
+    finally:
+        FIXTURE["mode"] = "default"
+        with orders_router._draft_lock:
+            orders_router._drafts.pop(ACC_ID, None)
+
+
+def test_plan_pay_threshold_create_unconfigured():
+    """create 环节阈值未配置（历史空值行，方案 API 已强制必填）→ 422 fail-closed 默认拒绝。"""
+    FIXTURE["mode"] = "rate"
+    try:
+        plan_id = _mk_plan("", "阈值冒烟-未配置")
+        try:
+            draft_id, _ = _settle()
+            r = CLIENT.post(f"/api/ops/accounts/{ACC_ID}/orders/create",
+                            json={"draft_id": draft_id, "coupon_code": RATE_COUPON_CODE,
+                                  "plan_id": plan_id},
+                            headers=_auth())
+            assert r.status_code == 422, r.text
+            assert "已默认拒绝交易" in r.json()["detail"]
+        finally:
+            _cleanup_plans(plan_id)
+    finally:
+        FIXTURE["mode"] = "default"
+        with orders_router._draft_lock:
+            orders_router._drafts.pop(ACC_ID, None)
+
+
+def test_plan_pay_threshold_create_auto_mode_pass():
+    """plan_id=0（自动模式）：不做方案级校验直接放行成单——即使库内存在未被引用的超限方案。"""
+    FIXTURE["mode"] = "rate"
+    try:
+        plan_id = _mk_plan("0.01", "阈值冒烟-旁路不引用")
+        try:
+            draft_id, _ = _settle()
+            r = CLIENT.post(f"/api/ops/accounts/{ACC_ID}/orders/create",
+                            json={"draft_id": draft_id, "coupon_code": RATE_COUPON_CODE,
+                                  "plan_id": 0},
+                            headers=_auth())
+            assert r.status_code == 200, f"create 失败: {r.status_code} {r.text}"
+            assert r.json()["result"] == "partial"
+        finally:
+            with database.SessionLocal() as db:   # 清场：status=1 会卡后续用例的单次一单守卫
+                rec = db.query(OrderRecord).filter(OrderRecord.order_no == RATE_ORDER_NO).first()
+                if rec is not None:
+                    rec.status = 6
+                    db.commit()
+            _cleanup_plans(plan_id)
+    finally:
+        FIXTURE["mode"] = "default"
+        with orders_router._draft_lock:
+            orders_router._drafts.pop(ACC_ID, None)
+
+
+def test_plan_pay_threshold_pay_stage():
+    """pay 环节：continuePay 重铸支付串（实付 15.40）在支付动作发起前复核——
+    超限 422 / 未配置 422 / 未绑定决策流水（无方案）放行 200 正常下发支付串。"""
+    plan_block = _mk_plan("15.00", "阈值冒烟-pay超限")
+    plan_unconf = _mk_plan("", "阈值冒烟-pay未配置")
+    bound_block, bound_unconf, bound_free = "PAYTH-BLOCK-ORDER", "PAYTH-UNCONF-ORDER", "PAYTH-FREE-ORDER"
+    with database.SessionLocal() as db:
+        db.add(DecisionLog(order_no=bound_block,
+                           plan_json={"plan_id": plan_block, "plan_name": "阈值冒烟-pay超限"}))
+        db.add(DecisionLog(order_no=bound_unconf,
+                           plan_json={"plan_id": plan_unconf, "plan_name": "阈值冒烟-pay未配置"}))
+        db.commit()
+    try:
+        h = _auth()
+        # ① 超限：重铸 15.40 支付串 → 下发支付串/自动扣款动作发起前 422
+        r = CLIENT.post(f"/api/ops/accounts/{ACC_ID}/orders/{bound_block}/pay",
+                        json={"mode": "manual"}, headers=h)
+        assert r.status_code == 422, r.text
+        detail = r.json()["detail"]
+        assert "当前支付金额超过方案限制" in detail and "15.40" in detail
+        # ② 阈值未配置 → fail-closed 422
+        r = CLIENT.post(f"/api/ops/accounts/{ACC_ID}/orders/{bound_unconf}/pay",
+                        json={"mode": "manual"}, headers=h)
+        assert r.status_code == 422 and "已默认拒绝交易" in r.json()["detail"], r.text
+        # ③ 无决策流水绑定（无方案）→ 放行，正常下发支付串
+        r = CLIENT.post(f"/api/ops/accounts/{ACC_ID}/orders/{bound_free}/pay",
+                        json={"mode": "manual"}, headers=h)
+        assert r.status_code == 200, r.text
+        assert r.json()["total_amount"] == "15.40"
+    finally:
+        with database.SessionLocal() as db:
+            db.query(DecisionLog).filter(DecisionLog.order_no.in_(
+                (bound_block, bound_unconf))).delete()
+            # 清场：放行分支 _upsert_order 会新建待支付快照，删掉避免遗留
+            db.query(OrderRecord).filter(OrderRecord.order_no == bound_free).delete()
+            db.commit()
+        _cleanup_plans(plan_block, plan_unconf)
 
 
 # ---------- 4b. 优惠券使用规则（券ID↔token 映射 / 有效性验证 / 使用日志） ----------

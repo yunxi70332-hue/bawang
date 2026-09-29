@@ -1,6 +1,7 @@
 """Pydantic 请求/响应模型。敏感字段（token/sk）永不下发；手机号自 2026-09-28 起不再脱敏，
 字段名沿用 phone_masked 历史命名，但值为完整号码。"""
 
+import re
 from datetime import datetime
 
 from pydantic import BaseModel, Field, field_validator
@@ -293,16 +294,27 @@ class OrderPlanDrinkBody(BaseModel):
 class OrderPlanRequest(BaseModel):
     """下单方案（§11）：策略 + 券优先级层级链。PUT 同构（priorities/drinks 全量替换）。
     drink_info 为方案级必填编辑框（饮品信息）：保存方案时强制非空，下单选此方案时自动带入订单。
+    max_pay_amount 为方案级支付金额上限（元，非负金额字符串）：本单差额实付超过即拒单；
+    阈值未配置（空串）或配置非法时 fail-closed 默认拒绝（判定见 services/decision.check_pay_threshold）。
     drinks 非空时 decide 指定该方案仅可下单关联饮品（白名单，空=不限）。
     注：不做套餐绑定（§13 绑定功能已按用户决策移除），套餐由 decide 自动匹配或
     DecideRequest.packet_id 指定，与方案正交。"""
     name: str = Field(min_length=1, max_length=64)
     strategy: str = Field(pattern="^(cost_first|zero_pay|expiry_first)$")   # 成本最优|零元优先|临期优先
     drink_info: str = Field(min_length=1, max_length=200)                   # 饮品信息（必填：空/缺失 → 422）
+    max_pay_amount: str = Field(max_length=32)                              # 方案支付金额上限（元，必填：缺失/空/格式非法 → 422）
     note: str = Field(default="", max_length=255)
     enabled: bool = True
     priorities: list[OrderPlanPriorityBody] = Field(default_factory=list)   # 空=不设层，纯策略排序
     drinks: list[OrderPlanDrinkBody] = Field(default_factory=list)          # 空=不限饮品
+
+    @field_validator("max_pay_amount")
+    @classmethod
+    def _max_pay_amount(cls, v: str) -> str:
+        # 非负金额 ^\d+(\.\d{1,2})?$：允许 "15"/"15.7"/"15.70"，拒绝负数/非数字/三位小数
+        if not re.fullmatch(r"\d+(\.\d{1,2})?", v):
+            raise ValueError("支付金额上限须为非负金额（如 15.70）")
+        return v
 
 
 class ScanRequest(BaseModel):

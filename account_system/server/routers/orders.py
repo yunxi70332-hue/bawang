@@ -571,6 +571,70 @@ def _fallback_rank_codes(db: Session, draft: dict, primary_code: str, body) -> l
         ranked, _tier_map = decision_svc.apply_priority_tiers(ranked, plan.priorities)
     return [c["record"]["coupon_code"] for c in ranked]
 
+
+# ---------------- 方案级支付金额上限（2026-09-29：创建/支付两环节 fail-closed 校验） ----------------
+
+def _resolve_create_plan_id(db: Session, body) -> int:
+    """create 请求的下单方案解析（§11 与 _fallback_rank_codes 同口径）：
+    decision_log 流水的 plan_json.plan_id 优先，其次 body.plan_id；均 0 = 自动模式。"""
+    log_id = int(getattr(body, "decision_log_id", 0) or 0)
+    if log_id:
+        row = db.get(DecisionLog, log_id)
+        if row is not None:
+            pid = int((row.plan_json or {}).get("plan_id") or 0)
+            if pid:
+                return pid
+    return int(getattr(body, "plan_id", 0) or 0)
+
+
+def _plan_id_of_order(db: Session, order_no: str) -> int:
+    """支付环节的下单方案来源：成单回填（_backfill_decision_log）把 order_no 写入
+    DecisionLog 行，其 plan_json.plan_id 即本单方案；未绑定的单（无决策流水，如仅
+    body.plan_id 下单/原价重下新单）返回 0 = 无方案，不做方案级校验。"""
+    row = (db.query(DecisionLog)
+             .filter(DecisionLog.order_no == str(order_no or "").strip())
+             .order_by(DecisionLog.id.desc()).first())
+    return int((row.plan_json or {}).get("plan_id") or 0) if row is not None else 0
+
+
+def _enforce_plan_pay_threshold(db: Session, plan_id, pay_amount, stage: str,
+                                username: str = "system") -> None:
+    """方案级支付金额上限校验（订单创建/支付确认两环节共用，fail-closed）：
+      - plan_id 0/None → 自动模式（未选方案）直接放行，无方案级上限语义；
+      - 方案不存在 → 422（与 decide 显式引用不存在方案的语义一致）；
+      - 阈值未配置（空串）/非法 → 422 默认拒绝（fail-closed，不给绕过口）；
+      - 差额实付 > 阈值 → 422 带「当前支付金额超过方案限制」明细。
+    判定纯函数在 services/decision.py（parse_pay_threshold / check_pay_threshold，
+    契约见二者 docstring），本函数只负责取方案 + 留痕 + 转 HTTP 语义。
+    无 Request 的调用方（线程/独立进程）用 username 传系统语境操作人。"""
+    pid = int(plan_id or 0)
+    if pid <= 0:
+        return
+    plan = db.get(OrderPlan, pid)
+    if plan is None:
+        log_op(level="WARN", action="decision.plan_pay_threshold", actor=username,
+               target=f"方案#{pid}", result="rejected",
+               params={"plan_id": pid, "stage": stage, "result": "plan_not_found"})
+        raise HTTPException(422, f"下单方案不存在：{pid}")
+    raw = str(plan.max_pay_amount or "")
+    parsed = decision_svc.parse_pay_threshold(raw)
+    if parsed.get("status") != "valid":
+        log_op(level="ERROR", action="decision.plan_pay_threshold", actor=username,
+               target=f"方案#{pid}", result="rejected",
+               params={"plan_id": pid, "plan_name": plan.name, "stage": stage,
+                       "result": "rejected_config"})
+        raise HTTPException(422, f"方案「{plan.name}」支付金额阈值未配置或配置非法，"
+                                 "已默认拒绝交易（请在方案编辑中配置支付金额上限）")
+    ok, reason = decision_svc.check_pay_threshold(pay_amount, raw)
+    if not ok:
+        log_op(level="WARN", action="decision.plan_pay_threshold", actor=username,
+               target=f"方案#{pid}", result="blocked",
+               params={"plan_id": pid, "plan_name": plan.name, "stage": stage,
+                       "pay_amount": _fmt_money(pay_amount),
+                       "threshold": _fmt_money(parsed["value"]),
+                       "result": "blocked"})
+        raise HTTPException(422, f"方案「{plan.name}」{reason}")
+
 @router.post("/create")
 def order_create(account_id: int, body: OrderCreateRequest, request: Request,
                  db: Session = Depends(get_db),
@@ -700,6 +764,12 @@ def order_create(account_id: int, body: OrderCreateRequest, request: Request,
                 api.build_discount_row(coupon_entry,
                                        api.expected_deduction(coupon_entry, settle.total_trade_price))]
             coupon_deduction = Decimal(str((settle.trade_fund_info or {}).get("totalDiscountAmount") or "0"))
+        # 方案级支付金额上限（create 环节，2026-09-29）：选券复跑完成后的 settle.buyer_real_price
+        # 是 createOrder 前最准的差额实付口径（无券/自荐路径即 settle_base 的服务端确认值），
+        # 超限/未配置即中止——绝不允许带着超限金额调用 createOrder 成单
+        _enforce_plan_pay_threshold(db, _resolve_create_plan_id(db, body),
+                                    settle.buyer_real_price, stage="create",
+                                    username=user.username)
         outcome = api.create_order(settle, draft["store_no"], draft["store_name"] or "", rows)
     except HTTPException:
         raise   # fallback 耗尽等业务 400 直通，不被 _fail 改写为协议错误
@@ -816,6 +886,11 @@ def order_pay(account_id: int, order_no: str, body: PayModeRequest, request: Req
         link = api.continue_pay(order_no)   # 重铸全新支付串（10 分钟窗口内有效）
     except Exception as e:
         _fail(account, db, request, user, "feature.order_pay", e)
+    # 方案级支付金额上限（pay 环节，2026-09-29）：重铸支付串的 total_amount 即支付端
+    # 实付金额（人工 H5 与自动扣款同源），在下发支付串/发起自动扣款前按本单成单绑定
+    # 的方案（DecisionLog.plan_json.plan_id）复核一次；未绑定决策流水的单无方案即放行
+    _enforce_plan_pay_threshold(db, _plan_id_of_order(db, order_no), link.total_amount,
+                                stage="pay", username=user.username)
     _upsert_order(db, account_id, order_no, out_trade_no=link.out_trade_no,
                   pay_deadline=_parse_deadline(link.expire_at))
     if body.mode == "manual":

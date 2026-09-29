@@ -18,6 +18,8 @@ margin 为利润率百分比，一位小数字符串（不带 %）。
   match_packets      套餐命中（价格区间 + 时段 + 商品圈定，支持跨零点时段）
   evaluate_cost      收入/总额/抵扣/成本/杂费 → cost_breakdown（profit/margin）
   check_threshold    cost_breakdown + 阈值 → (pass|blocked, 原因)
+  parse_pay_threshold 方案支付金额上限原文解析 → {"status": valid|empty|invalid, "value": Decimal|None}
+  check_pay_threshold 差额实付 ≤ 方案支付上限校验（fail-closed：阈值空/非法默认拒绝）
   rank_candidates    候选券逐个评估，pass 者按 total_cost 升序（同成本面额大者优先）
 
 全局配置 data/decision_config.json（相对 account_system/ 定位，与 pay_session.py 的
@@ -373,6 +375,34 @@ def check_threshold(breakdown, min_profit, min_margin, max_order_cost=""):
         return "blocked", (f"订单成本 {_money(breakdown.get('total_cost'))} 元"
                            f"超过最大承受金额 {_money(max_cost_s)} 元")
     return "pass", ""
+
+
+def parse_pay_threshold(raw) -> dict:
+    """方案支付金额阈值解析：{"status": "valid"|"empty"|"invalid", "value": Decimal|None}。
+    空串/None → empty；非法（非数字/负数/NaN）→ invalid；否则 valid 且 value=Decimal（保留原精度）。"""
+    text = "" if raw is None else str(raw).strip()
+    if not text:
+        return {"status": "empty", "value": None}
+    value = _dec_or_none(text)
+    # NaN/Infinity 可被 Decimal 解析但不构成合法金额；负数同理（API 层 pattern 已前置拦截，此处兜底）
+    if value is None or not value.is_finite() or value < 0:
+        return {"status": "invalid", "value": None}
+    return {"status": "valid", "value": value}
+
+
+def check_pay_threshold(pay_amount, threshold_raw) -> tuple[bool, str]:
+    """方案支付金额上限校验（fail-closed）：阈值 empty/invalid → (False,
+    "方案支付金额阈值未配置或配置非法，已默认拒绝交易")；
+    pay_amount > 阈值 → (False, f"当前支付金额超过方案限制：需支付 X.XX 元，超过方案阈值 Y.YY 元")
+    （X/Y 为两位小数 ROUND_HALF_UP，用现有 _money 规约）；否则 (True, "")。"""
+    parsed = parse_pay_threshold(threshold_raw)
+    if parsed["status"] != "valid":
+        return False, "方案支付金额阈值未配置或配置非法，已默认拒绝交易"
+    pay = _dec(pay_amount)
+    if pay > parsed["value"]:
+        return False, (f"当前支付金额超过方案限制：需支付 {_money(pay)} 元，"
+                       f"超过方案阈值 {_money(parsed['value'])} 元")
+    return True, ""
 
 
 def rank_candidates(candidates, revenue, total, overhead, min_profit, min_margin,

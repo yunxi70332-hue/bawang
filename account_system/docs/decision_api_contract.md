@@ -281,3 +281,28 @@ api/index.js 新增 `apiDecision`（全部端点封装）：`packets(params)` `p
 
 - **入口收编**：前端菜单/路由移除「套餐配置」（/decision/packets 下线，直达 URL 由通配符重定向仪表盘）；PacketConfigView.vue 删除，套餐 CRUD（列表/搜索/开放开关/新增/编辑/删除 + 商品与券规则弹窗）整体迁入下单方案页「套餐库」页签。套餐 REST 端点（/packets CRUD + toggle-open）原样保留——仅前端入口合并，API 兼容不变
 - ~~方案绑定套餐（order_plans.packet_id，decide 绑定优先/冲突 422/删除防悬挂）~~ **已移除（2026-09-29 用户决策）**：绑定后套餐商品白名单与方案饮品白名单为 AND 关系，空交集会使方案永久接不了单（两道 422 各说各话、保存时无交集校验的配置陷阱），且绑定提示语「以套餐为准」与饮品白名单独立生效的真实语义有偏差。移除后：OrderPlan 无 packet_id 字段（旧库列残留无害）、decide 恢复「body.packet_id 指定 / 自动匹配」二元逻辑、套餐恢复自由删除、方案编辑弹窗与列表无绑定相关 UI。如未来重引入，须先解决两白名单的交集校验与语义主从问题
+
+## 14. 方案支付金额上限 max_pay_amount（2026-09-29，fail-closed 资金风控）
+
+**方案级支付金额上限**：使用方案下单时，本单支付端实付金额（差额实付口径）不得超过 `max_pay_amount`；阈值未配置或配置非法时**默认拒绝交易**（fail-closed，防自动支付超额）。plan_id=0（自动模式）不受影响。
+
+- **表列**：`order_plans.max_pay_amount VARCHAR(32) NOT NULL DEFAULT ''`（空串=未配置；seed._COLUMN_MIGRATIONS 存量库自动补列）
+- **Schema**：`OrderPlanRequest.max_pay_amount` 必填，`^\d+(\.\d{1,2})?$` 非负金额（"15"/"15.7"/"15.70"），validator 中文文案「支付金额上限须为非负金额（如 15.70）」；detail/列表透出同名字段
+- **纯函数**（services/decision.py，判定链文档同步）：
+  - `parse_pay_threshold(raw) -> {"status": valid|empty|invalid, "value": Decimal|None}`（空/空白→empty；非数字/负数/NaN/Inf→invalid）
+  - `check_pay_threshold(pay_amount, threshold_raw) -> (bool, str)`：empty/invalid → (False, "方案支付金额阈值未配置或配置非法，已默认拒绝交易")；实付>阈值 → (False, "当前支付金额超过方案限制：需支付 X.XX 元，超过方案阈值 Y.YY 元")；边界相等放行（<=）
+- **decide 集成**（routers/decision.py orders_decide）：
+  - plan 校验区（探针/deep 之前）解析阈值，非 valid → 422「方案「X」支付金额阈值未配置或配置非法，已默认拒绝交易（请在方案编辑中配置支付金额上限）」+ oplog ERROR
+  - `_rank_with_pay_cap`：排序（初始+deep 重排两处）后过滤 `pay_cost ≤ 阈值` 的候选（首选+备选一并剔除）；threshold_json 增 `plan_max_pay_amount`
+  - 原价兜底（allow_full_price）：原价 total 超阈值 → blocked「当前支付金额超过方案限制：原价单需支付 X 元，超过方案「X」阈值 Y 元」+ oplog WARN
+  - 候选全被上限滤光 → blocked「当前支付金额超过方案限制：本单最优候选仍需支付 X 元，超过方案「X」阈值 Y 元」（区别于利润阈值的「暂无库存」话术）+ oplog WARN
+  - plan_json 快照增 `max_pay_amount`
+- **订单创建/支付确认两道校验**（routers/orders.py `_enforce_plan_pay_threshold`，create/pay 两 stage）：
+  - create：选券复跑完成后、createOrder 之前，校验 `settle.buyer_real_price`（服务端确认差额实付，与 partial 落库 pay_amount 同源）
+  - pay：`/{order_no}/pay` continue_pay 重铸支付串后、下发/autopay 执行前，校验 `link.total_amount`（支付宝侧实付）；方案来源=成单回填的 DecisionLog（`_plan_id_of_order`，无绑定=0 放行）
+  - create 环节方案来源 `_resolve_create_plan_id`：decision_log_id 的 plan_json.plan_id 优先，回落 body.plan_id
+  - 语义：plan_id≤0 放行；方案不存在 422（+plan_not_found WARN）；未配置/非法 422 + oplog ERROR；超限 422「方案「X」当前支付金额超过方案限制：…」+ oplog WARN（params 带 plan_id/plan_name/pay_amount/threshold/stage/result）
+- **日志**（需求§4）：oplog action=`decision.plan_pay_threshold`（触发时间=created_at、方案ID/名称、实际金额 pay_amount、阈值 threshold、环节 stage=decide|create|pay、结果 result=blocked|rejected_config）；decide 每次评估的 DecisionLog 行经 threshold_json.plan_max_pay_amount / plan_json.max_pay_amount 留档
+- **已知旁路**（评估记录）：switch_order_to_full_price 原价重下产生无 DecisionLog 绑定的新单 → pay 环节查不到方案放行；仅 body.plan_id（无 decision_log_id）下的单同理。如需封死，需 OrderRecord 增加 plan_id 列（本次未做）
+- **前端**：方案编辑弹窗基础信息 Tab 必填「支付金额上限(元)」（正则校验同 schema）+ 安全提示；方案列表「金额上限」列（空=红 tag「未配置」）；工作台方案下拉/结果信息展示上限
+- **测试**：test_decision_offline test_28/29（CRUD+decide 六分支）、test_orders_offline +4（create 超限/未配置/自动模式/pay 环节）

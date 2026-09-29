@@ -17,7 +17,9 @@
     match_packets 套餐命中（packet_id 指定则校验在命中集内）→ total 估算
     （menu 价×数量；deep=true 对 top1 候选账号 settle_direct(no_recommend=True)
      服务端探针，失败降级 menu 估值）→ 券候选初筛（在线账号 + 未用 + bucket/
-    有效期/门槛）→ 套餐 item 券规则过滤 → rank_candidates 排序 → 阈值判定
+    有效期/门槛）→ 套餐 item 券规则过滤 → rank_candidates 排序 → 方案支付上限过滤
+    （指定方案时 pay_cost ≤ max_pay_amount；阈值未配置/非法 422 fail-closed 默认拒绝，
+    自动模式不受影响）→ 阈值判定
     （套餐级 min_profit 覆盖全局）→ DecisionLog 落库（order_no 空，blocked 也写；
     成单后由 orders.order_create 凭 decision_log_id 回填，见 §6 挂钩）。
     cost_breakdown 带 cost_category_name（选中券的子类归类，无券 ""）。
@@ -754,6 +756,8 @@ def _plan_detail(plan: OrderPlan) -> dict:
         "id": plan.id, "name": plan.name, "strategy": plan.strategy,
         "strategy_label": PLAN_STRATEGY_LABELS.get(plan.strategy, plan.strategy),
         "drink_info": plan.drink_info or "",
+        # 方案级支付金额上限（空串=未配置；decide 对未配置/非法 fail-closed 默认拒绝）
+        "max_pay_amount": plan.max_pay_amount or "",
         "note": plan.note, "enabled": bool(plan.enabled),
         "priority_count": len(plan.priorities or []),
         "priorities": [_plan_priority_row(p) for p in (plan.priorities or [])],
@@ -864,6 +868,7 @@ def order_plan_create(body: OrderPlanRequest, request: Request,
     _check_plan_body(db, body)
     plan = OrderPlan(name=body.name.strip(), strategy=body.strategy,
                      drink_info=body.drink_info.strip(),
+                     max_pay_amount=body.max_pay_amount.strip(),
                      note=body.note or "", enabled=body.enabled)
     _build_plan_drinks(plan, body.drinks)
     _build_plan_priorities(plan, body.priorities)
@@ -873,11 +878,13 @@ def order_plan_create(body: OrderPlanRequest, request: Request,
     log_audit(db, request, user, "decision.order_plan_create", f"方案#{plan.id}",
               {"name": plan.name, "strategy": plan.strategy,
                "priorities": len(plan.priorities or []),
-               "drinks": len(plan.drinks or [])})
+               "drinks": len(plan.drinks or []),
+               "max_pay_amount": plan.max_pay_amount})
     log_op(action="decision.order_plan_create", actor=user.username, target=f"方案#{plan.id}",
            params={"name": plan.name, "strategy": plan.strategy,
                    "priorities": len(plan.priorities or []),
-                   "drinks": len(plan.drinks or [])})
+                   "drinks": len(plan.drinks or []),
+                   "max_pay_amount": plan.max_pay_amount})
     return _plan_detail(plan)
 
 
@@ -892,6 +899,7 @@ def order_plan_update(plan_id: int, body: OrderPlanRequest, request: Request,
     plan.name = body.name.strip()
     plan.strategy = body.strategy
     plan.drink_info = body.drink_info.strip()
+    plan.max_pay_amount = body.max_pay_amount.strip()
     plan.note = body.note or ""
     plan.enabled = body.enabled
     # 层级全量替换（clear 后先 flush 落 DELETE，规避同表 INSERT 先于 DELETE 撞唯一约束）
@@ -905,11 +913,13 @@ def order_plan_update(plan_id: int, body: OrderPlanRequest, request: Request,
     log_audit(db, request, user, "decision.order_plan_update", f"方案#{plan.id}",
               {"name": plan.name, "strategy": plan.strategy,
                "priorities": len(plan.priorities or []),
-               "drinks": len(plan.drinks or [])})
+               "drinks": len(plan.drinks or []),
+               "max_pay_amount": plan.max_pay_amount})
     log_op(action="decision.order_plan_update", actor=user.username, target=f"方案#{plan.id}",
            params={"name": plan.name, "strategy": plan.strategy,
                    "priorities": len(plan.priorities or []),
-                   "drinks": len(plan.drinks or [])})
+                   "drinks": len(plan.drinks or []),
+                   "max_pay_amount": plan.max_pay_amount})
     return _plan_detail(plan)
 
 
@@ -1193,6 +1203,7 @@ def orders_decide(body: DecideRequest, request: Request,
 
     # 下单方案（§11）：策略 + 券优先级层级；plan_id=0 = 自动（保持四级漏斗默认行为）
     plan = None
+    thr = None   # 方案支付金额阈值解析结果（plan 非空时恒为 valid，未配置/非法已在下方 422）
     if body.plan_id:
         plan = db.get(OrderPlan, body.plan_id)
         if plan is None:
@@ -1205,6 +1216,19 @@ def orders_decide(body: DecideRequest, request: Request,
         if drink_skus and str(body.sku_id) not in drink_skus:
             raise HTTPException(422, f"方案「{plan.name}」未关联此饮品（可在方案的饮品管理 Tab 维护关联），"
                                      f"该方案仅可下单已关联的 {len(drink_skus)} 种饮品")
+        # 方案级支付金额上限（fail-closed）：本单支付端实付（cost_breakdown.pay_cost，
+        # 差额实付口径）不得超过 max_pay_amount；未配置/存量残留非法值一律默认拒绝。
+        # 必须在任何 settle 探针/deep 逻辑之前拦截（本区即 plan 校验区）
+        thr = decision_svc.parse_pay_threshold(plan.max_pay_amount)
+        if thr["status"] != "valid":
+            log_op(level="ERROR", action="decision.plan_pay_threshold", actor=user.username,
+                   target=f"方案#{plan.id}",
+                   params={"plan_id": plan.id, "plan_name": plan.name, "stage": "decide",
+                           "threshold_raw": plan.max_pay_amount or "",
+                           "result": "rejected_config"})
+            raise HTTPException(422, f"方案「{plan.name}」支付金额阈值未配置或配置非法，"
+                                     f"已默认拒绝交易（请在方案编辑中配置支付金额上限）")
+        threshold_json["plan_max_pay_amount"] = _money(thr["value"])
     tier_list = list(plan.priorities or []) if plan is not None else []
     strategy = plan.strategy if plan is not None else "cost_first"
 
@@ -1221,7 +1245,22 @@ def orders_decide(body: DecideRequest, request: Request,
             return rk, {}
         return decision_svc.apply_priority_tiers(rk, tier_list)
 
-    ranked, tier_map = _rank_with_tiers(total)
+    pre_filter_best_pay: Decimal | None = None   # 支付上限过滤前最优候选实付（blocked 文案备用）
+
+    def _rank_with_pay_cap(t: Decimal) -> tuple[list[dict], dict]:
+        """排序 + 方案支付上限过滤（初始评估与 deep 重排两处同口径）：pay_cost 超过
+        方案阈值的候选整体剔除（首选与备选一并，alternatives 天然来自过滤后的 ranked）；
+        过滤前记下最优候选 pay_cost，供「全被上限滤光」的 blocked 文案引用。
+        plan 为 None（自动模式）时不设上限，行为与原四级漏斗一致。"""
+        nonlocal pre_filter_best_pay
+        rk, t_map = _rank_with_tiers(t)
+        pre_filter_best_pay = (_to_dec(rk[0]["cost_breakdown"]["pay_cost"])
+                               if rk else None)   # 每次排序以本次结果为准（deep 重排覆盖）
+        if plan is not None:
+            rk = [c for c in rk if _to_dec(c["cost_breakdown"]["pay_cost"]) <= thr["value"]]
+        return rk, t_map
+
+    ranked, tier_map = _rank_with_pay_cap(total)
     # deep=true：对 top1 候选账号真实 settle 探针取服务端总额后重排（失败降级 menu 估值）
     if body.deep and ranked:
         probe_account = db.get(ChageeAccount, ranked[0]["record"].account_id)
@@ -1238,7 +1277,7 @@ def orders_decide(body: DecideRequest, request: Request,
         if server_total is not None:
             total = server_total
             price_source = "settle"
-            ranked, tier_map = _rank_with_tiers(total)
+            ranked, tier_map = _rank_with_pay_cap(total)
 
     # 判定：pass 候选优先；无 pass 时按 allow_full_price 决定原价单或 blocked
     top = ranked[0] if ranked else None
@@ -1262,6 +1301,22 @@ def orders_decide(body: DecideRequest, request: Request,
         v, reason = decision_svc.check_threshold(b, threshold_json["min_profit"],
                                                  threshold_json["min_margin"],
                                                  threshold_json["max_order_cost"])
+        # 方案支付上限对原价兜底同样生效（原价单支付额 = total）：超限覆盖为 blocked，
+        # 文案以 check_pay_threshold 的判定为基础补充方案名语境（保持「当前支付金额
+        # 超过方案限制」开头，fail-closed）
+        if plan is not None:
+            pay_ok, _pay_reason = decision_svc.check_pay_threshold(_money(total),
+                                                                   plan.max_pay_amount)
+            if not pay_ok:
+                v, reason = "blocked", (
+                    f"当前支付金额超过方案限制：原价单需支付 {_money(total)} 元，"
+                    f"超过方案「{plan.name}」阈值 {_money(thr['value'])} 元")
+                log_op(level="WARN", action="decision.plan_pay_threshold",
+                       actor=user.username, target=f"方案#{plan.id}",
+                       params={"plan_id": plan.id, "plan_name": plan.name,
+                               "pay_amount": _money(total),
+                               "threshold": _money(thr["value"]),
+                               "stage": "decide", "result": "blocked"})
         if v == "pass":
             breakdown = b
         else:
@@ -1282,10 +1337,23 @@ def orders_decide(body: DecideRequest, request: Request,
                 best = (c["record"], (v, reason), b)
         chosen, (_v, reason), breakdown = best
         verdict = "blocked"
-        blocked_reason = f"最佳券候选未过阈值（{reason}），且 allow_full_price=false 不允许原价单"
-        if plan is not None:   # §11：指定方案时，所有优先级券均失败 → 暂无库存话术
-            blocked_reason = (f"暂无库存：方案「{plan.name}」各优先级券（{_tier_names()}）"
-                              f"均不可用或未过阈值（{reason}）")
+        if plan is not None and pre_filter_best_pay is not None:
+            # 候选本可过利润阈值，但最优实付仍超方案支付上限 → 首选与备选全被滤光
+            # （pre_filter_best_pay 非空 = 排序阶段确有 pass 候选，仅败于支付上限）
+            blocked_reason = (f"当前支付金额超过方案限制：本单最优候选仍需支付 "
+                              f"{_money(pre_filter_best_pay)} 元，"
+                              f"超过方案「{plan.name}」阈值 {_money(thr['value'])} 元")
+            log_op(level="WARN", action="decision.plan_pay_threshold",
+                   actor=user.username, target=f"方案#{plan.id}",
+                   params={"plan_id": plan.id, "plan_name": plan.name,
+                           "pay_amount": _money(pre_filter_best_pay),
+                           "threshold": _money(thr["value"]),
+                           "stage": "decide", "result": "blocked"})
+        else:
+            blocked_reason = f"最佳券候选未过阈值（{reason}），且 allow_full_price=false 不允许原价单"
+            if plan is not None:   # §11：指定方案时，所有优先级券均失败 → 暂无库存话术
+                blocked_reason = (f"暂无库存：方案「{plan.name}」各优先级券（{_tier_names()}）"
+                                  f"均不可用或未过阈值（{reason}）")
     else:
         verdict = "blocked"
         blocked_reason = "无可用券候选（在线账号无未使用的有效券），且 allow_full_price=false 不允许原价单"
@@ -1370,6 +1438,7 @@ def orders_decide(body: DecideRequest, request: Request,
             # 下单方案快照（§11）：create 自动切换据此按方案优先级链降级
             "plan_id": plan.id if plan is not None else 0,
             "plan_name": plan.name if plan is not None else "",
+            "max_pay_amount": (plan.max_pay_amount or "") if plan is not None else "",
             "strategy": strategy,
         },
     )

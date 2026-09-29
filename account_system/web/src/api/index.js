@@ -39,6 +39,8 @@ function formatError(err) {
   const detail = err.response?.data?.detail
   if (typeof detail === 'string') return detail
   if (Array.isArray(detail)) return detail.map((d) => d.msg).join('; ')
+  // 对象型 detail（如后端自定义 422 校验结构）兜底为可读文本，避免降级成 axios 通用消息
+  if (detail && typeof detail === 'object') return JSON.stringify(detail)
   return err.message || '请求失败'
 }
 

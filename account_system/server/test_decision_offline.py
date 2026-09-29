@@ -16,6 +16,8 @@
   - dashboard_stats profit 域聚合与零值 fail-soft
   - 同类功能合并（契约 §12）：rule_satisfied 统一判定矩阵、sku-search 共享端点双路由、
           套餐 item 券规则 face_value、方案 toggle-enabled 保数据 + 审计打标、列表过滤
+  - 方案支付金额上限（2026-09-29）：max_pay_amount 必填/非法 422、decide 超限候选过滤
+          （备选顶上）、边界等于放行、存量空/非法阈值 fail-closed 422、原价兜底超限 blocked
 
 要点（与 test_orders_offline.py / test_menu_spec_offline.py 同模式）：
   - 先把 database.DB_PATH 指向 data/test_decision.db 并重建 engine，再 import app
@@ -1320,6 +1322,7 @@ def test_25_order_plan_crud_and_decide():
     # ① 建方案：第一优先 LT、第二优先 DN → decide 选 LT（层序压过成本序）
     plan = CLIENT.post("/api/ops/decision/order-plans", headers=h, json={
         "name": "LT优先方案", "strategy": "cost_first", "drink_info": "默认少冰半糖", "note": "测试",
+        "max_pay_amount": "20",   # 支付上限取宽值：不干预本用例的选券/话术断言
         "priorities": [
             {"level": 1, "name": "第一优先LT", "match_type": "template_contains",
              "match_value": "LT", "face_value": ""},
@@ -1331,9 +1334,9 @@ def test_25_order_plan_crud_and_decide():
     # 重名 400 / level 重复 400
     assert CLIENT.post("/api/ops/decision/order-plans", headers=h, json={
         "name": "LT优先方案", "strategy": "cost_first", "drink_info": "x",
-        "priorities": []}).status_code == 400
+        "max_pay_amount": "20", "priorities": []}).status_code == 400
     assert CLIENT.post("/api/ops/decision/order-plans", headers=h, json={
-        "name": "层重复", "strategy": "cost_first", "drink_info": "x",
+        "name": "层重复", "strategy": "cost_first", "drink_info": "x", "max_pay_amount": "20",
         "priorities": [
             {"level": 1, "match_type": "template_contains", "match_value": "a"},
             {"level": 1, "match_type": "template_contains", "match_value": "b"},
@@ -1352,6 +1355,7 @@ def test_25_order_plan_crud_and_decide():
     # PUT 全量替换层级（DN 提为第一）→ 选 DN；DELETE 后级联删层
     upd = CLIENT.put(f"/api/ops/decision/order-plans/{plan['id']}", headers=h, json={
         "name": "LT优先方案", "strategy": "zero_pay", "drink_info": "默认少冰半糖", "note": "改零元优先",
+        "max_pay_amount": "20",
         "priorities": [
             {"level": 1, "name": "DN第一", "match_type": "template_contains",
              "match_value": "代金券-DT", "face_value": ""},
@@ -1360,14 +1364,14 @@ def test_25_order_plan_crud_and_decide():
     d = CLIENT.post("/api/ops/orders/decide", json={**body, "plan_id": plan["id"]},
                     headers=h).json()
     assert d["coupon"]["coupon_code"] == "D-FACE-20"
-    # 缺 drink_info → 422（方案级必填编辑框）
+    # 缺 drink_info → 422（方案级必填编辑框；max_pay_amount 已带上，422 归因于 drink_info）
     assert CLIENT.post("/api/ops/decision/order-plans", headers=h, json={
-        "name": "缺饮品信息", "strategy": "cost_first",
+        "name": "缺饮品信息", "strategy": "cost_first", "max_pay_amount": "20",
         "priorities": []}).status_code == 422
     # 停用方案 → 显式引用 422（停用即不生效）
     upd_off = CLIENT.put(f"/api/ops/decision/order-plans/{plan['id']}", headers=h, json={
         "name": "LT优先方案", "strategy": "cost_first", "drink_info": "默认少冰半糖",
-        "note": "测试", "enabled": False,
+        "note": "测试", "enabled": False, "max_pay_amount": "20",
         "priorities": [
             {"level": 1, "name": "第一优先LT", "match_type": "template_contains",
              "match_value": "LT", "face_value": ""},
@@ -1378,7 +1382,7 @@ def test_25_order_plan_crud_and_decide():
     # 恢复启用（后续「暂无库存」段落仍需该方案可用）
     CLIENT.put(f"/api/ops/decision/order-plans/{plan['id']}", headers=h, json={
         "name": "LT优先方案", "strategy": "cost_first", "drink_info": "默认少冰半糖",
-        "note": "测试", "enabled": True,
+        "note": "测试", "enabled": True, "max_pay_amount": "20",
         "priorities": [
             {"level": 1, "name": "第一优先LT", "match_type": "template_contains",
              "match_value": "LT", "face_value": ""},
@@ -1426,7 +1430,7 @@ def test_26_plan_drink_management():
     # ② 建方案并关联饮品（白名单：只关联 BYJX 大杯）
     plan = CLIENT.post("/api/ops/decision/order-plans", headers=h, json={
         "name": "饮品白名单方案", "strategy": "cost_first", "drink_info": "仅限伯牙大杯",
-        "priorities": [],
+        "max_pay_amount": "20", "priorities": [],
         "drinks": [{"spu_id": items[0]["spu_id"], "sku_id": BYJX_SKU_BIG,
                     "drink_name": "伯牙绝弦（大杯）", "face_price": "20"}]}).json()
     assert plan["drinks"] and plan["drinks"][0]["sku_id"] == BYJX_SKU_BIG
@@ -1441,7 +1445,7 @@ def test_26_plan_drink_management():
     # ④ PUT 清空 drinks → 白名单解除（不限饮品）
     upd = CLIENT.put(f"/api/ops/decision/order-plans/{plan['id']}", headers=h, json={
         "name": "饮品白名单方案", "strategy": "cost_first", "drink_info": "仅限伯牙大杯",
-        "priorities": [], "drinks": []}).json()
+        "max_pay_amount": "20", "priorities": [], "drinks": []}).json()
     assert upd["drinks"] == []
     r = CLIENT.post("/api/ops/orders/decide", json=body, headers=h)
     assert r.status_code == 200, r.text
@@ -1546,6 +1550,7 @@ def test_27_module_merge_unification():
             AuditLog.action == "decision.order_plan_toggle_enabled").count()
     plan = CLIENT.post("/api/ops/decision/order-plans", headers=h, json={
         "name": "合并验证方案", "strategy": "cost_first", "drink_info": "合并用例",
+        "max_pay_amount": "20",
         "priorities": [{"level": 1, "name": "DN", "match_type": "template_contains",
                         "match_value": "代金券-DT", "face_value": ""}],
         "drinks": [{"spu_id": BYJX_SPU, "sku_id": BYJX_SKU_BIG,
@@ -1570,7 +1575,7 @@ def test_27_module_merge_unification():
     # ---- ⑤ 方案列表过滤（keyword/enabled + total，与套餐列表同构） ----
     CLIENT.post("/api/ops/decision/order-plans", headers=h, json={
         "name": "零元专用方案", "strategy": "zero_pay", "drink_info": "列表过滤用",
-        "priorities": [], "drinks": []})
+        "max_pay_amount": "20", "priorities": [], "drinks": []})
     allp = CLIENT.get("/api/ops/decision/order-plans", headers=h).json()
     assert allp["total"] == 2 and len(allp["items"]) == 2
     kw = CLIENT.get("/api/ops/decision/order-plans",
@@ -1584,6 +1589,149 @@ def test_27_module_merge_unification():
     assert en["total"] == 1 and en["items"][0]["name"] == "零元专用方案"
     assert CLIENT.delete(f"/api/ops/decision/order-plans/{plan['id']}",
                          headers=h).status_code == 200
+    _clear_decision_domain()
+
+
+# ---------- 8. 方案支付金额上限（2026-09-29：fail-closed 默认拒绝） ----------
+
+def test_28_plan_max_pay_amount_crud():
+    """方案 CRUD：max_pay_amount 必填（缺失 422）/ 非法值 422 / 合法值落库 + detail 透出。"""
+    _clear_decision_domain()
+    h = _auth()
+    base = {"name": "支付上限方案", "strategy": "cost_first", "drink_info": "默认少冰半糖",
+            "priorities": [], "drinks": []}
+    # 必填：缺失 → 422
+    r = CLIENT.post("/api/ops/decision/order-plans", json=base, headers=h)
+    assert r.status_code == 422, r.text
+    # 非法：负数 / 非数字 / 三位小数 → 422（schema 非负金额 ^\d+(\.\d{1,2})?$）
+    for bad in ("-3.00", "abc", "15.700"):
+        r = CLIENT.post("/api/ops/decision/order-plans",
+                        json={**base, "max_pay_amount": bad}, headers=h)
+        assert r.status_code == 422, (bad, r.text)
+    # 合法：两位小数落库 + detail / 列表透出
+    r = CLIENT.post("/api/ops/decision/order-plans",
+                    json={**base, "max_pay_amount": "15.70"}, headers=h)
+    assert r.status_code == 200, r.text
+    plan = r.json()
+    assert plan["max_pay_amount"] == "15.70"
+    with _db() as db:
+        assert db.get(OrderPlan, plan["id"]).max_pay_amount == "15.70"
+    items = CLIENT.get("/api/ops/decision/order-plans",
+                       params={"keyword": "支付上限"}, headers=h).json()["items"]
+    assert items and items[0]["max_pay_amount"] == "15.70"
+    # PUT 更新（整数金额同样合法）；PUT 非法值 422 且不落库
+    upd = CLIENT.put(f"/api/ops/decision/order-plans/{plan['id']}", headers=h,
+                     json={**base, "max_pay_amount": "20"}).json()
+    assert upd["max_pay_amount"] == "20"
+    with _db() as db:
+        assert db.get(OrderPlan, plan["id"]).max_pay_amount == "20"
+    assert CLIENT.put(f"/api/ops/decision/order-plans/{plan['id']}", headers=h,
+                      json={**base, "max_pay_amount": "-1"}).status_code == 422
+    with _db() as db:
+        assert db.get(OrderPlan, plan["id"]).max_pay_amount == "20"
+    assert CLIENT.delete(f"/api/ops/decision/order-plans/{plan['id']}",
+                         headers=h).status_code == 200
+    _clear_decision_domain()
+
+
+def test_29_decide_plan_pay_threshold():
+    """decide 方案支付上限：超限候选被滤（备选顶上）/ 边界等于放行 / 全滤光 blocked /
+    存量空·非法阈值 fail-closed 422 / 原价兜底超限 blocked / 自动模式不受影响。"""
+    _clear_decision_domain()
+    with _db() as db:
+        db.query(CouponRecord).delete()
+        db.commit()
+    h = _auth()
+    CLIENT.post("/api/ops/decision/cost-rules", headers=h, json={
+        "name": "DN成本", "match_type": "template_contains", "match_value": "代金券-DT",
+        "face_value": "", "cost_price": "9.90", "priority": 10, "enabled": True, "note": ""})
+    CLIENT.post("/api/ops/decision/cost-rules", headers=h, json={
+        "name": "LT成本", "match_type": "template_contains", "match_value": "LT",
+        "face_value": "", "cost_price": "3.00", "priority": 5, "enabled": True, "note": ""})
+    # 两张均过利润阈值的券（menu 总价 20，客户价 20）：
+    #   D-LT-10：pay 10 / 成本 3 → total_cost 13；D-FACE-20：pay 0 / 成本 9.9 → total_cost 9.9
+    _add_coupon("D-LT-10", "霸王茶姬10元代金券-LT", "10元", "10")
+    _add_coupon("D-FACE-20", "霸王茶姬20元代金券-DT", "20元", "20")
+    plan_body = {"name": "支付阈值方案", "strategy": "cost_first", "drink_info": "默认少冰半糖",
+                 "max_pay_amount": "9.99",
+                 "priorities": [   # 层序压过成本序：LT（pay 10）排首位，便于验证上限过滤
+                     {"level": 1, "name": "第一优先LT", "match_type": "template_contains",
+                      "match_value": "LT", "face_value": ""},
+                     {"level": 2, "name": "第二优先DN", "match_type": "template_contains",
+                      "match_value": "代金券-DT", "face_value": ""},
+                 ]}
+    plan = CLIENT.post("/api/ops/decision/order-plans", json=plan_body, headers=h).json()
+    body = {"sku_id": BYJX_SKU_BIG, "quantity": 1, "spec_list": [], "store_no": STORE_NO,
+            "customer_price": "20.00", "plan_id": plan["id"],
+            "allow_full_price": False, "deep": False}
+
+    # ① 超限过滤：第一优先 LT（pay 10 > 9.99）被滤，第二优先 DN（pay 0）顶上；
+    #    备选不包含被滤候选；threshold 带方案上限；流水快照（threshold_json/plan_json）落档
+    d = CLIENT.post("/api/ops/orders/decide", json=body, headers=h).json()
+    assert d["verdict"] == "pass" and d["coupon"]["coupon_code"] == "D-FACE-20", d
+    assert d["cost_breakdown"]["pay_cost"] == "0.00"
+    assert d["threshold"]["plan_max_pay_amount"] == "9.99"
+    assert all(a["coupon_code"] != "D-LT-10" for a in d["alternatives"]), d["alternatives"]
+    with _db() as db:
+        row = db.get(DecisionLog, d["decision_log_id"])
+        assert (row.threshold_json or {}).get("plan_max_pay_amount") == "9.99"
+        assert (row.plan_json or {}).get("max_pay_amount") == "9.99"
+
+    # ② 边界：pay_cost == 阈值 → 放行（LT 10.00 ≤ 10.00 居首位）
+    CLIENT.put(f"/api/ops/decision/order-plans/{plan['id']}",
+               json={**plan_body, "max_pay_amount": "10.00"}, headers=h)
+    d = CLIENT.post("/api/ops/orders/decide", json=body, headers=h).json()
+    assert d["verdict"] == "pass" and d["coupon"]["coupon_code"] == "D-LT-10", d
+    assert d["cost_breakdown"]["pay_cost"] == "10.00"
+
+    # ③ 全被上限滤光：阈值降到 5 → DN 券标记已用后仅剩 LT（pay 10 > 5）→ blocked，
+    #    文案以「当前支付金额超过方案限制」开头并给出过滤前最优候选实付
+    CLIENT.put(f"/api/ops/decision/order-plans/{plan['id']}",
+               json={**plan_body, "max_pay_amount": "5"}, headers=h)
+    with _db() as db:
+        db.query(CouponRecord).filter(CouponRecord.coupon_code == "D-FACE-20").one().last_order_no = "USED"
+        db.commit()
+    d = CLIENT.post("/api/ops/orders/decide", json=body, headers=h).json()
+    assert d["verdict"] == "blocked", d
+    assert d["blocked_reason"].startswith("当前支付金额超过方案限制"), d["blocked_reason"]
+    assert "本单最优候选仍需支付 10.00 元" in d["blocked_reason"]
+    assert "超过方案「支付阈值方案」阈值 5.00 元" in d["blocked_reason"]
+
+    # ④ 原价兜底超限：allow_full_price=true 且无券可用 → 原价单支付额=total 20 > 5 → blocked
+    d = CLIENT.post("/api/ops/orders/decide",
+                    json={**body, "customer_price": "25.00", "allow_full_price": True},
+                    headers=h).json()
+    assert d["verdict"] == "blocked", d
+    assert d["blocked_reason"].startswith("当前支付金额超过方案限制"), d["blocked_reason"]
+    assert "原价单需支付 20.00 元，超过方案「支付阈值方案」阈值 5.00 元" in d["blocked_reason"]
+    assert d["coupon"] is None and d["cost_breakdown"]["pay_cost"] == "20.00"
+
+    # ⑤ 存量方案（绕过 schema 直写库）：空串=未配置 / 非法残留 → decide 422 默认拒绝
+    with _db() as db:
+        db.add(OrderPlan(name="存量空阈值方案", strategy="cost_first", drink_info="x",
+                         max_pay_amount="", enabled=True))
+        db.add(OrderPlan(name="存量非法阈值方案", strategy="cost_first", drink_info="x",
+                         max_pay_amount="abc残留", enabled=True))
+        db.commit()
+        empty_id = db.query(OrderPlan).filter(OrderPlan.name == "存量空阈值方案").one().id
+        bad_id = db.query(OrderPlan).filter(OrderPlan.name == "存量非法阈值方案").one().id
+    for legacy_id in (empty_id, bad_id):
+        r = CLIENT.post("/api/ops/orders/decide", json={**body, "plan_id": legacy_id}, headers=h)
+        assert r.status_code == 422, r.text
+        assert "已默认拒绝交易" in r.json()["detail"], r.text
+
+    # ⑥ 自动模式（plan_id=0）完全不受方案阈值影响：无 plan_max_pay_amount 键
+    d = CLIENT.post("/api/ops/orders/decide",
+                    json={**body, "plan_id": 0, "customer_price": "20.00"}, headers=h).json()
+    assert d["verdict"] == "pass" and d["coupon"]["coupon_code"] == "D-LT-10", d
+    assert "plan_max_pay_amount" not in d["threshold"]
+
+    # 清场
+    for name in ("支付阈值方案", "存量空阈值方案", "存量非法阈值方案"):
+        row = CLIENT.get("/api/ops/decision/order-plans", params={"keyword": name},
+                         headers=h).json()["items"]
+        if row:
+            CLIENT.delete(f"/api/ops/decision/order-plans/{row[0]['id']}", headers=h)
     _clear_decision_domain()
 
 

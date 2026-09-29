@@ -506,6 +506,7 @@ class OrderPlan(Base):
     name: Mapped[str] = mapped_column(String(64), unique=True, index=True)      # 方案名称
     strategy: Mapped[str] = mapped_column(String(16), default="cost_first")    # cost_first|zero_pay|expiry_first
     drink_info: Mapped[str] = mapped_column(String(255), default="")           # 饮品信息（方案级必填编辑框；下单选此方案时自动带入订单）
+    max_pay_amount: Mapped[str] = mapped_column(String(32), nullable=False, server_default="", default="")  # 方案级支付金额上限（元，空串=未配置；本单差额实付超限即拒单，未配置/非法 fail-closed 默认拒绝）
     note: Mapped[str] = mapped_column(String(255), default="")
     enabled: Mapped[bool] = mapped_column(Boolean, default=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.now)

@@ -480,8 +480,7 @@
               placeholder="下单方案" style="width: 210px" @clear="decidePlanId = 0"
               @change="onPlanChange">
               <el-option label="自动 · 系统推荐" :value="0" />
-              <el-option v-for="p in orderPlans" :key="p.id" :value="p.id"
-                :label="`${p.name}（${p.strategy_label}）`" />
+              <el-option v-for="p in orderPlans" :key="p.id" :value="p.id" :label="planOptionLabel(p)" />
             </el-select>
             <el-button type="primary" size="small" :loading="decideBusy" @click="runDecide">评估成本利润</el-button>
           </div>
@@ -531,7 +530,8 @@
                 </div>
                 <div v-else class="muted">推荐方案：不使用优惠券（原价单）</div>
                 <div v-if="decideResult.plan" class="decide-plan">
-                  方案：<b>{{ decideResult.plan.plan_name }}</b>（{{ decideResult.plan.strategy_label }}）
+                  方案：<b>{{ decideResult.plan.plan_name }}</b>（{{ decideResult.plan.strategy_label }}<span
+                    v-if="decideResult.plan.max_pay_amount"> · 支付金额上限 {{ decideResult.plan.max_pay_amount }} 元</span>）
                 </div>
                 <div class="muted">
                   推荐账号：{{ decideResult.account_label || decideResult.account_id || '—' }}
@@ -670,6 +670,13 @@ function onPlanChange(planId) {
     drinkInfo.value = String(plan.drink_info)
     drinkInfoError.value = false
   }
+}
+
+/* 方案下拉选项文案：名称（策略）+ 支付金额上限后缀；未配置时一并提示（该方案下单会被后端拒绝） */
+function planOptionLabel(p) {
+  const limit = p?.max_pay_amount
+  const suffix = limit ? ` · 上限 ${limit}` : ' · 上限未配置'
+  return `${p.name}（${p.strategy_label}）${suffix}`
 }
 
 async function loadOrderPlans() {

@@ -40,6 +40,12 @@
               </el-tag>
             </template>
           </el-table-column>
+          <el-table-column label="金额上限" width="96" align="center">
+            <template #default="{ row }">
+              <span v-if="row.max_pay_amount" class="mono">{{ row.max_pay_amount }} 元</span>
+              <el-tag v-else size="small" type="danger" effect="plain">未配置</el-tag>
+            </template>
+          </el-table-column>
           <el-table-column label="饮品信息" min-width="140">
             <template #default="{ row }">
               <span v-if="row.drink_info" :title="row.drink_info">{{ row.drink_info }}</span>
@@ -162,7 +168,7 @@
       <el-tabs v-model="dlgTab">
         <!-- Tab 1：基础信息 -->
         <el-tab-pane label="基础信息" name="base">
-          <el-form ref="formRef" :model="form" :rules="rules" label-width="90px">
+          <el-form ref="formRef" :model="form" :rules="rules" label-width="120px">
             <el-form-item label="方案名称" prop="name">
               <el-input v-model="form.name" maxlength="64" placeholder="如：DN券优先方案" />
             </el-form-item>
@@ -172,6 +178,10 @@
                   {{ s.label }}<span class="muted strategy-hint">{{ s.hint }}</span>
                 </el-radio>
               </el-radio-group>
+            </el-form-item>
+            <el-form-item label="支付金额上限(元)" prop="max_pay_amount">
+              <el-input v-model="form.max_pay_amount" placeholder="如 15.70，本方案下单实付金额不得超过该值" clearable />
+              <div class="muted form-hint">安全限制：超过该金额的订单将被拒绝；未配置时后端默认拒绝交易</div>
             </el-form-item>
             <el-form-item label="饮品信息" prop="drink_info">
               <el-input v-model="form.drink_info" type="textarea" :rows="2" maxlength="200"
@@ -465,11 +475,16 @@ const editingId = ref(null)
 const dlgTab = ref('base')
 const form = reactive({
   name: '', strategy: 'cost_first', drink_info: '', enabled: true, note: '',
+  max_pay_amount: '',   // 支付金额上限（元）：新增默认空串，靠必填校验强制填写
   priorities: [], drinks: [],
 })
 const rules = {
   name: [{ required: true, message: '请输入方案名称', trigger: 'blur' }],
   drink_info: [{ required: true, message: '饮品信息为必填项，请填写饮品相关信息后再保存方案', trigger: 'blur' }],
+  max_pay_amount: [
+    { required: true, message: '支付金额上限须为非负金额（如 15.70）', trigger: 'blur' },
+    { pattern: /^\d+(\.\d{1,2})?$/, message: '支付金额上限须为非负金额（如 15.70）', trigger: 'blur' },
+  ],
 }
 
 const selectedSkuSet = computed(() => new Set(form.drinks.map((d) => d.sku_id)))
@@ -483,6 +498,7 @@ function openCreate() {
   dlgTab.value = 'base'
   Object.assign(form, {
     name: '', strategy: 'cost_first', drink_info: '', enabled: true, note: '',
+    max_pay_amount: '',
     priorities: [newTierRow(), newTierRow()],   // 两行示例引导（首行提示典型用法）
     drinks: [],
   })
@@ -498,6 +514,7 @@ function openEdit(row) {
     drink_info: row.drink_info || '',
     enabled: !!row.enabled,
     note: row.note || '',
+    max_pay_amount: row.max_pay_amount ? String(row.max_pay_amount) : '',   // 旧方案未配置时回空串，保存时强制补填
     drinks: (row.drinks || []).map((d) => ({
       spu_id: d.spu_id || '', sku_id: d.sku_id,
       drink_name: d.drink_name || '', face_price: d.face_price || '',
@@ -522,6 +539,7 @@ async function save() {
   const payload = {
     name: form.name.trim(),
     strategy: form.strategy,
+    max_pay_amount: form.max_pay_amount.trim(),   // 必填：未配置时后端拒绝该方案下单
     drink_info: form.drink_info.trim(),
     note: form.note,
     enabled: form.enabled,
@@ -863,6 +881,12 @@ onMounted(() => {
   font-size: 12px;
   margin-left: 6px;
   font-weight: 400;
+}
+/* 表单项下方 muted 小字说明（支付金额上限安全限制提示等） */
+.form-hint {
+  font-size: 12px;
+  line-height: 1.6;
+  margin-top: 2px;
 }
 .tier-rank {
   display: flex;
