@@ -39,10 +39,11 @@ _DATA_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(
     os.path.abspath(__file__)))), "data")
 _CONFIG_PATH = os.path.join(_DATA_DIR, "decision_config.json")
 
-# 全局配置默认值（契约 §2）
+# 全局配置默认值（契约 §2/§10）
 DEFAULT_CONFIG = {
     "min_profit": "2.00",          # 全局每单最低利润（元）
     "min_margin": "",              # 全局最低利润率%（空=不启用）
+    "max_order_cost": "",          # 全局最大承受下单金额（成本上限，元；空=不限，套餐级可覆盖）
     "overhead": "0",               # 每单杂费（元）
     "cost_fallback_ratio": "1.0",  # 成本规则未命中时按面额×该系数保守计
 }
@@ -334,10 +335,11 @@ def evaluate_cost(revenue, total, deduction, voucher_cost, overhead) -> dict:
     }
 
 
-def check_threshold(breakdown, min_profit, min_margin):
-    """阈值判定（契约 §4）：profit < min_profit 或 margin < min_margin → ("blocked", 原因)，
-    否则 ("pass", "")。min_profit/min_margin 空=不校验该项；margin 为空
-    （revenue<=0 无法计算）时跳过利润率校验。"""
+def check_threshold(breakdown, min_profit, min_margin, max_order_cost=""):
+    """阈值判定（契约 §4/§10）：profit < min_profit、margin < min_margin、
+    total_cost > max_order_cost 任一触发 → ("blocked", 原因)，否则 ("pass", "")。
+    各阈值空=不校验该项；margin 为空（revenue<=0 无法计算）时跳过利润率校验。
+    max_order_cost=最大承受下单金额（成本上限，与 min_profit 利润下限互补）。"""
     breakdown = breakdown or {}
     profit = _dec(breakdown.get("profit"))
     min_profit_s = str(min_profit or "").strip()
@@ -347,14 +349,21 @@ def check_threshold(breakdown, min_profit, min_margin):
     min_margin_s = str(min_margin or "").strip()
     if min_margin_s and margin_s and _dec(margin_s) < _dec(min_margin_s):
         return "blocked", f"利润率 {margin_s}% 低于最低利润率 {_dec(min_margin_s)}%"
+    max_cost_s = str(max_order_cost or "").strip()
+    if max_cost_s and _dec(breakdown.get("total_cost")) > _dec(max_cost_s):
+        return "blocked", (f"订单成本 {_money(breakdown.get('total_cost'))} 元"
+                           f"超过最大承受金额 {_money(max_cost_s)} 元")
     return "pass", ""
 
 
-def rank_candidates(candidates, revenue, total, overhead, min_profit, min_margin) -> list[dict]:
-    """候选券评估排序（契约 §4）：candidates 每项
-    {record, cost, source, kind, face, rate}，逐个算 cost_breakdown（补充
-    deduction_estimated/cost_source/coupon_kind，构成完整 §5 成本明细）+ 阈值判定，
-    仅保留 pass，按 total_cost 升序、同成本面额大者优先。
+def rank_candidates(candidates, revenue, total, overhead, min_profit, min_margin,
+                    max_order_cost="") -> list[dict]:
+    """候选券评估排序（契约 §4/§10 四级漏斗的第 2/3 级）：candidates 每项
+    {record, cost, source, kind, face, rate, use_end_time?}，逐个算 cost_breakdown
+    （补充 deduction_estimated/cost_source/coupon_kind）+ 三阈值判定（min_profit /
+    min_margin / max_order_cost），仅保留 pass，按
+    total_cost 升序 → 同成本面额大者优先 → 同成本同面额有效期近者优先（临期因子，
+    cand["use_end_time"] 毫秒时间戳升序，None 排最后）。
     每个返回元素：{record, cost, source, kind, face, rate, cost_breakdown, verdict, reason}。"""
     ranked = []
     for cand in (candidates or []):
@@ -369,7 +378,7 @@ def rank_candidates(candidates, revenue, total, overhead, min_profit, min_margin
         breakdown["deduction_estimated"] = estimated
         breakdown["cost_source"] = source
         breakdown["coupon_kind"] = kind
-        verdict, reason = check_threshold(breakdown, min_profit, min_margin)
+        verdict, reason = check_threshold(breakdown, min_profit, min_margin, max_order_cost)
         if verdict != "pass":
             continue
         ranked.append({
@@ -379,13 +388,16 @@ def rank_candidates(candidates, revenue, total, overhead, min_profit, min_margin
             "kind": kind,
             "face": face,
             "rate": rate,
+            "use_end_time": cand.get("use_end_time"),
             "cost_breakdown": breakdown,
             "verdict": verdict,
             "reason": reason,
         })
+    _BIG = 2 ** 62   # 临期排序哨兵：无 use_end_time（如 unknown 券型）排最后
     ranked.sort(key=lambda x: (
-        _dec(x["cost_breakdown"]["total_cost"]),                        # total_cost 升序
-        -(_dec(x["face"]) if x["face"] is not None else Decimal("0")),  # 同成本面额大者优先
+        _dec(x["cost_breakdown"]["total_cost"]),                        # ① total_cost 升序
+        -(_dec(x["face"]) if x["face"] is not None else Decimal("0")),  # ② 同成本面额大者优先
+        int(x.get("use_end_time") or _BIG),                             # ③ 同成本同面额临期优先
     ))
     return ranked
 

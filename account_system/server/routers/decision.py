@@ -108,7 +108,7 @@ def _packet_summary(p: PacketConfig, item_count: int) -> dict:
         "id": p.id, "name": p.name, "open_flag": bool(p.open_flag),
         "min_order_amount": p.min_order_amount, "max_order_amount": p.max_order_amount,
         "available_start": p.available_start, "available_end": p.available_end,
-        "min_profit": p.min_profit, "note": p.note,
+        "min_profit": p.min_profit, "max_order_cost": p.max_order_cost, "note": p.note,
         "item_count": int(item_count or 0),
         "created_at": _fmt_dt(p.created_at), "updated_at": _fmt_dt(p.updated_at),
     }
@@ -228,6 +228,7 @@ def packet_create(body: PacketCreateRequest, request: Request,
         available_start=body.available_start or "",
         available_end=body.available_end or "",
         min_profit=body.min_profit or "",
+        max_order_cost=body.max_order_cost or "",
         note=body.note or "",
     )
     _build_packet_items(packet, body.items)
@@ -266,6 +267,7 @@ def packet_update(packet_id: int, body: PacketCreateRequest, request: Request,
     packet.available_start = body.available_start or ""
     packet.available_end = body.available_end or ""
     packet.min_profit = body.min_profit or ""
+    packet.max_order_cost = body.max_order_cost or ""
     packet.note = body.note or ""
     # items 全量替换：清空集合由 cascade delete-orphan 兜底删除旧行后重建。
     # 先 flush 落 DELETE：SQLAlchemy 单次 flush 内同表 INSERT 先于 DELETE，若新行与旧行
@@ -976,7 +978,8 @@ def orders_decide(body: DecideRequest, request: Request,
         cost_res = decision_svc.resolve_cost(rules, r, cfg)
         candidates.append({"record": r, "cost": cost_res["cost"],
                            "source": cost_res["source"],
-                           "kind": cls["kind"], "face": cls["face"], "rate": cls["rate"]})
+                           "kind": cls["kind"], "face": cls["face"], "rate": cls["rate"],
+                           "use_end_time": r.use_end_time})   # 临期排序因子（§10 第③级）
 
     # ⑥ 套餐 item 券规则过滤：is_premium 商品只留 premium 规则命中者，规则 null=不限
     if item is not None:
@@ -984,20 +987,30 @@ def orders_decide(body: DecideRequest, request: Request,
         if rule:
             candidates = [c for c in candidates if _item_rule_hit(rule, c["record"])]
 
-    # 阈值来源：套餐级 min_profit 覆盖全局；min_margin 恒取全局
+    # 阈值来源：套餐级 min_profit / max_order_cost 任一非空即视为套餐覆盖（source=packet）；
+    # min_margin 恒取全局
     threshold_json = {"min_profit": "", "min_margin": str(cfg.get("min_margin") or ""),
-                      "source": "global"}
+                      "max_order_cost": "", "source": "global"}
+    packet_override = False
     if packet is not None and str(packet.min_profit or "").strip():
         threshold_json["min_profit"] = str(packet.min_profit).strip()
-        threshold_json["source"] = "packet"
+        packet_override = True
     else:
         threshold_json["min_profit"] = str(cfg.get("min_profit") or "")
+    if packet is not None and str(getattr(packet, "max_order_cost", "") or "").strip():
+        threshold_json["max_order_cost"] = str(packet.max_order_cost).strip()
+        packet_override = True
+    else:
+        threshold_json["max_order_cost"] = str(cfg.get("max_order_cost") or "")
+    if packet_override:
+        threshold_json["source"] = "packet"
     overhead = str(cfg.get("overhead") or "0")
 
     def _rank(t: Decimal) -> list[dict]:
         return decision_svc.rank_candidates(candidates, _money(revenue), _money(t),
                                             overhead, threshold_json["min_profit"],
-                                            threshold_json["min_margin"])
+                                            threshold_json["min_margin"],
+                                            threshold_json["max_order_cost"])
 
     ranked = _rank(total)
     # deep=true：对 top1 候选账号真实 settle 探针取服务端总额后重排（失败降级 menu 估值）
@@ -1034,7 +1047,8 @@ def orders_decide(body: DecideRequest, request: Request,
     elif body.allow_full_price:
         b = _full_price_breakdown()
         v, reason = decision_svc.check_threshold(b, threshold_json["min_profit"],
-                                                 threshold_json["min_margin"])
+                                                 threshold_json["min_margin"],
+                                                 threshold_json["max_order_cost"])
         if v == "pass":
             breakdown = b
         else:
@@ -1049,7 +1063,8 @@ def orders_decide(body: DecideRequest, request: Request,
             b["cost_source"] = c["source"]
             b["coupon_kind"] = c["kind"]
             v, reason = decision_svc.check_threshold(b, threshold_json["min_profit"],
-                                                     threshold_json["min_margin"])
+                                                     threshold_json["min_margin"],
+                                                     threshold_json["max_order_cost"])
             if best is None or _to_dec(b["total_cost"]) < _to_dec(best[2]["total_cost"]):
                 best = (c["record"], (v, reason), b)
         chosen, (_v, reason), breakdown = best
@@ -1096,6 +1111,7 @@ def orders_decide(body: DecideRequest, request: Request,
             "coupon_code": rec.coupon_code, "template_name": rec.template_name,
             "total_cost": alt["cost_breakdown"]["total_cost"],
             "profit": alt["cost_breakdown"]["profit"],
+            "use_end_time": rec.use_end_time,
         })
 
     # settle 直发预填（字段名对齐 OrderSettleRequest；skuName 缺省回退 SPU 名）

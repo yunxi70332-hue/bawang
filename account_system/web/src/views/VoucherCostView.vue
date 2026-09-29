@@ -147,6 +147,9 @@
           <el-form-item label="全局最低利润率（%）">
             <el-input v-model="config.min_margin" placeholder="留空 = 不启用（不带 % 号）" style="width: 240px" />
           </el-form-item>
+          <el-form-item label="全局最大承受下单金额（元）">
+            <el-input v-model="config.max_order_cost" placeholder="留空 = 不限（成本上限，超过即拦截出单）" style="width: 320px" />
+          </el-form-item>
           <el-form-item label="每单杂费（元）">
             <el-input v-model="config.overhead" placeholder="0" style="width: 240px" />
           </el-form-item>
@@ -157,7 +160,7 @@
             <el-button type="primary" :loading="savingConfig" @click="saveConfig">保存配置</el-button>
           </el-form-item>
         </el-form>
-        <p class="muted config-note">套餐级 min_profit 非空时覆盖全局最低利润；其余三项全局生效（写入 data/decision_config.json）。</p>
+        <p class="muted config-note">套餐级 min_profit / max_order_cost 非空时覆盖全局同名项；其余全局生效（写入 data/decision_config.json）。</p>
       </el-tab-pane>
     </el-tabs>
 
@@ -593,7 +596,7 @@ async function doImport() {
 /* ---------------- Tab3：决策配置 ---------------- */
 const loadingConfig = ref(false)
 const savingConfig = ref(false)
-const config = reactive({ min_profit: '', min_margin: '', overhead: '', cost_fallback_ratio: '' })
+const config = reactive({ min_profit: '', min_margin: '', max_order_cost: '', overhead: '', cost_fallback_ratio: '' })
 
 async function loadConfig() {
   loadingConfig.value = true
@@ -602,6 +605,7 @@ async function loadConfig() {
     Object.assign(config, {
       min_profit: data.min_profit ?? '',
       min_margin: data.min_margin ?? '',
+      max_order_cost: data.max_order_cost ?? '',
       overhead: data.overhead ?? '0',
       cost_fallback_ratio: data.cost_fallback_ratio ?? '1.0',
     })
@@ -616,6 +620,7 @@ async function saveConfig() {
     const res = await apiDecision.configPut({
       min_profit: String(config.min_profit).trim(),
       min_margin: String(config.min_margin).trim(),
+      max_order_cost: String(config.max_order_cost).trim(),
       overhead: String(config.overhead).trim() || '0',
       cost_fallback_ratio: String(config.cost_fallback_ratio).trim() || '1.0',
     })

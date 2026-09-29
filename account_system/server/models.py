@@ -374,6 +374,7 @@ class PacketConfig(Base):
     available_start: Mapped[str] = mapped_column(String(8), default="")       # 可用时段开始 "00:00:00"，空=不限
     available_end: Mapped[str] = mapped_column(String(8), default="")         # 可用时段结束，空=不限
     min_profit: Mapped[str] = mapped_column(String(16), default="")           # 套餐级最低利润覆盖（元），空=用全局
+    max_order_cost: Mapped[str] = mapped_column(String(16), default="")       # 套餐级最大承受下单金额覆盖（元），空=用全局（§10）
     note: Mapped[str] = mapped_column(String(255), default="")
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.now)
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.now, onupdate=datetime.now)

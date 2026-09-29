@@ -231,3 +231,17 @@ api/index.js 新增 `apiDecision`（全部端点封装）：`packets(params)` `p
 - `GET /api/ops/coupons/search`（优惠券查询模块联动，权限不变 feature:coupon）：行加 cost_price/cost_source/cost_category_id/cost_category_name/biz_type（fail-soft）；新参数 `cost_category`（0=不筛，**-1=未分类**——前端档案库筛选项约定值）；stats.by_category 为 {category_id: count}（**含全部桶**，与子类统计的两桶口径区分）
 - coupon-inventory 行加 cost_category_* 三字段；scan 汇总加 by_category；decide 的 cost_breakdown 加 cost_category_name
 - 前端：VoucherCostView 首位 Tab「成本子类」（CRUD+统计+查看券跳转 /ops/coupons?tab=archive&cost_category=id）；CouponQueryView 档案库加「成本/子类」列+子类筛选（fail-soft）+路由深链预设
+
+## 10. 券选择优先级 + 自动切换 + 最大承受金额（2026-09-29）
+
+**四级漏斗（券选择优先级的规范表述）**：
+1. 资格（硬性）：在线账号 → 桶∈effective/settle_available → last_order_no 空 → 有效期 → can_discount → 满减门槛≤总额 → 套餐券规则（is_premium 只认溢价券规则，null=不限）
+2. 成本合格（硬性）：min_profit / min_margin / **max_order_cost** 三阈值任一不过即出局
+3. 排序（软性）：total_cost 升序 → 同成本面额大者优先 → 同成本同面额 **use_end_time 近者优先（临期因子）**
+4. 兜底：无合格券 → allow_full_price 评估原价单，否则 blocked
+
+**库存检查两阶段**：decide=档案库口径预筛；create=服务端实时事实（试算在列+五重验证+settle 复跑）——create 阶段失败即触发自动切换。
+
+**auto_fallback（OrderCreateRequest.auto_fallback: bool，默认 false）**：true 时首选券（不在列/验证拒绝/settle 复跑异常）→ `_fallback_rank_codes` 从 draft.settle_base.available_coupons 按四级漏斗排次优（阈值口径：带 decision_log_id 复用其 threshold_json+revenue，否则全局且利润类跳过、仅 max_order_cost 生效）→ 逐张完整验证+settle 复跑，最多 3 张；跳过记 CouponUsageLog(rejected, fail_reason 前缀「券自动切换跳过」)+oplog coupon.fallback_skip；耗尽 400「券自动切换全部失败，已尝试…」；成单记实际用券 + oplog coupon.fallback_applied；createOrder 不在重试范围。跨账号切换不在本期（decide 推荐已覆盖）。
+
+**max_order_cost（最大承受下单金额）**：`total_cost > max_order_cost` → blocked「订单成本 X 元超过最大承受金额 Y 元」。全局 decision_config.json（默认 ""=不限）+ 套餐级 packet_configs.max_order_cost 覆盖（任一套餐级阈值非空 → threshold.source="packet"）；check_threshold 追加第 4 参数（默认 "" 向后兼容）；rank_candidates 排序键第 ③ 因子=use_end_time；decide 响应 threshold 块与 alternatives 元素均含 max_order_cost/use_end_time。

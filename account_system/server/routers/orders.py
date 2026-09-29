@@ -346,7 +346,8 @@ def _backfill_decision_log(db: Session, body: OrderCreateRequest, account: Chage
         return
     row.order_no = order_no
     row.account_id = account.id
-    if not str(row.coupon_code or "").strip() and coupon_code:
+    # 一律写实际用券：券自动切换（§10）后实际券可能与决策推荐不同，流水以事实为准
+    if coupon_code:
         row.coupon_code = coupon_code
     row.deduction_actual = deduction
     row.pay_actual = pay_actual
@@ -503,6 +504,50 @@ def order_settle(account_id: int, body: OrderSettleRequest, request: Request,
 
 # ---------------- F5：下单（zero / partial 双分支） ----------------
 
+def _fallback_rank_codes(db: Session, draft: dict, primary_code: str, body) -> list[str]:
+    """券自动切换的次优候选序列（§10 四级漏斗第 2/3 级）：从本次试算在列券
+    （settle_base.available_coupons = 服务端对本账号+购物车的权威可用集）构建候选，
+    按成本规则折算 + 阈值过滤 + 三因子排序（成本→面额→临期），返回券码列表（不含首选）。
+
+    阈值口径：带 decision_log_id 时复用该决策流水的 threshold_json 与 revenue（与决策
+    一致）；否则用全局配置且 revenue 未知 → 利润类阈值跳过、仅 max_order_cost 成本上限
+    生效（执行期兜底语义——create 语境没有客户支付价，无法算利润）。"""
+    entries = [e for e in (draft["settle_base"].available_coupons or [])
+               if str(e.get("couponCode") or "") not in ("", primary_code)]
+    if not entries:
+        return []
+    rules = db.query(VoucherCostRule).all()
+    cfg = decision_svc.load_config()
+    min_profit = min_margin = max_cost = revenue = ""
+    if int(getattr(body, "decision_log_id", 0) or 0):
+        row = db.get(DecisionLog, int(body.decision_log_id))
+        if row is not None:
+            tj = row.threshold_json or {}
+            min_profit = str(tj.get("min_profit") or "")
+            min_margin = str(tj.get("min_margin") or "")
+            max_cost = str(tj.get("max_order_cost") or "")
+            revenue = str(row.revenue or "")
+    else:
+        min_profit = str(cfg.get("min_profit") or "")
+        min_margin = str(cfg.get("min_margin") or "")
+        max_cost = str(cfg.get("max_order_cost") or "")
+    candidates = []
+    for e in entries:
+        code = str(e.get("couponCode") or "")
+        tname = str(e.get("templateName") or "")
+        btext = str(e.get("benefitText") or "")
+        cls = decision_svc.classify_coupon(btext, str(e.get("benefit2Text") or ""), tname, "")
+        rec = {"coupon_code": code, "template_name": tname, "benefit_text": btext,
+               "amount": str(cls["face"]) if cls["face"] is not None else ""}
+        cost = decision_svc.resolve_cost(rules, rec, cfg)
+        candidates.append({"record": rec, "cost": cost["cost"], "source": cost["source"],
+                           "kind": cls["kind"], "face": cls["face"], "rate": cls["rate"],
+                           "use_end_time": e.get("useEndTime")})
+    ranked = decision_svc.rank_candidates(
+        candidates, revenue, draft["settle_base"].total_trade_price,
+        str(cfg.get("overhead") or "0"), min_profit, min_margin, max_cost)
+    return [c["record"]["coupon_code"] for c in ranked]
+
 @router.post("/create")
 def order_create(account_id: int, body: OrderCreateRequest, request: Request,
                  db: Session = Depends(get_db),
@@ -548,7 +593,7 @@ def order_create(account_id: int, body: OrderCreateRequest, request: Request,
 
     coupon_code = (body.coupon_code or "").strip()
     coupon_entry = None
-    if coupon_code:
+    if coupon_code and not body.auto_fallback:
         # ⑤ 试算在列：券必须出现在本次试算的可用券列表（服务端对该账号/门店/购物车语境的可用集合）
         coupon_entry = next((c for c in draft["settle_base"].available_coupons
                              if str(c.get("couponCode")) == coupon_code), None)
@@ -574,7 +619,51 @@ def order_create(account_id: int, body: OrderCreateRequest, request: Request,
         settle = draft["settle_base"]
         rows = None
         coupon_deduction = Decimal(0)
-        if coupon_entry is not None:
+        if coupon_code and body.auto_fallback:
+            # —— 券自动切换（§10）：验证失败/不在列/settle 复跑券相关异常 → 次优券重试 ——
+            # 候选序列 = 首选 + 按四级漏斗重排的本次试算在列券（同账号），最多试 3 张（含首选）；
+            # 每张被跳过的券记 rejected 使用日志（fail_reason 带「券自动切换跳过」前缀）+ oplog，
+            # 全部耗尽 → 400 列明各券失败原因。createOrder 本身不在重试范围（成单边界）。
+            queue = [coupon_code] + _fallback_rank_codes(db, draft, coupon_code, body)
+            tried = []
+            extras = [api.build_extra_entry(o) for o in (draft.get("extra_list") or [])]
+            for code in queue[:3]:
+                entry = next((c for c in draft["settle_base"].available_coupons
+                              if str(c.get("couponCode")) == code), None)
+                reject = ("券不在本次试算可用券列表中（已被使用/失效或服务端不再认可）"
+                          if entry is None else _validate_coupon(db, account, draft, code, entry))
+                if reject is None:
+                    try:
+                        settle = api.settle_direct(draft["target"], draft.get("price") or {},
+                                                   coupon_entry=entry, extra_entries=extras)
+                    except Exception as se:   # 服务端对该券的实时拒绝（券态变化）→ 降级下一张
+                        db.rollback()
+                        reject = f"settle复跑异常: {type(se).__name__}: {se}"[:120]
+                if reject:
+                    tried.append(f"{code}（{reject}）")
+                    _log_coupon_usage(db, account, user, code,
+                                      (entry or {}).get("templateName") or "", "rejected",
+                                      fail_reason=f"[券自动切换跳过] {reject}")
+                    log_op(level="INFO", action="coupon.fallback_skip", actor=user.username,
+                           target=f"{account.label}#{account.id}", result="rejected",
+                           params={"coupon_code": code, "reason": reject})
+                    continue
+                coupon_entry, coupon_code = entry, code
+                # 下单抵扣行权威口径与原路径一致（服务端回填 discountList 优先）
+                rows = settle.discount_rows_for(code) or [
+                    api.build_discount_row(entry,
+                                           api.expected_deduction(entry, settle.total_trade_price))]
+                coupon_deduction = Decimal(str((settle.trade_fund_info or {})
+                                               .get("totalDiscountAmount") or "0"))
+                break
+            if coupon_entry is None:
+                raise HTTPException(400, "券自动切换全部失败，已尝试 " + "；".join(tried))
+            if coupon_code != (body.coupon_code or "").strip():
+                log_op(level="INFO", action="coupon.fallback_applied", actor=user.username,
+                       target=f"{account.label}#{account.id}", result="ok",
+                       params={"from": body.coupon_code, "to": coupon_code,
+                               "tried": tried})
+        elif coupon_entry is not None:
             # 选券复跑直连试算，取服务端回填金额后的最终 SettleResult（金额自动抵扣的服务端事实）
             settle = api.settle_direct(draft["target"], draft.get("price") or {},
                                        coupon_entry=coupon_entry,
@@ -588,6 +677,8 @@ def order_create(account_id: int, body: OrderCreateRequest, request: Request,
                                        api.expected_deduction(coupon_entry, settle.total_trade_price))]
             coupon_deduction = Decimal(str((settle.trade_fund_info or {}).get("totalDiscountAmount") or "0"))
         outcome = api.create_order(settle, draft["store_no"], draft["store_name"] or "", rows)
+    except HTTPException:
+        raise   # fallback 耗尽等业务 400 直通，不被 _fail 改写为协议错误
     except Exception as e:
         if coupon_code:
             _log_coupon_usage(db, account, user, coupon_code,

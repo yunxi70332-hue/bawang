@@ -68,8 +68,9 @@ import seed  # noqa: E402
 from fastapi.testclient import TestClient  # noqa: E402
 
 import app as app_module  # noqa: E402
-from models import (ChageeAccount, CouponRecord, DecisionLog, PacketConfig,  # noqa: E402
-                    Role, SystemUser, VoucherCostCategory, VoucherCostRule)
+from models import (ChageeAccount, CouponRecord, CouponUsageLog, DecisionLog,  # noqa: E402
+                    OrderRecord, PacketConfig, Role, SystemUser,
+                    VoucherCostCategory, VoucherCostRule)
 from security import hash_password  # noqa: E402
 from services import chagee_bridge as bridge  # noqa: E402
 from services import decision as dsvc  # noqa: E402
@@ -785,7 +786,8 @@ def test_15_decide_pass_blocked_and_packet():
     assert b["voucher_cost"] == "8.00" and b["pay_cost"] == "0.00"
     assert b["total_cost"] == "8.00" and b["profit"] == "4.00" and b["margin"] == "33.3"
     assert b["cost_source"].startswith("rule:") and b["coupon_kind"] == "face"
-    assert d["threshold"] == {"min_profit": "2.00", "min_margin": "", "source": "global"}
+    assert d["threshold"] == {"min_profit": "2.00", "min_margin": "", "max_order_cost": "",
+                              "source": "global"}
     assert len(d["alternatives"]) == 1                     # B 账号 9.5 元成本券为备选
     assert d["alternatives"][0]["account_id"] == ACC2_ID
     assert d["alternatives"][0]["total_cost"] == "9.50" and d["alternatives"][0]["profit"] == "2.50"
@@ -829,7 +831,8 @@ def test_15_decide_pass_blocked_and_packet():
     d = r.json()
     assert d["packet"]["id"] == pid and d["packet"]["name"] == "决策评估套餐"
     assert d["item"]["sku_id"] == BYJX_SKU_BIG
-    assert d["threshold"] == {"min_profit": "1.50", "min_margin": "", "source": "packet"}
+    assert d["threshold"] == {"min_profit": "1.50", "min_margin": "", "max_order_cost": "",
+                              "source": "packet"}
     assert d["cost_breakdown"]["voucher_cost"] == "8.00"   # item 券规则（含代金券）命中 D-FACE-20
 
     # ---- packet_id 未命中（区间不符）→ 422 ----
@@ -942,7 +945,7 @@ def test_17_order_create_backfills_decision_log():
         row = db.get(DecisionLog, log_id)
         assert row.order_no == ORDER_NO
         assert row.account_id == ACC_ID
-        assert row.coupon_code == "D-FACE-20"          # 原行非空不覆盖（decide 选中的券）
+        assert row.coupon_code == COUPON_HYW           # 一律写实际用券（§10：create 实际用的 HYW）
         assert row.deduction_actual == "20.00"         # settle 复跑的服务端确认抵扣
         assert row.pay_actual == "0"                   # 零元单实付
         assert row.plan_json.get("order_no") == ORDER_NO
@@ -1157,6 +1160,128 @@ def test_22_cost_category_crud_and_linkage():
                 CouponRecord.coupon_code.in_(codes)).delete(synchronize_session=False)
             db.commit()
         _clear_decision_domain()
+
+
+# ---------- 6. 最大承受金额 + 券自动切换（2026-09-29 §10） ----------
+
+_SETTLE_BODY = {
+    "store_no": STORE_NO, "store_name": "离线测试店",
+    "spu_id": "625339451983278080", "spu_name": "伯牙绝弦",
+    "sku_id": BYJX_SKU_BIG, "sku_name": "伯牙绝弦",
+    "item_sku_id": BYJX_SKU_BIG, "quantity": 1, "sale_price": 20.0,
+    "spec_list": [{"specId": "653599312273510400", "specOptionId": "653599312273510402"}],
+    "image_url": "", "spu_type": "stand",
+}
+
+
+def _bad_entry(code="BAD-EXPIRED"):
+    """首选坏券的试算在列条目：有效期已过（验证③必拒）但服务端仍返回在列的形态。"""
+    return {"couponCode": code, "templateName": "霸王茶姬20元代金券-BAD",
+            "benefitText": "20元", "canDiscount": True,
+            "useStartTime": NOW_MS - 86400000, "useEndTime": NOW_MS - 10000,
+            "thresholdTips": ""}
+
+
+def test_23_max_order_cost_threshold():
+    """最大承受下单金额（§10）：全局 max_order_cost 拦截/放行 + 套餐级覆盖/回落。"""
+    _clear_decision_domain()
+    h = _auth()
+    default_cfg = {"min_profit": "2.00", "min_margin": "", "max_order_cost": "",
+                   "overhead": "0", "cost_fallback_ratio": "1.0"}
+    try:
+        with _db() as db:
+            db.query(CouponRecord).delete()
+            db.commit()
+        CLIENT.post("/api/ops/decision/cost-rules", headers=h, json={
+            "name": "代金券成本", "match_type": "template_contains", "match_value": "代金券",
+            "face_value": "", "cost_price": "8.00", "priority": 10, "enabled": True, "note": ""})
+        _add_coupon("D-FACE-20", "霸王茶姬20元代金券-DT", "20元", "20")   # 成本8 → total_cost 8
+        decide_body = {"sku_id": BYJX_SKU_BIG, "quantity": 1, "spec_list": [],
+                       "store_no": STORE_NO, "customer_price": "12.00"}
+        # 全局 max=7：total_cost 8 → blocked（利润 4 仍达标，纯成本上限拦截）
+        CLIENT.put("/api/ops/decision/config", headers=h,
+                   json={**default_cfg, "max_order_cost": "7"})
+        j = CLIENT.post("/api/ops/orders/decide", json=decide_body, headers=h).json()
+        assert j["verdict"] == "blocked", j
+        assert "超过最大承受金额 7.00" in j["blocked_reason"], j["blocked_reason"]
+        assert j["threshold"]["max_order_cost"] == "7" and j["threshold"]["source"] == "global"
+        # 全局放回不限 → pass
+        CLIENT.put("/api/ops/decision/config", headers=h, json=default_cfg)
+        j = CLIENT.post("/api/ops/orders/decide", json=decide_body, headers=h).json()
+        assert j["verdict"] == "pass" and j["threshold"]["max_order_cost"] == "", j["threshold"]
+        # 套餐级覆盖：max=7 → blocked（source=packet）；清空回落全局
+        pid = CLIENT.post("/api/ops/decision/packets", headers=h, json={
+            "name": "最大承受测试套餐", "min_order_amount": "11", "max_order_amount": "15",
+            "max_order_cost": "7", "items": []}).json()["id"]
+        j = CLIENT.post("/api/ops/orders/decide",
+                        json={**decide_body, "packet_id": pid}, headers=h).json()
+        assert j["verdict"] == "blocked" and j["threshold"]["source"] == "packet"
+        assert j["threshold"]["max_order_cost"] == "7", j["threshold"]
+        CLIENT.put(f"/api/ops/decision/packets/{pid}", headers=h, json={
+            "name": "最大承受测试套餐", "min_order_amount": "11", "max_order_amount": "15",
+            "max_order_cost": "", "items": []})
+        j = CLIENT.post("/api/ops/orders/decide",
+                        json={**decide_body, "packet_id": pid}, headers=h).json()
+        assert j["verdict"] == "pass" and j["threshold"]["max_order_cost"] == ""
+    finally:
+        CLIENT.put("/api/ops/decision/config", headers=h, json=default_cfg)
+        _clear_decision_domain()
+
+
+def test_24_order_create_auto_fallback():
+    """券自动切换（§10）：首选过期券 → 自动降级试算在列次优券成单；耗尽 → 400 列明原因。"""
+    from routers import orders as orders_router   # _drafts 注入坏券条目
+
+    _clear_decision_domain()
+    h = _auth()
+    with _db() as db:
+        db.query(CouponRecord).delete()
+        db.commit()
+    CLIENT.post("/api/ops/decision/cost-rules", headers=h, json={
+        "name": "代金券成本", "match_type": "template_contains", "match_value": "代金券",
+        "face_value": "", "cost_price": "8.00", "priority": 10, "enabled": True, "note": ""})
+    _add_coupon("D-FACE-20", "霸王茶姬20元代金券-DT", "20元", "20")
+
+    # ① 耗尽：试算在列仅一张坏券 → 400 且 detail 列明原因
+    r = CLIENT.post(f"/api/ops/accounts/{ACC_ID}/orders/settle",
+                    json=_SETTLE_BODY, headers=h)
+    assert r.status_code == 200, r.text
+    draft_id = r.json()["draft_id"]
+    with orders_router._draft_lock:
+        orders_router._drafts[ACC_ID]["settle_base"].available_coupons = [_bad_entry()]
+    r = CLIENT.post(f"/api/ops/accounts/{ACC_ID}/orders/create",
+                    json={"draft_id": draft_id, "coupon_code": "BAD-EXPIRED",
+                          "auto_fallback": True}, headers=h)
+    assert r.status_code == 400 and "券自动切换全部失败" in r.json()["detail"], r.text
+    assert "BAD-EXPIRED" in r.json()["detail"]
+
+    # ② 降级成功：decide 评估 → 注入坏券为首选 + HYW 在列 → 自动切换 HYW 成单
+    decide = CLIENT.post("/api/ops/orders/decide", json={
+        "sku_id": BYJX_SKU_BIG, "quantity": 1, "spec_list": [], "store_no": STORE_NO,
+        "customer_price": "12.00"}, headers=h).json()
+    assert decide["verdict"] == "pass", decide
+    log_id = decide["decision_log_id"]
+    r = CLIENT.post(f"/api/ops/accounts/{ACC_ID}/orders/settle",
+                    json=_SETTLE_BODY, headers=h)
+    draft_id = r.json()["draft_id"]
+    with orders_router._draft_lock:
+        coupons = orders_router._drafts[ACC_ID]["settle_base"].available_coupons
+        coupons.insert(0, _bad_entry())          # 首选坏券插到 HYW 之前
+    r = CLIENT.post(f"/api/ops/accounts/{ACC_ID}/orders/create",
+                    json={"draft_id": draft_id, "coupon_code": "BAD-EXPIRED",
+                          "auto_fallback": True, "decision_log_id": log_id}, headers=h)
+    assert r.status_code == 200, r.text
+    assert r.json()["result"] == "zero" and r.json()["order_no"] == ORDER_NO
+    # 断言：坏券记 fallback 跳过日志；订单用 HYW；决策流水回填实际用券（非 decide 推荐券）
+    with _db() as db:
+        skipped = (db.query(CouponUsageLog)
+                     .filter(CouponUsageLog.coupon_code == "BAD-EXPIRED",
+                             CouponUsageLog.result == "rejected").all())
+        assert skipped and any("券自动切换跳过" in (s.fail_reason or "") for s in skipped)
+        order = db.query(OrderRecord).filter(OrderRecord.order_no == ORDER_NO).first()
+        assert order is not None and order.coupon_code == COUPON_HYW
+        row = db.get(DecisionLog, log_id)
+        assert row.coupon_code == COUPON_HYW and row.order_no == ORDER_NO
 
 
 def main() -> int:

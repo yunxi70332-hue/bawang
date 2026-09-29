@@ -499,6 +499,7 @@
                   <span class="muted decide-th">
                     最低利润 ¥{{ decideResult.threshold?.min_profit || '0' }}
                     <template v-if="decideResult.threshold?.min_margin"> · 最低利润率 {{ decideResult.threshold.min_margin }}%</template>
+                    · 最大承受 {{ decideResult.threshold?.max_order_cost ? `¥${decideResult.threshold.max_order_cost}` : '不限' }}
                   </span>
                 </div>
                 <div v-if="decideResult.coupon" class="decide-coupon">
@@ -551,6 +552,11 @@
           <span class="muted">已选决策推荐券，成单将回填决策流水 #{{ decisionApplied.decisionLogId }}</span>
         </el-descriptions-item>
       </el-descriptions>
+      <div v-if="selectedCouponCode" class="fallback-bar">
+        <el-switch v-model="autoFallback" />
+        <span class="fallback-label">券不可用自动切换</span>
+        <span class="muted fallback-tip">开启后券失效将自动换次优券（最多3张），全部失败则订单不提交</span>
+      </div>
       <el-alert v-if="isZeroPay" type="error" :closable="false" show-icon class="block-gap"
         title="0 元单会真实制作饮品！门店由你选择，不取自然作废" />
       <template #footer>
@@ -677,6 +683,9 @@ const selectedCouponLabel = computed(() => {
 /* 步骤4：确认与下单 */
 const dlgConfirm = ref(false)
 const createBusy = ref(false)
+/* 券不可用自动切换（orders/create 的 auto_fallback）：开启后所选券验证失败/
+ * 不在试算在列/settle 复跑异常时服务端自动换次优券重试（同账号最多 3 张） */
+const autoFallback = ref(true)
 
 /* 结果面板 */
 const result = ref(null)
@@ -1083,8 +1092,16 @@ async function doCreate() {
     }
     // 决策挂钩：暂存了 decision_log_id 且所选券==推荐券才携带；否则 payload 与旧流程完全一致
     if (decisionLogAttached.value) payload.decision_log_id = decisionApplied.value.decisionLogId
+    // 券自动切换：开启时服务端换次优券重试（关时不带，保持旧语义）
+    if (autoFallback.value) payload.auto_fallback = true
     const res = await apiOps.orderCreate(accountId.value, payload)
     if (payload.decision_log_id) decisionApplied.value = null   // 已消费：成单后由服务端回填该流水
+    // 实际用券与所选不同 → 服务端已自动切换（0 元单响应透出 coupon_code；差额单响应无该字段不提示）
+    const usedCoupon = res?.coupon_code || ''
+    const pickedCoupon = payload.coupon_code || ''
+    if (usedCoupon && pickedCoupon && usedCoupon !== pickedCoupon) {
+      ElMessage.warning(`所选券不可用，已自动切换为次优券 ${usedCoupon}`)
+    }
     result.value = res
     stopDraftTimer()
     dlgConfirm.value = false
@@ -1677,6 +1694,22 @@ function pickCoupon(c) {
 }
 .review-desc {
   max-width: 560px;
+}
+/* 确认弹窗：券自动切换开关行 */
+.fallback-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin: 12px 0;
+}
+.fallback-label {
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--tea-800);
+}
+.fallback-tip {
+  font-size: 12px;
 }
 .pay-str-collapse {
   margin-bottom: 6px;

@@ -23,6 +23,8 @@ _COLUMN_MIGRATIONS = [
     ("order_records", "biz_type", "VARCHAR(16) DEFAULT '' NOT NULL"),
     # 券成本子类（2026-09-28）：成本规则软关联子类（0=未分类，子类删除时回退 0）
     ("voucher_cost_rules", "category_id", "INTEGER DEFAULT 0 NOT NULL"),
+    # 最大承受下单金额（2026-09-29 §10）：套餐级成本上限覆盖
+    ("packet_configs", "max_order_cost", "VARCHAR(16) DEFAULT '' NOT NULL"),
 ]
 
 

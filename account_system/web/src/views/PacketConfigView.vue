@@ -59,6 +59,12 @@
           <span v-else class="muted">全局</span>
         </template>
       </el-table-column>
+      <el-table-column label="最大承受" width="100" align="center">
+        <template #default="{ row }">
+          <span v-if="row.max_order_cost" class="price">¥{{ row.max_order_cost }}</span>
+          <span v-else class="muted">全局</span>
+        </template>
+      </el-table-column>
       <el-table-column label="更新时间" width="170">
         <template #default="{ row }"><span class="mono">{{ fmtTime(row.updated_at) }}</span></template>
       </el-table-column>
@@ -110,6 +116,11 @@
           <el-col :span="8">
             <el-form-item label="最低利润">
               <el-input v-model="form.min_profit" placeholder="元，留空 = 用全局配置" />
+            </el-form-item>
+          </el-col>
+          <el-col :span="8">
+            <el-form-item label="最大承受金额">
+              <el-input v-model="form.max_order_cost" placeholder="元，留空 = 用全局" />
             </el-form-item>
           </el-col>
           <el-col :span="24">
@@ -350,7 +361,7 @@ const formRef = ref()
 const editingId = ref(null)
 const form = reactive({
   name: '', min_order_amount: '0', max_order_amount: '0',
-  available_start: '', available_end: '', min_profit: '', note: '', items: [],
+  available_start: '', available_end: '', min_profit: '', max_order_cost: '', note: '', items: [],
 })
 const rules = {
   name: [{ required: true, message: '请输入套餐名称', trigger: 'blur' }],
@@ -384,7 +395,7 @@ function openCreate() {
   editingId.value = null
   Object.assign(form, {
     name: '', min_order_amount: '0', max_order_amount: '0',
-    available_start: '', available_end: '', min_profit: '', note: '', items: [],
+    available_start: '', available_end: '', min_profit: '', max_order_cost: '', note: '', items: [],
   })
   dlg.value = true
 }
@@ -400,6 +411,7 @@ async function openEdit(row) {
     available_start: detail.available_start ? String(detail.available_start).slice(0, 5) : '',
     available_end: detail.available_end ? String(detail.available_end).slice(0, 5) : '',
     min_profit: detail.min_profit || '',
+    max_order_cost: detail.max_order_cost || '',
     note: detail.note || '',
     items: (detail.items || []).map(newItemRow),
   })
@@ -415,6 +427,7 @@ async function save() {
     available_start: form.available_start ? `${form.available_start}:00` : '',
     available_end: form.available_end ? `${form.available_end}:00` : '',
     min_profit: String(form.min_profit).trim(),
+    max_order_cost: String(form.max_order_cost).trim(),
     note: form.note,
     items: form.items
       .filter((it) => it.sku_id)   // 未选完的空行不下发

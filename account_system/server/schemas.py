@@ -182,6 +182,10 @@ class OrderCreateRequest(BaseModel):
     # 成单后回填该 DecisionLog 的 order_no/account_id/coupon_code/deduction_actual/pay_actual；
     # 缺省 0 = 行为与决策系统引入前完全一致（向后兼容）
     decision_log_id: int = Field(default=0, ge=0)
+    # 券自动切换（契约 §10）：true 时券验证失败/试算不在列/settle 复跑券相关异常 →
+    # 从本次试算可用券列表按四级漏斗取次优重试（同账号，最多试 3 张，含首选）；
+    # 缺省 false = 行为与决策系统引入前完全一致（向后兼容）
+    auto_fallback: bool = Field(default=False)
 
 
 class PayModeRequest(BaseModel):
@@ -216,6 +220,7 @@ class PacketCreateRequest(BaseModel):
     available_start: str = Field(default="", max_length=8)      # "HH:MM:SS"，空=不限
     available_end: str = Field(default="", max_length=8)
     min_profit: str = Field(default="", max_length=16)          # 套餐级最低利润覆盖，空=用全局
+    max_order_cost: str = Field(default="", max_length=16)      # 套餐级最大承受下单金额覆盖，空=用全局
     note: str = Field(default="", max_length=255)
     items: list[PacketItemBody] = Field(default_factory=list)   # 空=全品类
 
@@ -259,6 +264,7 @@ class DecisionConfigRequest(BaseModel):
 
     min_profit: str = Field(default="2.00", max_length=16)     # 全局每单最低利润（元）
     min_margin: str = Field(default="", max_length=16)         # 全局最低利润率%（空=不启用）
+    max_order_cost: str = Field(default="", max_length=16)     # 全局最大承受下单金额（成本上限，空=不限，套餐级可覆盖）
     overhead: str = Field(default="0", max_length=16)          # 每单杂费（元）
     cost_fallback_ratio: str = Field(default="1.0", max_length=16)  # 规则未命中按面额×该系数
 
