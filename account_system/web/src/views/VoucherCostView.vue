@@ -78,10 +78,10 @@
           <el-button type="primary" :icon="Plus" @click="openCreate">新增规则</el-button>
           <el-button :icon="Upload" @click="openImport">导入</el-button>
           <el-button :icon="Refresh" circle @click="loadRules" />
-          <span class="muted total-line" v-if="rules.length">共 {{ rules.length }} 条 · 启用 {{ enabledCount }} 条</span>
+          <span class="muted total-line" v-if="items.length">共 {{ items.length }} 条 · 启用 {{ enabledCount }} 条</span>
         </div>
 
-        <el-table v-loading="loadingRules" :data="rules" stripe>
+        <el-table v-loading="loadingRules" :data="items" stripe>
           <el-table-column prop="id" label="ID" width="60" />
           <el-table-column prop="name" label="规则名" min-width="140">
             <template #default="{ row }">
