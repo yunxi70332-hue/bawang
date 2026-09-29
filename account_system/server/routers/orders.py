@@ -423,6 +423,12 @@ def order_settle(account_id: int, body: OrderSettleRequest, request: Request,
     spec_desc = "/".join(str(o.get("specOptionName") or o.get("specName") or o.get("specOptionId") or "")
                          for o in body.spec_list if isinstance(o, dict))
     goods_desc = (body.spu_name or body.sku_name) + f" x{body.quantity}" + (f"（{spec_desc}）" if spec_desc else "")
+    # 饮品信息（必填编辑框，前端强制校验）：追加到订单商品描述快照，落 OrderRecord 供查询与对账
+    drink_info = str(getattr(body, "drink_info", "") or "").strip()
+    if drink_info:
+        suffix = f"｜饮品信息：{drink_info[:30]}"
+        goods_desc = (goods_desc[:255 - len(suffix)]
+                      if len(goods_desc) + len(suffix) > 255 else goods_desc) + suffix
     try:
         api = bridge.trade_api(account)
         price = api.calculate_price(target)                 # 服务端算价（折后单价/总额/折扣明细）

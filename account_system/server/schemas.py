@@ -173,6 +173,7 @@ class OrderSettleRequest(BaseModel):
     nutrition_info: dict | None = None                    # 按属性组合匹配的营养信息（settle 行随行）
     image_url: str = Field(default="", max_length=512)
     spu_type: str = Field(default="stand", max_length=16)
+    drink_info: str = Field(default="", max_length=200)   # 饮品信息（必填编辑框，前端强制校验；后端记入订单商品描述）
 
 
 class OrderCreateRequest(BaseModel):

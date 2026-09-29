@@ -444,6 +444,18 @@
         </el-table-column>
       </el-table>
 
+      <!-- 饮品信息：强制填写项（去结算/提交订单前校验，空则阻断并提示） -->
+      <div class="drink-info-item" :class="{ 'is-error': drinkInfoError }">
+        <label class="di-label"><span class="req-star">*</span>饮品信息（必填）</label>
+        <el-input
+          v-model="drinkInfo" type="textarea" :rows="2" maxlength="200" show-word-limit
+          clearable resize="none"
+          placeholder="必填：饮品相关信息（如客户要求、口味备注、杯型说明等），提交订单前必须填写"
+          @input="drinkInfoError = false"
+        />
+        <div v-if="drinkInfoError" class="di-error">饮品信息为必填项，请填写后再提交订单</div>
+      </div>
+
       <!-- 决策评估（可选）：去结算前测算成本利润与阈值判定；不评估/评估失败均不影响手动下单流程 -->
       <div v-if="goods.skus && goods.skus.length" class="decide-card">
         <div class="decide-head" @click="decideOpen = !decideOpen">
@@ -631,6 +643,19 @@ const hasZeroPricePreselect = (e) =>
   (e?.extraOptions || []).some((o) => Number(o.salePrice) === 0 && (o.stock ?? 1) > 0)
 const settleBusy = ref(false)
 const settleSkuId = ref(null)
+// 饮品信息（必填编辑框）：去结算/提交订单前强制校验，值随 settle 请求落库到订单商品描述
+const drinkInfo = ref('')
+const drinkInfoError = ref(false)
+
+function ensureDrinkInfo() {
+  if (!drinkInfo.value.trim()) {
+    drinkInfoError.value = true
+    ElMessage.warning('「饮品信息」为必填项，请填写饮品相关信息后再提交订单')
+    return false
+  }
+  drinkInfoError.value = false
+  return true
+}
 
 /* ---------------- 决策评估（步骤② 抽屉内，可选能力，不阻塞手动流程） ----------------
  * 流转：选 SKU + 客户支付价 → decide → pass 时「应用推荐方案」：
@@ -806,6 +831,8 @@ onMounted(async () => {
 watch(accountId, () => {
   clearResult()
   clearSettle()
+  drinkInfo.value = ''
+  drinkInfoError.value = false
   if (applyingRec) {
     applyingRec = false
     return
@@ -916,6 +943,7 @@ async function doSettle(sku) {
     ElMessage.warning('请先选择账号')
     return
   }
+  if (!ensureDrinkInfo()) return   // 必填校验：饮品信息为空则阻断去结算
   const qty = Number(skuQty[sku.skuId] || 1)
   settleSkuId.value = sku.skuId
   settleBusy.value = true
@@ -931,6 +959,7 @@ async function doSettle(sku) {
       quantity: qty,
       image_url: goods.value.img || '',
       spu_type: goods.value.spuType || 'stand',
+      drink_info: drinkInfo.value.trim(),   // 饮品信息（必填编辑框）随试算请求落库
     }
     // spec_list 由 SKU 的 specOptionInfos 映射（含名称字段，wire 实证全量透传）；无则省略
     const specs = (sku.specOptionInfos || [])
@@ -1118,6 +1147,7 @@ function isDecisionCoupon(c) {
 /* ---------------- 步骤4：确认下单 ---------------- */
 async function doCreate() {
   if (!settleData.value) return
+  if (!ensureDrinkInfo()) return   // 提交订单前二次强制校验（防步骤②后清空）
   createBusy.value = true
   try {
     const payload = {
@@ -1143,6 +1173,7 @@ async function doCreate() {
     stopDraftTimer()
     dlgConfirm.value = false
     step.value = 4
+    drinkInfo.value = ''   // 本单已提交，饮品信息随新单重填
     if (res.result === 'zero') {
       ElMessage.success(`下单成功，取餐码 ${res.pickup_no || '—'}`)
     } else {
@@ -1587,6 +1618,28 @@ function pickCoupon(c) {
 .drawer-note {
   margin-top: 12px;
   font-size: 12.5px;
+}
+/* 饮品信息必填编辑框（步骤② 抽屉内，样式对齐 Element Plus 表单校验态） */
+.drink-info-item {
+  margin-top: 12px;
+}
+.drink-info-item .di-label {
+  display: inline-block;
+  margin-bottom: 6px;
+  font-size: 13.5px;
+  color: var(--el-text-color-regular);
+}
+.drink-info-item .req-star {
+  color: var(--el-color-danger);
+  margin-right: 4px;
+}
+.drink-info-item.is-error :deep(.el-textarea__inner) {
+  border-color: var(--el-color-danger);
+}
+.drink-info-item .di-error {
+  margin-top: 4px;
+  font-size: 12px;
+  color: var(--el-color-danger);
 }
 /* 决策评估卡（步骤② 抽屉内，可折叠，不阻塞手动流程） */
 .decide-card {

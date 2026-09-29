@@ -1173,6 +1173,7 @@ _SETTLE_BODY = {
     "item_sku_id": BYJX_SKU_BIG, "quantity": 1, "sale_price": 20.0,
     "spec_list": [{"specId": "653599312273510400", "specOptionId": "653599312273510402"}],
     "image_url": "", "spu_type": "stand",
+    "drink_info": "少冰半糖，放门口",   # 必填编辑框：随试算落订单商品描述
 }
 
 
@@ -1283,6 +1284,7 @@ def test_24_order_create_auto_fallback():
         assert skipped and any("券自动切换跳过" in (s.fail_reason or "") for s in skipped)
         order = db.query(OrderRecord).filter(OrderRecord.order_no == ORDER_NO).first()
         assert order is not None and order.coupon_code == COUPON_HYW
+        assert "饮品信息：少冰半糖，放门口" in (order.goods_desc or "")   # 必填编辑框落库
         row = db.get(DecisionLog, log_id)
         assert row.coupon_code == COUPON_HYW and row.order_no == ORDER_NO
 
