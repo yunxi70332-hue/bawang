@@ -137,6 +137,9 @@ def _info_payload(db: Session, sess: PaySession) -> dict:
         "mode": sess.mode,
         "status": sess.status,
         "status_label": PAY_SESSION_STATUS_LABELS.get(sess.status, sess.status),
+        # 取餐码（paid 后页面进入 pickup 轮询模式轮询 /info——此前该端点漏发此字段，
+        # 页面永远停在「取餐码生成中…」；与 /status 端点同源 sess.pickup_no，2026-09-29 修复）
+        "pickup_no": sess.pickup_no or "",
         "pay_no": sess.pay_no,
         "out_trade_no": sess.out_trade_no,
         "expire_at": expire_at,
