@@ -256,3 +256,11 @@ api/index.js 新增 `apiDecision`（全部端点封装）：`packets(params)` `p
 - 端点：`GET/POST /decision/order-plans`、`PUT/DELETE /decision/order-plans/{id}`（priorities 全量替换 clear+flush；重名/层重复 400；decision:manage）
 - `DecideRequest.plan_id`（0=自动；不存在 422）：响应新增 `plan` 块 {plan_id,plan_name,strategy,strategy_label}|null；alternatives 元素加 tier_level(0=不匹配)/tier_name；**blocked 且带方案 → blocked_reason 以「暂无库存：方案「X」各优先级券（第一优先「…」…）均不可用…」开头**；DecisionLog.plan_json 快照 plan_id/plan_name/strategy
 - `OrderCreateRequest.plan_id`：fallback 候选按方案策略+层序排序（decision_log_id 的 plan_json.plan_id 优先于 body.plan_id）；**fallback 耗尽 400 detail 以「暂无库存：券自动切换全部失败…」开头**（无方案时同样话术，substring 兼容旧断言）
+
+### §11 增补：方案饮品管理 Tab（2026-09-29）
+
+- 表 `order_plan_drinks`（plan_id FK/sku_id/spu_id/drink_name 快照/face_price 快照；UQ(plan_id,sku_id)；随方案级联删除）
+- `OrderPlanRequest.drinks: [{spu_id, sku_id, drink_name, face_price}]`（PUT/POST 全量替换，clear+flush 模式，sku 去重）
+- `GET /decision/plan-drinks/search?keyword=&limit=`：菜单库 menu_goods_cache 按 SPU 名 LIKE → 展开 sku_index 为行（含 spec_desc/price/store_no），按 sku_id 去重；keyword 必填（空 422）；decision:manage
+- **白名单语义**：方案 drinks 非空时，decide 指定该方案且 sku 不在关联内 → 422「方案「X」未关联此饮品…」；空 = 不限
+- `_plan_detail` 含 drinks；前端编辑弹窗三 Tab（基础信息/优先级层级/饮品管理），饮品 Tab = 防抖 300ms 实时搜索 + 行多选 + 批量加入 + 已关联列表（已关联行复选禁用+状态标签）

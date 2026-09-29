@@ -70,86 +70,151 @@
     <!-- 新增 / 编辑弹窗 -->
     <el-dialog v-model="dlg" :title="editingId ? `编辑方案 #${editingId}` : '新增方案'" width="720px"
       destroy-on-close :close-on-click-modal="false">
-      <el-form ref="formRef" :model="form" :rules="rules" label-width="90px">
-        <el-form-item label="方案名称" prop="name">
-          <el-input v-model="form.name" maxlength="64" placeholder="如：DN券优先方案" />
-        </el-form-item>
-        <el-form-item label="选券策略">
-          <el-radio-group v-model="form.strategy" class="strategy-col">
-            <el-radio v-for="s in STRATEGIES" :key="s.value" :value="s.value">
-              {{ s.label }}<span class="muted strategy-hint">{{ s.hint }}</span>
-            </el-radio>
-          </el-radio-group>
-        </el-form-item>
-        <el-form-item label="饮品信息" prop="drink_info">
-          <el-input v-model="form.drink_info" type="textarea" :rows="2" maxlength="200"
-            show-word-limit clearable resize="none"
-            placeholder="必填：饮品相关信息（如客户要求、口味备注、杯型说明等）；下单选此方案时自动带入订单，提交订单前强制非空" />
-        </el-form-item>
-        <el-form-item label="启用">
-          <el-switch v-model="form.enabled" />
-        </el-form-item>
-        <el-form-item label="备注">
-          <el-input v-model="form.note" maxlength="255" placeholder="可选" />
-        </el-form-item>
-      </el-form>
+      <el-tabs v-model="dlgTab">
+        <!-- Tab 1：基础信息 -->
+        <el-tab-pane label="基础信息" name="base">
+          <el-form ref="formRef" :model="form" :rules="rules" label-width="90px">
+            <el-form-item label="方案名称" prop="name">
+              <el-input v-model="form.name" maxlength="64" placeholder="如：DN券优先方案" />
+            </el-form-item>
+            <el-form-item label="选券策略">
+              <el-radio-group v-model="form.strategy" class="strategy-col">
+                <el-radio v-for="s in STRATEGIES" :key="s.value" :value="s.value">
+                  {{ s.label }}<span class="muted strategy-hint">{{ s.hint }}</span>
+                </el-radio>
+              </el-radio-group>
+            </el-form-item>
+            <el-form-item label="饮品信息" prop="drink_info">
+              <el-input v-model="form.drink_info" type="textarea" :rows="2" maxlength="200"
+                show-word-limit clearable resize="none"
+                placeholder="必填：饮品相关信息（如客户要求、口味备注、杯型说明等）；下单选此方案时自动带入订单，提交订单前强制非空" />
+            </el-form-item>
+            <el-form-item label="启用">
+              <el-switch v-model="form.enabled" />
+            </el-form-item>
+            <el-form-item label="备注">
+              <el-input v-model="form.note" maxlength="255" placeholder="可选" />
+            </el-form-item>
+          </el-form>
+        </el-tab-pane>
 
-      <div class="items-head">
-        <h3 class="sec-title">
-          优先级层级
-          <span class="muted sub">（{{ form.priorities.length }} 层；行序即优先级，第 1 行最优先；未匹配任何层的券按策略排序垫底）</span>
-        </h3>
-        <el-button type="primary" size="small" :icon="Plus" @click="addTier">添加优先级</el-button>
-      </div>
-      <el-table :data="form.priorities" size="small" border>
-        <el-table-column label="层级" width="96">
-          <template #default="{ $index }">
-            <div class="tier-rank">
-              <el-tag size="small" effect="plain">第{{ $index + 1 }}优先</el-tag>
-              <span class="tier-move">
-                <el-button link size="small" :icon="ArrowUp" :disabled="$index === 0"
-                  @click="moveTier($index, -1)" />
-                <el-button link size="small" :icon="ArrowDown" :disabled="$index === form.priorities.length - 1"
-                  @click="moveTier($index, 1)" />
-              </span>
-            </div>
-          </template>
-        </el-table-column>
-        <el-table-column label="层名" width="126">
-          <template #default="{ row, $index }">
-            <el-input v-model="row.name" size="small" :placeholder="`如：20元DN券 · 留空=第${$index + 1}优先`" />
-          </template>
-        </el-table-column>
-        <el-table-column label="匹配方式" width="120">
-          <template #default="{ row }">
-            <el-select v-model="row.match_type" size="small">
-              <el-option v-for="m in MATCH_TYPES" :key="m.value" :label="m.label" :value="m.value" />
-            </el-select>
-          </template>
-        </el-table-column>
-        <el-table-column label="匹配值" min-width="126">
-          <template #default="{ row, $index }">
-            <el-input v-model="row.match_value" size="small" :placeholder="tierPlaceholder(row, $index)" />
-          </template>
-        </el-table-column>
-        <el-table-column label="面额校验" width="100">
-          <template #default="{ row }">
-            <el-input v-model="row.face_value" size="small" placeholder="留空 = 不限面额" />
-          </template>
-        </el-table-column>
-        <el-table-column label="操作" width="58" align="center">
-          <template #default="{ $index }">
-            <el-button link type="danger" size="small" @click="removeTier($index)">删除</el-button>
-          </template>
-        </el-table-column>
-        <template #empty>
-          <el-empty description="未设置层级：纯策略排序（系统自动）" :image-size="60" />
-        </template>
-      </el-table>
-      <p class="muted tier-note">
-        典型用法：第一优先 券名包含「20元代金券-DN」，第二优先 券名包含「10元代金券-LT」；
-        未填匹配值的空行保存时自动忽略，层级按行序重新编号（1..N）
-      </p>
+        <!-- Tab 2：优先级层级 -->
+        <el-tab-pane :label="`优先级层级（${form.priorities.length}）`" name="tiers">
+          <div class="items-head">
+            <h3 class="sec-title">
+              优先级层级
+              <span class="muted sub">（{{ form.priorities.length }} 层；行序即优先级，第 1 行最优先；未匹配任何层的券按策略排序垫底）</span>
+            </h3>
+            <el-button type="primary" size="small" :icon="Plus" @click="addTier">添加优先级</el-button>
+          </div>
+          <el-table :data="form.priorities" size="small" border>
+            <el-table-column label="层级" width="96">
+              <template #default="{ $index }">
+                <div class="tier-rank">
+                  <el-tag size="small" effect="plain">第{{ $index + 1 }}优先</el-tag>
+                  <span class="tier-move">
+                    <el-button link size="small" :icon="ArrowUp" :disabled="$index === 0"
+                      @click="moveTier($index, -1)" />
+                    <el-button link size="small" :icon="ArrowDown" :disabled="$index === form.priorities.length - 1"
+                      @click="moveTier($index, 1)" />
+                  </span>
+                </div>
+              </template>
+            </el-table-column>
+            <el-table-column label="层名" width="126">
+              <template #default="{ row, $index }">
+                <el-input v-model="row.name" size="small" :placeholder="`如：20元DN券 · 留空=第${$index + 1}优先`" />
+              </template>
+            </el-table-column>
+            <el-table-column label="匹配方式" width="120">
+              <template #default="{ row }">
+                <el-select v-model="row.match_type" size="small">
+                  <el-option v-for="m in MATCH_TYPES" :key="m.value" :label="m.label" :value="m.value" />
+                </el-select>
+              </template>
+            </el-table-column>
+            <el-table-column label="匹配值" min-width="126">
+              <template #default="{ row, $index }">
+                <el-input v-model="row.match_value" size="small" :placeholder="tierPlaceholder(row, $index)" />
+              </template>
+            </el-table-column>
+            <el-table-column label="面额校验" width="100">
+              <template #default="{ row }">
+                <el-input v-model="row.face_value" size="small" placeholder="留空 = 不限面额" />
+              </template>
+            </el-table-column>
+            <el-table-column label="操作" width="58" align="center">
+              <template #default="{ $index }">
+                <el-button link type="danger" size="small" @click="removeTier($index)">删除</el-button>
+              </template>
+            </el-table-column>
+            <template #empty>
+              <el-empty description="未设置层级：纯策略排序（系统自动）" :image-size="60" />
+            </template>
+          </el-table>
+          <p class="muted tier-note">
+            典型用法：第一优先 券名包含「20元代金券-DN」，第二优先 券名包含「10元代金券-LT」；
+            未填匹配值的空行保存时自动忽略，层级按行序重新编号（1..N）
+          </p>
+        </el-tab-pane>
+
+        <!-- Tab 3：饮品管理（模糊搜索 + 多选关联，保存后方案仅可下单已关联饮品） -->
+        <el-tab-pane :label="`饮品管理（${form.drinks.length}）`" name="drinks">
+          <div class="drink-search-bar">
+            <el-input v-model="drinkKw" size="default" clearable :prefix-icon="Search"
+              placeholder="输入饮品关键词搜索（如：伯牙绝弦 / 青青糯山 / 桂花）"
+              style="width: 320px" @input="onDrinkKwInput" @clear="drinkResults = []" />
+            <el-button type="primary" size="default" :loading="drinkSearching"
+              :disabled="!drinkKw.trim()" @click="searchDrinks">搜索</el-button>
+            <el-button type="success" size="default" :disabled="!drinkSel.length" @click="addSelectedDrinks">
+              加入已选（{{ drinkSel.length }}）
+            </el-button>
+            <span class="muted drink-count">已关联 {{ form.drinks.length }} 种饮品</span>
+          </div>
+          <el-table :data="drinkResults" size="small" border stripe v-loading="drinkSearching"
+            row-key="sku_id" max-height="260" @selection-change="drinkSel = $event">
+            <el-table-column type="selection" width="42" :selectable="(row) => !selectedSkuSet.has(row.sku_id)" />
+            <el-table-column prop="spu_name" label="饮品" min-width="150" show-overflow-tooltip />
+            <el-table-column prop="spec_desc" label="规格" min-width="110" show-overflow-tooltip />
+            <el-table-column label="面价" width="76">
+              <template #default="{ row }"><span class="price">¥{{ row.price }}</span></template>
+            </el-table-column>
+            <el-table-column prop="store_no" label="菜单来源" width="96" />
+            <el-table-column label="状态" width="80" align="center">
+              <template #default="{ row }">
+                <el-tag v-if="selectedSkuSet.has(row.sku_id)" type="success" size="small" effect="plain">已关联</el-tag>
+                <el-tag v-else type="info" size="small" effect="plain">未选</el-tag>
+              </template>
+            </el-table-column>
+            <template #empty>
+              <el-empty :description="drinkKw.trim() ? '没有匹配的饮品，换个关键词试试（菜单库含已缓存门店）' : '输入关键词搜索饮品（本地菜单库实时反馈）'" :image-size="60" />
+            </template>
+          </el-table>
+
+          <div class="items-head" style="margin-top: 12px">
+            <h3 class="sec-title">
+              已关联饮品
+              <span class="muted sub">（{{ form.drinks.length }} 种；保存后该方案仅可下单这些饮品，留空 = 不限）</span>
+            </h3>
+          </div>
+          <el-table :data="form.drinks" size="small" border max-height="220">
+            <el-table-column prop="drink_name" label="饮品（含规格）" min-width="180" show-overflow-tooltip />
+            <el-table-column label="面价" width="76">
+              <template #default="{ row }">¥{{ row.face_price || '—' }}</template>
+            </el-table-column>
+            <el-table-column prop="spu_id" label="SPU" width="130" show-overflow-tooltip />
+            <el-table-column prop="sku_id" label="SKU" width="150" show-overflow-tooltip />
+            <el-table-column label="操作" width="64" align="center">
+              <template #default="{ $index }">
+                <el-button link type="danger" size="small" @click="form.drinks.splice($index, 1)">移除</el-button>
+              </template>
+            </el-table-column>
+            <template #empty>
+              <el-empty description="未关联饮品：该方案不限制可点饮品" :image-size="60" />
+            </template>
+          </el-table>
+        </el-tab-pane>
+      </el-tabs>
 
       <template #footer>
         <el-button @click="dlg = false">取消</el-button>
@@ -162,7 +227,7 @@
 <script setup>
 import { computed, onMounted, reactive, ref } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { ArrowDown, ArrowUp, Plus, Refresh } from '@element-plus/icons-vue'
+import { ArrowDown, ArrowUp, Plus, Refresh, Search } from '@element-plus/icons-vue'
 import { apiDecision } from '../api'
 import { fmtTime } from '../utils/format'
 
@@ -244,11 +309,59 @@ const saving = ref(false)
 const formRef = ref()
 const editingId = ref(null)
 const form = reactive({
-  name: '', strategy: 'cost_first', drink_info: '', enabled: true, note: '', priorities: [],
+  name: '', strategy: 'cost_first', drink_info: '', enabled: true, note: '',
+  priorities: [], drinks: [],
 })
 const rules = {
   name: [{ required: true, message: '请输入方案名称', trigger: 'blur' }],
   drink_info: [{ required: true, message: '饮品信息为必填项，请填写饮品相关信息后再保存方案', trigger: 'blur' }],
+}
+
+/* ---- 饮品管理 Tab：模糊搜索 + 多选关联 ---- */
+const dlgTab = ref('base')
+const drinkKw = ref('')
+const drinkSearching = ref(false)
+const drinkResults = ref([])
+const drinkSel = ref([])   // 搜索结果表当前勾选行（多选）
+const selectedSkuSet = computed(() => new Set(form.drinks.map((d) => d.sku_id)))
+let drinkSearchTimer = null
+
+function onDrinkKwInput() {   // 输入防抖 300ms 实时反馈
+  clearTimeout(drinkSearchTimer)
+  const kw = drinkKw.value.trim()
+  if (!kw) { drinkResults.value = []; return }
+  drinkSearchTimer = setTimeout(searchDrinks, 300)
+}
+
+async function searchDrinks() {
+  const kw = drinkKw.value.trim()
+  if (!kw) return
+  drinkSearching.value = true
+  try {
+    const data = await apiDecision.planDrinkSearch({ keyword: kw, limit: 30 })
+    drinkResults.value = data.items || []
+  } finally {
+    drinkSearching.value = false
+  }
+}
+
+function addSelectedDrinks() {   // 多选批量加入已关联（按 sku 去重，回填名称与面价）
+  const fresh = []
+  for (const row of drinkSel.value) {
+    if (selectedSkuSet.value.has(row.sku_id)) continue
+    form.drinks.push({
+      spu_id: String(row.spu_id || ''), sku_id: String(row.sku_id),
+      drink_name: `${row.spu_name}${row.spec_desc && row.spec_desc !== '默认' ? `（${row.spec_desc}）` : ''}`,
+      face_price: String(row.price || ''),
+    })
+    fresh.push(row.spu_name)
+  }
+  drinkSel.value = []
+  if (fresh.length) {
+    ElMessage.success(`已加入 ${fresh.length} 种饮品：${fresh.slice(0, 3).join('、')}${fresh.length > 3 ? ' 等' : ''}`)
+  } else {
+    ElMessage.info('所选饮品均已关联')
+  }
 }
 
 function newTierRow() {
@@ -264,21 +377,31 @@ function tierPlaceholder(row, index) {
 
 function openCreate() {
   editingId.value = null
+  dlgTab.value = 'base'
   Object.assign(form, {
     name: '', strategy: 'cost_first', drink_info: '', enabled: true, note: '',
     priorities: [newTierRow(), newTierRow()],   // 两行示例引导（占位符提示典型用法）
+    drinks: [],
   })
+  drinkKw.value = ''
+  drinkResults.value = []
+  drinkSel.value = []
   dlg.value = true
 }
 
 function openEdit(row) {
   editingId.value = row.id
+  dlgTab.value = 'base'
   Object.assign(form, {
     name: row.name,
     strategy: row.strategy || 'cost_first',
     drink_info: row.drink_info || '',
     enabled: !!row.enabled,
     note: row.note || '',
+    drinks: (row.drinks || []).map((d) => ({
+      spu_id: d.spu_id || '', sku_id: d.sku_id,
+      drink_name: d.drink_name || '', face_price: d.face_price || '',
+    })),
     priorities: (row.priorities || []).map((p) => ({
       name: p.name || '',
       match_type: p.match_type || 'template_contains',
@@ -297,6 +420,10 @@ async function save() {
     drink_info: form.drink_info.trim(),
     note: form.note,
     enabled: form.enabled,
+    drinks: form.drinks.map((d) => ({
+      spu_id: d.spu_id, sku_id: d.sku_id,
+      drink_name: d.drink_name, face_price: d.face_price,
+    })),
     priorities: form.priorities
       .filter((p) => p.match_type && String(p.match_value).trim())   // 未填匹配值的空行不下发
       .map((p, i) => ({
@@ -388,6 +515,21 @@ function moveTier(index, dir) {
   margin: 6px 0 10px;
   padding-top: 10px;
   border-top: 1px dashed #e3eae6;
+}
+/* 饮品管理 Tab：搜索栏与价格样式 */
+.drink-search-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+.drink-search-bar .drink-count {
+  font-size: 12.5px;
+}
+.drink-search-bar .price,
+.price {
+  color: var(--el-color-danger);
+  font-weight: 600;
 }
 .strategy-col {
   display: flex;

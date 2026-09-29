@@ -143,6 +143,8 @@ export const apiDecision = {
   orderPlanCreate: (data) => http.post('/api/ops/decision/order-plans', data),
   orderPlanUpdate: (id, data) => http.put(`/api/ops/decision/order-plans/${id}`, data),
   orderPlanDelete: (id) => http.delete(`/api/ops/decision/order-plans/${id}`),
+  // 饮品管理 Tab：本地菜单库模糊搜索（keyword 必填，limit 默认 20）
+  planDrinkSearch: (params) => http.get('/api/ops/decision/plan-drinks/search', { params }),
   // 全局决策配置（data/decision_config.json）
   configGet: () => http.get('/api/ops/decision/config'),
   configPut: (data) => http.put('/api/ops/decision/config', data),

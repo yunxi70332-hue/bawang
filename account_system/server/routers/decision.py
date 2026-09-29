@@ -35,10 +35,10 @@ from sqlalchemy.orm import Session
 
 from audit import log_audit
 from database import get_db
-from models import (ChageeAccount, CouponRecord, DecisionLog, OrderPlan,
-                    OrderPlanCouponPriority, PacketConfig, PacketItem,
-                    PLAN_STRATEGY_LABELS, SystemUser, VoucherCostCategory,
-                    VoucherCostRule)
+from models import (ChageeAccount, CouponRecord, DecisionLog, MenuGoodsCache,
+                    OrderPlan, OrderPlanCouponPriority, OrderPlanDrink,
+                    PacketConfig, PacketItem, PLAN_STRATEGY_LABELS, SystemUser,
+                    VoucherCostCategory, VoucherCostRule)
 from oplog import log_op
 from schemas import (CostCategoryRequest, CostRuleImportRequest, CostRuleRequest,
                      DecideRequest, DecisionConfigRequest, OrderPlanRequest,
@@ -754,8 +754,59 @@ def _plan_detail(plan: OrderPlan) -> dict:
         "note": plan.note, "enabled": bool(plan.enabled),
         "priority_count": len(plan.priorities or []),
         "priorities": [_plan_priority_row(p) for p in (plan.priorities or [])],
+        "drinks": [{"id": d.id, "spu_id": d.spu_id, "sku_id": d.sku_id,
+                    "drink_name": d.drink_name, "face_price": d.face_price}
+                   for d in (plan.drinks or [])],
         "created_at": _fmt_dt(plan.created_at), "updated_at": _fmt_dt(plan.updated_at),
     }
+
+
+def _build_plan_drinks(plan: OrderPlan, drinks: list) -> None:
+    seen: set[str] = set()
+    for d in (drinks or []):
+        if d.sku_id in seen:
+            continue   # 同 sku 多行去重（跨门店同名 sku 只保留首个）
+        seen.add(d.sku_id)
+        plan.drinks.append(OrderPlanDrink(
+            spu_id=d.spu_id or "", sku_id=d.sku_id,
+            drink_name=d.drink_name or "", face_price=d.face_price or ""))
+
+
+@router.get("/plan-drinks/search")
+def plan_drinks_search(keyword: str = Query(..., min_length=1, max_length=64),
+                       limit: int = Query(20, ge=1, le=50),
+                       db: Session = Depends(get_db),
+                       _: SystemUser = Depends(require_perm("decision:manage"))):
+    """饮品模糊搜索（饮品管理 Tab）：本地菜单库 menu_goods_cache 按 SPU 名 LIKE，
+    展开每个 SPU 的 sku_index 为可选行，按 sku_id 去重（跨门店同 sku 只出一行，
+    附首个命中门店）。实时反馈：前端输入防抖后调本端点。"""
+    like = f"%{keyword.strip()}%"
+    rows = (db.query(MenuGoodsCache)
+              .filter(MenuGoodsCache.spu_name.like(like),
+                      MenuGoodsCache.status == 1)
+              .order_by(MenuGoodsCache.fetched_at.desc())
+              .limit(30).all())
+    items, seen = [], set()
+    for row in rows:
+        try:
+            sku_index = row.sku_index or {}
+        except Exception:
+            continue
+        for sku_id, info in (sku_index or {}).items():
+            if sku_id in seen or not isinstance(info, dict):
+                continue
+            seen.add(sku_id)
+            specs = " / ".join(str(s.get("specOptionName") or s.get("specName") or "")
+                               for s in (info.get("specs") or []) if isinstance(s, dict))
+            items.append({
+                "spu_id": row.spu_id, "spu_name": row.spu_name,
+                "sku_id": str(sku_id), "spec_desc": specs or "默认",
+                "price": str(info.get("price") or row.default_price or ""),
+                "store_no": row.store_no,
+            })
+            if len(items) >= limit:
+                return {"items": items}
+    return {"items": items}
 
 
 def _build_plan_priorities(plan: OrderPlan, tiers: list) -> None:
@@ -788,6 +839,7 @@ def order_plan_create(body: OrderPlanRequest, db: Session = Depends(get_db),
     plan = OrderPlan(name=body.name.strip(), strategy=body.strategy,
                      drink_info=body.drink_info.strip(),
                      note=body.note or "", enabled=body.enabled)
+    _build_plan_drinks(plan, body.drinks)
     _build_plan_priorities(plan, body.priorities)
     db.add(plan)
     db.commit()
@@ -812,7 +864,9 @@ def order_plan_update(plan_id: int, body: OrderPlanRequest,
     plan.enabled = body.enabled
     # 层级全量替换（clear 后先 flush 落 DELETE，规避同表 INSERT 先于 DELETE 撞唯一约束）
     plan.priorities.clear()
+    plan.drinks.clear()
     db.flush()
+    _build_plan_drinks(plan, body.drinks)
     _build_plan_priorities(plan, body.priorities)
     db.commit()
     return _plan_detail(plan)
@@ -1106,6 +1160,11 @@ def orders_decide(body: DecideRequest, request: Request,
         plan = db.get(OrderPlan, body.plan_id)
         if plan is None:
             raise HTTPException(422, f"下单方案不存在：{body.plan_id}")
+        # 方案饮品白名单（§11 饮品管理 Tab）：关联了饮品时仅可下单这些饮品（空=不限）
+        drink_skus = {str(d.sku_id) for d in (plan.drinks or [])}
+        if drink_skus and str(body.sku_id) not in drink_skus:
+            raise HTTPException(422, f"方案「{plan.name}」未关联此饮品（可在方案的饮品管理 Tab 维护关联），"
+                                     f"该方案仅可下单已关联的 {len(drink_skus)} 种饮品")
     tier_list = list(plan.priorities or []) if plan is not None else []
     strategy = plan.strategy if plan is not None else "cost_first"
 

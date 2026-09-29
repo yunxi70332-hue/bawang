@@ -282,15 +282,25 @@ class OrderPlanPriorityBody(BaseModel):
     face_value: str = Field(default="", max_length=16)          # 面额校验（空=不限）
 
 
+class OrderPlanDrinkBody(BaseModel):
+    """方案关联饮品（drinks 元素）：sku 白名单行，选品时从菜单搜索回填名称与面价。"""
+    spu_id: str = Field(default="", max_length=32)
+    sku_id: str = Field(min_length=1, max_length=32)
+    drink_name: str = Field(default="", max_length=128)     # 饮品名快照（含规格描述）
+    face_price: str = Field(default="", max_length=16)      # 面价快照
+
+
 class OrderPlanRequest(BaseModel):
-    """下单方案（§11）：策略 + 券优先级层级链。PUT 同构（priorities 全量替换）。
-    drink_info 为方案级必填编辑框（饮品信息）：保存方案时强制非空，下单选此方案时自动带入订单。"""
+    """下单方案（§11）：策略 + 券优先级层级链。PUT 同构（priorities/drinks 全量替换）。
+    drink_info 为方案级必填编辑框（饮品信息）：保存方案时强制非空，下单选此方案时自动带入订单。
+    drinks 非空时 decide 指定该方案仅可下单关联饮品（白名单，空=不限）。"""
     name: str = Field(min_length=1, max_length=64)
     strategy: str = Field(pattern="^(cost_first|zero_pay|expiry_first)$")   # 成本最优|零元优先|临期优先
     drink_info: str = Field(min_length=1, max_length=200)                   # 饮品信息（必填：空/缺失 → 422）
     note: str = Field(default="", max_length=255)
     enabled: bool = True
     priorities: list[OrderPlanPriorityBody] = Field(default_factory=list)   # 空=不设层，纯策略排序
+    drinks: list[OrderPlanDrinkBody] = Field(default_factory=list)          # 空=不限饮品
 
 
 class ScanRequest(BaseModel):

@@ -510,6 +510,8 @@ class OrderPlan(Base):
     priorities: Mapped[list["OrderPlanCouponPriority"]] = relationship(
         back_populates="plan", cascade="all, delete-orphan",
         order_by="OrderPlanCouponPriority.level")   # 读取即按层级排序
+    drinks: Mapped[list["OrderPlanDrink"]] = relationship(
+        back_populates="plan", cascade="all, delete-orphan")   # 饮品管理 Tab 多选关联（白名单，空=不限）
 
 
 class OrderPlanCouponPriority(Base):
@@ -529,3 +531,21 @@ class OrderPlanCouponPriority(Base):
     __table_args__ = (UniqueConstraint("plan_id", "level", name="uq_plan_priority_level"),)
 
     plan: Mapped["OrderPlan"] = relationship(back_populates="priorities")
+
+
+class OrderPlanDrink(Base):
+    """方案关联饮品（plan_id + sku_id 唯一）：饮品管理 Tab 多选结果。drinks 非空时
+    decide 指定该方案仅可下单这些饮品（白名单语义，空=不限）。"""
+
+    __tablename__ = "order_plan_drinks"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    plan_id: Mapped[int] = mapped_column(ForeignKey("order_plans.id"), index=True)
+    spu_id: Mapped[str] = mapped_column(String(32), default="")
+    sku_id: Mapped[str] = mapped_column(String(32), index=True)
+    drink_name: Mapped[str] = mapped_column(String(128), default="")   # 饮品名快照（含规格）
+    face_price: Mapped[str] = mapped_column(String(16), default="")    # 面价快照（选品时菜单价）
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.now)
+    __table_args__ = (UniqueConstraint("plan_id", "sku_id", name="uq_plan_drink_sku"),)
+
+    plan: Mapped["OrderPlan"] = relationship(back_populates="drinks")

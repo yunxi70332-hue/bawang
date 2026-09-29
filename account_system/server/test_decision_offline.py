@@ -69,7 +69,8 @@ from fastapi.testclient import TestClient  # noqa: E402
 
 import app as app_module  # noqa: E402
 from models import (ChageeAccount, CouponRecord, CouponUsageLog, DecisionLog,  # noqa: E402
-                    OrderPlan, OrderPlanCouponPriority, OrderRecord, PacketConfig,
+                    OrderPlan, OrderPlanCouponPriority, OrderPlanDrink, OrderRecord,
+                    PacketConfig,
                     Role, SystemUser, VoucherCostCategory, VoucherCostRule)
 from security import hash_password  # noqa: E402
 from services import chagee_bridge as bridge  # noqa: E402
@@ -1381,6 +1382,52 @@ def test_25_order_plan_crud_and_decide():
     assert CLIENT.delete(f"/api/ops/decision/order-plans/{plan['id']}", headers=h).status_code == 200
     with _db() as db:
         assert db.query(OrderPlanCouponPriority).count() == 0   # 级联删除
+    _clear_decision_domain()
+
+
+
+def test_26_plan_drink_management():
+    """饮品管理 Tab：菜单库模糊搜索 + 方案关联多选饮品 + decide 白名单拦截。"""
+    _clear_decision_domain()
+    h = _auth()
+    # ① 模糊搜索（menu_goods_cache 由 decide 用例的 resolve L2 回源填充，此处复用）
+    s = CLIENT.get("/api/ops/decision/plan-drinks/search", params={"keyword": "伯牙"},
+                   headers=h)
+    assert s.status_code == 200, s.text
+    items = s.json()["items"]
+    assert items, "菜单库无「伯牙」：decide 用例应已回源填充菜单缓存"
+    skus = {i["sku_id"] for i in items}
+    assert BYJX_SKU_BIG in skus, items[:3]
+    other_sku = next(i for i in items if i["sku_id"] != BYJX_SKU_BIG)
+    # 空关键词 → 422（Query min_length）
+    assert CLIENT.get("/api/ops/decision/plan-drinks/search",
+                      headers=h).status_code == 422
+    # ② 建方案并关联饮品（白名单：只关联 BYJX 大杯）
+    plan = CLIENT.post("/api/ops/decision/order-plans", headers=h, json={
+        "name": "饮品白名单方案", "strategy": "cost_first", "drink_info": "仅限伯牙大杯",
+        "priorities": [],
+        "drinks": [{"spu_id": items[0]["spu_id"], "sku_id": BYJX_SKU_BIG,
+                    "drink_name": "伯牙绝弦（大杯）", "face_price": "20"}]}).json()
+    assert plan["drinks"] and plan["drinks"][0]["sku_id"] == BYJX_SKU_BIG
+    # ③ decide：白名单内 → 正常评估；白名单外 → 422
+    body = {"sku_id": BYJX_SKU_BIG, "quantity": 1, "spec_list": [],
+            "store_no": STORE_NO, "customer_price": "12.00", "plan_id": plan["id"]}
+    r = CLIENT.post("/api/ops/orders/decide", json=body, headers=h)
+    assert r.status_code == 200, r.text
+    body["sku_id"] = other_sku["sku_id"]
+    r = CLIENT.post("/api/ops/orders/decide", json=body, headers=h)
+    assert r.status_code == 422 and "未关联此饮品" in r.json()["detail"], r.text
+    # ④ PUT 清空 drinks → 白名单解除（不限饮品）
+    upd = CLIENT.put(f"/api/ops/decision/order-plans/{plan['id']}", headers=h, json={
+        "name": "饮品白名单方案", "strategy": "cost_first", "drink_info": "仅限伯牙大杯",
+        "priorities": [], "drinks": []}).json()
+    assert upd["drinks"] == []
+    r = CLIENT.post("/api/ops/orders/decide", json=body, headers=h)
+    assert r.status_code == 200, r.text
+    assert CLIENT.delete(f"/api/ops/decision/order-plans/{plan['id']}",
+                         headers=h).status_code == 200
+    with _db() as db:
+        assert db.query(OrderPlanDrink).count() == 0   # 级联删除
     _clear_decision_domain()
 
 
