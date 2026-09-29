@@ -430,7 +430,7 @@
         </el-table-column>
         <el-table-column label="数量" width="130">
           <template #default="{ row }">
-            <el-input-number v-model="skuQty[row.skuId]" :min="1" :max="99" size="small"
+            <el-input-number v-model="skuQty[row.skuId]" :min="1" :max="99" :precision="0" size="small"
               :disabled="row.stock <= 0" controls-position="right" style="width: 110px" />
           </template>
         </el-table-column>
@@ -954,7 +954,8 @@ async function doSettle(sku) {
     return
   }
   if (!ensureDrinkInfo()) return   // 必填校验：饮品信息为空则阻断去结算
-  const qty = Number(skuQty[sku.skuId] || 1)
+  // 数量防御性取整：小数会被 settle 的 int 校验 422 拒绝（与 decide 同一数量源）
+  const qty = Math.min(99, Math.max(1, Math.round(Number(skuQty[sku.skuId] || 1)) || 1))
   settleSkuId.value = sku.skuId
   settleBusy.value = true
   try {
@@ -1097,10 +1098,12 @@ async function runDecide() {
   try {
     const data = await apiDecision.decide({
       sku_id: String(sku.skuId || ''),
-      quantity: Number(skuQty[sku.skuId] || 1),
+      // 数量防御性取整（el-input-number 已 :precision="0"，此处兜底程序化赋值路径）：
+      // 小数数量会被服务端 pydantic int 校验 422 拒绝（settle/create 同一数量源同坑）
+      quantity: Math.min(99, Math.max(1, Math.round(Number(skuQty[sku.skuId] || 1)) || 1)),
       spec_list: currentSpecTexts(sku),
       store_no: storeNo.value,
-      customer_price: price.toFixed(2),
+      customer_price: price.toFixed(2).slice(0, 16),   // 服务端 max_length=16 防御
       plan_id: Number(decidePlanId.value) || 0,   // 0=系统自动；下拉加载失败亦回退自动
     })
     decideResult.value = data
