@@ -1,4 +1,5 @@
-"""ORM 模型：系统用户 / 角色 / 茶姬账号 / 登录工单 / 订单快照 / 审计日志 / 支付会话。"""
+"""ORM 模型：系统用户 / 角色 / 茶姬账号 / 登录工单 / 订单快照 / 审计日志 / 支付会话
+/ 异步订单中枢（客户订单登记 + 持久化消息队列 + 接入密钥，2026-09-29）。"""
 
 from datetime import datetime
 
@@ -554,3 +555,111 @@ class OrderPlanDrink(Base):
     __table_args__ = (UniqueConstraint("plan_id", "sku_id", name="uq_plan_drink_sku"),)
 
     plan: Mapped["OrderPlan"] = relationship(back_populates="drinks")
+
+
+# ---------------- 异步订单中枢（2026-09-29，docs/intake_system.md）----------------
+# 生产-消费模型：接收层（内部 JWT / 外部 X-Api-Key）毫秒级落库即返回 202，重活
+# （decide 选号选券 → settle 试算 → create 下单 → 支付收口取餐码）由 order-worker
+# 线程池异步执行。队列即 SQLite 表（WAL 单写者天然无竞态；入队与订单登记同一事务
+# 原子提交），重试退避 / 死信 / 宕机恢复（孤儿回收）全在应用层可控，语义 at-least-once
+# + 状态机 CAS 推进的消费幂等。
+#
+# 关联锚：CustomerOrder.chagee_order_no ↔ order_records.order_no / pay_sessions.order_no
+# 同键弱关联（同 PayEventLog 口径不设外键）；取餐码复用现有四通道（零元即时 /
+# pay-watcher 2s / H5 探针 / 全量扫描）自动回填，中枢只做缓存列同步。
+
+# CustomerOrder.status 状态机（登记单生命周期；completed/failed/cancelled 为终态）
+INTAKE_STATUS = (
+    "registered",        # 已登记（未入队瞬态：正常路径与消息同事务直接落 enqueued）
+    "enqueued",          # 已入队待消费
+    "processing",        # worker 认领执行中（step 记录 decide/settle/create 细进度）
+    "awaiting_payment",  # 已成差额单，H5 支付链接已下发，等待 pay-watcher 收口
+    "completed",         # 终态成功（零元单直接至此；差额单支付后回填取餐码至此）
+    "failed",            # 终态失败（重试耗尽 / 致命错误 / 决策 blocked / 支付取消）
+    "cancelled",         # 终态取消（入队后消费前人工取消）
+)
+INTAKE_STATUS_LABELS = {
+    "registered": "已登记", "enqueued": "已入队", "processing": "处理中",
+    "awaiting_payment": "待支付", "completed": "已完成", "failed": "已失败",
+    "cancelled": "已取消",
+}
+
+# OrderMessage.status 消息生命周期（= SQLite 持久化队列的行状态；dead 即死信）
+MSG_STATUS = ("pending", "processing", "done", "dead")
+
+
+class CustomerOrder(Base):
+    """客户订单登记单：外部平台 / 内部工作台提交的代下单请求（与 order_records 的
+    茶姬官方订单一一弱关联）。customer_order_no 全局唯一 = 接收幂等键（重复提交返回
+    现状不重复入队）。payload 为归一化后的内部标准报文（worker 据此驱动 decide 链），
+    raw_payload 保留原始提交快照供审计；金额列全 String（协议层金额口径）。"""
+
+    __tablename__ = "customer_orders"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    customer_order_no: Mapped[str] = mapped_column(String(64), unique=True, index=True)
+    source: Mapped[str] = mapped_column(String(32), default="internal", index=True)  # internal|external:<platform>
+    api_key_id: Mapped[int] = mapped_column(Integer, default=0, index=True)          # 外部来源归属密钥（0=内部）
+    payload: Mapped[dict] = mapped_column(JSON, default=dict)
+    raw_payload: Mapped[dict] = mapped_column(JSON, default=dict)
+    callback_url: Mapped[str] = mapped_column(String(512), default="")               # 按单回调地址（空=不回调）
+    status: Mapped[str] = mapped_column(String(24), default="registered", index=True)
+    step: Mapped[str] = mapped_column(String(32), default="")                        # 当前执行步骤（decide/settle/create/…）
+    progress: Mapped[str] = mapped_column(String(255), default="")                   # 人类可读进度/最近动作
+    account_id: Mapped[int] = mapped_column(Integer, default=0, index=True)          # 执行时选定的茶姬账号
+    chagee_order_no: Mapped[str] = mapped_column(String(64), default="", index=True)
+    pickup_no: Mapped[str] = mapped_column(String(16), default="")                   # 取餐码缓存（watcher 收口时同步）
+    pay_url: Mapped[str] = mapped_column(String(512), default="")                    # H5 收银台链接（差额单）
+    pay_amount: Mapped[str] = mapped_column(String(16), default="")                  # 实付差额快照
+    coupon_code: Mapped[str] = mapped_column(String(64), default="")                 # 实际用券
+    error: Mapped[str] = mapped_column(Text, default="")
+    attempts: Mapped[int] = mapped_column(Integer, default=0)                        # 消费尝试次数（消息侧口径镜像）
+    trace_id: Mapped[str] = mapped_column(String(40), default="", index=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.now, index=True)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.now, onupdate=datetime.now)
+    started_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)     # 首次被 worker 认领
+    finished_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)    # 进入终态时刻
+    __table_args__ = (
+        Index("ix_customer_orders_status_created", "status", "created_at"),
+    )
+
+
+class OrderMessage(Base):
+    """持久化消息（SQLite 队列行）：topic 默认 order.create。认领 = 单条
+    UPDATE…RETURNING 原子置 processing（attempts 同步 +1，宕机崩溃不丢计数）；
+    失败按退避回 pending（next_visible_at），attempts ≥ max_attempts 置 dead（死信，
+    管理端点可重放）；processing 超 visibility timeout 由孤儿回收线程复位（崩溃恢复）。"""
+
+    __tablename__ = "order_messages"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    topic: Mapped[str] = mapped_column(String(32), default="order.create", index=True)
+    customer_order_id: Mapped[int] = mapped_column(Integer, default=0, index=True)
+    payload: Mapped[dict] = mapped_column(JSON, default=dict)
+    status: Mapped[str] = mapped_column(String(16), default="pending", index=True)
+    attempts: Mapped[int] = mapped_column(Integer, default=0)
+    max_attempts: Mapped[int] = mapped_column(Integer, default=3)
+    next_visible_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.now)
+    locked_by: Mapped[str] = mapped_column(String(64), default="")
+    locked_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    last_error: Mapped[str] = mapped_column(Text, default="")
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.now, index=True)
+    done_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    __table_args__ = (
+        Index("ix_order_messages_status_visible", "status", "next_visible_at"),
+    )
+
+
+class IntakeApiKey(Base):
+    """外部接入密钥：X-Api-Key 的 sha256 哈希落库（明文仅创建响应返回一次）。
+    active=False 即时吊销；last_used_at 供审计（节流更新，非每次必写）。"""
+
+    __tablename__ = "intake_api_keys"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    key_hash: Mapped[str] = mapped_column(String(64), unique=True, index=True)   # sha256 hex
+    label: Mapped[str] = mapped_column(String(64), default="")                   # 用途备注（如「XX平台对接」）
+    source: Mapped[str] = mapped_column(String(32), default="external")          # 登记单 source 前缀来源
+    active: Mapped[bool] = mapped_column(Boolean, default=True, index=True)
+    last_used_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.now)

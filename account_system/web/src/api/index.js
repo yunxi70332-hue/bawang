@@ -169,3 +169,19 @@ export const apiAudit = {
 export const apiDashboard = {
   stats: () => http.get('/api/dashboard/stats'),
 }
+
+// 异步订单中枢（契约 docs/intake_system.md）：登记单 / 队列 / 死信 / 接入密钥
+export const apiIntake = {
+  // 内部标准登记（JWT；单饮品口径，与 decide 引擎一致）
+  submit: (payload) => http.post('/api/intake/orders', payload),
+  orders: (params) => http.get('/api/intake/orders', { params }),
+  orderGet: (no) => http.get(`/api/intake/orders/${no}`),
+  cancel: (no) => http.post(`/api/intake/orders/${no}/cancel`),
+  requeue: (no) => http.post(`/api/intake/orders/${no}/requeue`),
+  queueStats: () => http.get('/api/intake/queue/stats'),
+  queueMessages: (params) => http.get('/api/intake/queue/messages', { params }),
+  deadRequeue: (msgId) => http.post(`/api/intake/queue/messages/${msgId}/requeue`),
+  keys: () => http.get('/api/intake/keys'),
+  keyCreate: (payload) => http.post('/api/intake/keys', payload),
+  keyDisable: (id) => http.post(`/api/intake/keys/${id}/disable`),
+}

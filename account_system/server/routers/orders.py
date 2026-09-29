@@ -24,7 +24,7 @@ from sqlalchemy.orm import Session
 from audit import log_audit
 from database import SessionLocal, get_db
 from models import (ChageeAccount, CouponRecord, CouponUsageLog, DecisionLog, OrderPlan,
-                    OrderRecord, PayEventLog, SystemUser, VoucherCostCategory,
+                    OrderRecord, PayEventLog, PaySession, SystemUser, VoucherCostCategory,
                     VoucherCostRule)
 from oplog import log_op
 from schemas import CashierUrlRequest, OrderCreateRequest, OrderSettleRequest, PayModeRequest
@@ -38,8 +38,9 @@ from services.order_reconcile import (
 )
 from services.pay_session import (
     EVENT_CASHIER_UPDATED, EVENT_ORDER_CANCELLED, PaySessionError, build_h5_url,
-    clamp_pay_deadline, get_by_order_no, mark_session, pay_link_payload_with_session,
-    record_event, switch_order_to_full_price, token_prefix,
+    clamp_pay_deadline, get_by_order_no, mark_session, pay_deadline_ts,
+    pay_link_payload_with_session, record_event, server_now_ms,
+    switch_order_to_full_price, token_prefix,
 )
 
 router = APIRouter(prefix="/api/ops/accounts/{account_id}/orders", tags=["orders"])
@@ -67,28 +68,31 @@ def _get_account(db: Session, account_id: int) -> ChageeAccount:
     return account
 
 
-def _fail(account: ChageeAccount, db: Session, request: Request, user: SystemUser,
-          action: str, e: Exception):
-    """契约 §0 异常链：统一转 HTTPException（本函数必抛，无返回值）。"""
+def _fail(account: ChageeAccount, db: Session, request: Request | None,
+          user: SystemUser | None, action: str, e: Exception):
+    """契约 §0 异常链：统一转 HTTPException（本函数必抛，无返回值）。
+    user/request 可为 None（异步 worker 无请求上下文，actor 回退 "order-worker"）——
+    settle_core/create_core 与路由共用本函数，异常分类对两者完全一致。"""
+    username = user.username if user else "order-worker"
     label = f"{account.label}#{account.id}"
     if isinstance(e, bridge.SessionExpiredError):
         account.status = "expired"
         db.commit()
         log_audit(db, request, user, action, label, {"result": "expired", "error": str(e)[:200]})
-        log_op(level="ERROR", actor=user.username, target=label, action=action,
+        log_op(level="ERROR", actor=username, target=label, action=action,
                result="expired", error=e, params={"http_status": 409})
         raise HTTPException(409, f"账号凭证已失效，请重新登录后重试: {e}")
     if isinstance(e, bridge.ChageeBridgeError):
-        log_op(level="ERROR", actor=user.username, target=label, action=action,
+        log_op(level="ERROR", actor=username, target=label, action=action,
                result="failed", error=e, params={"http_status": 400})
         raise HTTPException(400, str(e))
     if isinstance(e, bridge.OrderHangError):
-        log_op(level="ERROR", actor=user.username, target=label, action=action,
+        log_op(level="ERROR", actor=username, target=label, action=action,
                result="failed", error=e, params={"http_status": 409})
         # createOrder 无显式幂等键：结果不确定时严禁直接重试，先到取餐查询页查单
         raise HTTPException(409, "下单结果不确定，订单可能已创建——请到取餐查询页查单后再决定是否重试")
     if isinstance(e, bridge.ConsistencyError):
-        log_op(level="ERROR", actor=user.username, target=label, action=action,
+        log_op(level="ERROR", actor=username, target=label, action=action,
                result="failed", error=e, params={"http_status": 409})
         raise HTTPException(409, f"下单一致性校验失败，已中止提交: {e}")
     if isinstance(e, (bridge.TradeError, bridge.ChageeError)):
@@ -97,10 +101,10 @@ def _fail(account: ChageeAccount, db: Session, request: Request, user: SystemUse
             # trade 服务校验失败的兜底文案（82041201/91010009/8202020200007 同文案不同码）：
             # 最常见根因是门店非营业时间（2026-09-27 定案，docs/order_error_82041201_20260927.md）
             msg += "（服务端校验兜底文案：最常见原因是所选门店已打烊/非营业时间，请换营业中门店或营业时段重试）"
-        log_op(level="ERROR", actor=user.username, target=label, action=action,
+        log_op(level="ERROR", actor=username, target=label, action=action,
                result="failed", error=e, params={"http_status": 502})
         raise HTTPException(502, f"协议错误: {msg}")
-    log_op(level="ERROR", actor=user.username, target=label, action=action,
+    log_op(level="ERROR", actor=username, target=label, action=action,
            result="failed", error=e, params={"http_status": 502})
     raise HTTPException(502, f"请求失败: {type(e).__name__}: {e}")
 
@@ -323,24 +327,26 @@ def _order_target_snapshot(draft: dict) -> dict:
 
 def _backfill_decision_log(db: Session, body: OrderCreateRequest, account: ChageeAccount,
                            order_no: str, coupon_code: str, deduction: str,
-                           pay_actual: str, user: SystemUser) -> None:
+                           pay_actual: str, user: SystemUser | None) -> None:
     """成单挂钩（契约 decision_api_contract.md §6）：请求带 decision_log_id 时，把该
     DecisionLog 行（decide 评估时 order_no 为空）回填为真实成单信息——order_no/
     account_id/coupon_code（原行空时）/deduction_actual（选券复跑的服务端抵扣）/
     pay_actual（OrderOutcome.pay_amount 或 PayLink.total_amount）+ plan_json 补 order_no。
     找不到该 id 或已被其他单占用时不报错（仅 log_op WARN），绝不影响下单主流程；
-    未传 decision_log_id（缺省 0）时行为与决策系统引入前完全一致。"""
+    未传 decision_log_id（缺省 0）时行为与决策系统引入前完全一致。
+    user 可为 None（异步 worker 路径，actor 回退 order-worker）。"""
+    username = user.username if user else "order-worker"
     log_id = int(getattr(body, "decision_log_id", 0) or 0)
     if log_id <= 0:
         return
     row = db.get(DecisionLog, log_id)
     if row is None:
-        log_op(level="WARN", action="decision.backfill", actor=user.username,
+        log_op(level="WARN", action="decision.backfill", actor=username,
                target=order_no, result="missed",
                params={"decision_log_id": log_id, "reason": "not_found"})
         return
     if str(row.order_no or "").strip():
-        log_op(level="WARN", action="decision.backfill", actor=user.username,
+        log_op(level="WARN", action="decision.backfill", actor=username,
                target=order_no, result="skipped",
                params={"decision_log_id": log_id, "reason": "already_bound",
                        "bound_order_no": row.order_no})
@@ -356,7 +362,7 @@ def _backfill_decision_log(db: Session, body: OrderCreateRequest, account: Chage
     plan["order_no"] = order_no
     row.plan_json = plan
     db.commit()
-    log_op(action="decision.backfill", actor=user.username, target=order_no,
+    log_op(action="decision.backfill", actor=username, target=order_no,
            params={"decision_log_id": log_id, "account_id": account.id,
                    "coupon_code": coupon_code or None,
                    "deduction_actual": deduction, "pay_actual": pay_actual})
@@ -397,12 +403,13 @@ def _pay_link_payload(link, db: Session | None = None, account_id: int | None = 
 
 # ---------------- F5：试算（生成 draft） ----------------
 
-@router.post("/settle")
-def order_settle(account_id: int, body: OrderSettleRequest, request: Request,
-                 db: Session = Depends(get_db),
-                 user: SystemUser = Depends(require_perm("feature:order"))):
+def settle_core(db: Session, account: ChageeAccount, body: OrderSettleRequest,
+                request: Request | None = None, user: SystemUser | None = None) -> dict:
+    """试算核心（可编程调用）：HTTP 路由与异步订单中枢 worker（services/order_worker）
+    共用同一实现；user/request 为 None 时走 worker 语境（actor=order-worker），
+    业务逻辑与异常链（HTTPException 语义）和路由路径完全一致。"""
+    actor = user.username if user else "order-worker"
     started = time.time()   # oplog 耗时统计
-    account = _get_account(db, account_id)
     # 请求体 → target（App 立即购买路径：goods/detail → calculatePrice → settlePrice 直发，
     # 全程无购物车端点——2026-09-26 抓包定案；价格占位/缺必选加料会被 [9105050200005] 拒绝）
     target = {
@@ -450,7 +457,7 @@ def order_settle(account_id: int, body: OrderSettleRequest, request: Request,
         "created_at": now,
     }
     with _draft_lock:
-        _drafts[account_id] = draft   # 新 settle 覆盖旧 draft
+        _drafts[account.id] = draft   # 新 settle 覆盖旧 draft
 
     # 券档案同步：试算可用券全量入库（券ID↔token 映射 + 完整名称，来源 settle）
     for c in (settle_base.available_coupons or []):
@@ -458,7 +465,7 @@ def order_settle(account_id: int, body: OrderSettleRequest, request: Request,
             _upsert_coupon(db, account, c, "settle_available", "settle")
         except Exception as e:
             # 档案同步失败不阻塞下单主流程：吞异常继续（保持原 pass 语义），仅 WARN 留痕
-            log_op(level="WARN", action="coupon.archive_sync", actor=user.username,
+            log_op(level="WARN", action="coupon.archive_sync", actor=actor,
                    target=f"{account.label}#{account.id}", result="failed", error=e)
 
     # 预览：estimated_pay = max(total − 推荐券抵扣, 0)；无推荐券时即 total（scenario 按 total>0 判定）
@@ -495,7 +502,7 @@ def order_settle(account_id: int, body: OrderSettleRequest, request: Request,
               {"total": preview["total_trade_price"], "buyer_real": preview["buyer_real_price"],
                "coupons": len(settle_base.available_coupons), "estimated": preview["estimated_pay"],
                "scenario": preview["scenario_preview"]})
-    log_op(action="feature.order_settle", actor=user.username,
+    log_op(action="feature.order_settle", actor=actor,
            target=f"{account.label}#{account.id}",
            params={"goods": draft["goods_desc"], "store": body.store_no,
                    "total": preview["total_trade_price"], "estimated_pay": preview["estimated_pay"],
@@ -507,6 +514,14 @@ def order_settle(account_id: int, body: OrderSettleRequest, request: Request,
         "expires_at": datetime.fromtimestamp(now + DRAFT_TTL_SECONDS).strftime("%Y-%m-%d %H:%M:%S"),
         "preview": preview,
     }
+
+
+@router.post("/settle")
+def order_settle(account_id: int, body: OrderSettleRequest, request: Request,
+                 db: Session = Depends(get_db),
+                 user: SystemUser = Depends(require_perm("feature:order"))):
+    account = _get_account(db, account_id)
+    return settle_core(db, account, body, request=request, user=user)
 
 
 # ---------------- F5：下单（zero / partial 双分支） ----------------
@@ -635,17 +650,20 @@ def _enforce_plan_pay_threshold(db: Session, plan_id, pay_amount, stage: str,
                        "result": "blocked"})
         raise HTTPException(422, f"方案「{plan.name}」{reason}")
 
-@router.post("/create")
-def order_create(account_id: int, body: OrderCreateRequest, request: Request,
-                 db: Session = Depends(get_db),
-                 user: SystemUser = Depends(require_perm("feature:order"))):
+def create_core(db: Session, account: ChageeAccount, body: OrderCreateRequest,
+                request: Request | None = None, user: SystemUser | None = None) -> dict:
+    """下单核心（可编程调用）：HTTP 路由与异步订单中枢 worker（services/order_worker）
+    共用同一实现（单次一单检查/券五重验证/券自动切换/zero-partial 双分支）；
+    user/request 为 None 时走 worker 语境（actor=order-worker），异常仍以
+    HTTPException 语义抛出（worker 捕获后按状态码分类可重试/致命）。"""
+    account_id = account.id
+    actor = user.username if user else "order-worker"
     started = time.time()   # oplog 耗时统计
-    account = _get_account(db, account_id)
     with _draft_lock:
         draft = _drafts.get(account_id)
     if (not draft or draft.get("draft_id") != body.draft_id
             or time.time() - draft.get("created_at", 0) > DRAFT_TTL_SECONDS):
-        log_op(level="WARN", action="feature.order_create", actor=user.username,
+        log_op(level="WARN", action="feature.order_create", actor=actor,
                target=f"{account.label}#{account.id}", result="rejected",
                params={"reason": "draft_expired", "draft_id": body.draft_id})
         raise HTTPException(400, "草稿已过期，请重新试算")
@@ -661,11 +679,11 @@ def order_create(account_id: int, body: OrderCreateRequest, request: Request,
             pending.created_at + timedelta(seconds=PAY_WINDOW_SECONDS) if pending.created_at else None)
         if deadline and datetime.now() - deadline > timedelta(seconds=RECONCILE_GRACE_SECONDS):
             try:
-                reconcile_order(db, pending, account, operator=user.username)
+                reconcile_order(db, pending, account, operator=actor)
             except Exception as e:
                 # 校准自身失败（如本地写库异常）不阻断下单主流程，重查后仍待支付则走 409
                 db.rollback()
-                log_op(level="WARN", action="order.reconcile_inline", actor=user.username,
+                log_op(level="WARN", action="order.reconcile_inline", actor=actor,
                        target=f"{account.label}#{account.id}", result="failed", error=e)
         # 校准后重查待支付单：已消失（已取消/已支付均同步）则放行继续下单；
         # 仍存在（含校准返回 still_pending / skipped_error）则维持原 409
@@ -673,7 +691,7 @@ def order_create(account_id: int, body: OrderCreateRequest, request: Request,
                      .filter(OrderRecord.account_id == account_id, OrderRecord.status == 1)
                      .first())
     if pending:
-        log_op(level="WARN", action="feature.order_create", actor=user.username,
+        log_op(level="WARN", action="feature.order_create", actor=actor,
                target=f"{account.label}#{account.id}", result="rejected",
                params={"reason": "pending_order", "pending_order_no": pending.order_no})
         raise HTTPException(409, f"存在待支付订单（{pending.order_no}），请先处理（支付/取消）后再下单")
@@ -687,7 +705,7 @@ def order_create(account_id: int, body: OrderCreateRequest, request: Request,
         if coupon_entry is None:
             _log_coupon_usage(db, account, user, coupon_code, "", "rejected",
                               fail_reason="券不在本次试算可用券列表中（需重新试算）")
-            log_op(level="WARN", action="coupon.rejected", actor=user.username,
+            log_op(level="WARN", action="coupon.rejected", actor=actor,
                    target=f"{account.label}#{account.id}", result="rejected",
                    params={"coupon_code": coupon_code, "reason": "not_in_settle_available"})
             raise HTTPException(400, f"券 {coupon_code} 不在试算可用券列表中，请重新试算")
@@ -697,7 +715,7 @@ def order_create(account_id: int, body: OrderCreateRequest, request: Request,
             _log_coupon_usage(db, account, user, coupon_code,
                               coupon_entry.get("templateName") or "", "rejected",
                               fail_reason=reject)
-            log_op(level="WARN", action="coupon.rejected", actor=user.username,
+            log_op(level="WARN", action="coupon.rejected", actor=actor,
                    target=f"{account.label}#{account.id}", result="rejected",
                    params={"coupon_code": coupon_code, "reason": reject})
             raise HTTPException(400, f"优惠券验证未通过：{reject}")
@@ -731,7 +749,7 @@ def order_create(account_id: int, body: OrderCreateRequest, request: Request,
                     _log_coupon_usage(db, account, user, code,
                                       (entry or {}).get("templateName") or "", "rejected",
                                       fail_reason=f"[券自动切换跳过] {reject}")
-                    log_op(level="INFO", action="coupon.fallback_skip", actor=user.username,
+                    log_op(level="INFO", action="coupon.fallback_skip", actor=actor,
                            target=f"{account.label}#{account.id}", result="rejected",
                            params={"coupon_code": code, "reason": reject})
                     continue
@@ -747,7 +765,7 @@ def order_create(account_id: int, body: OrderCreateRequest, request: Request,
                 # §11 库存检查话术：所有优先级券均使用失败 → 暂无库存
                 raise HTTPException(400, "暂无库存：券自动切换全部失败，已尝试 " + "；".join(tried))
             if coupon_code != (body.coupon_code or "").strip():
-                log_op(level="INFO", action="coupon.fallback_applied", actor=user.username,
+                log_op(level="INFO", action="coupon.fallback_applied", actor=actor,
                        target=f"{account.label}#{account.id}", result="ok",
                        params={"from": body.coupon_code, "to": coupon_code,
                                "tried": tried})
@@ -769,7 +787,7 @@ def order_create(account_id: int, body: OrderCreateRequest, request: Request,
         # 超限/未配置即中止——绝不允许带着超限金额调用 createOrder 成单
         _enforce_plan_pay_threshold(db, _resolve_create_plan_id(db, body),
                                     settle.buyer_real_price, stage="create",
-                                    username=user.username)
+                                    username=actor)
         outcome = api.create_order(settle, draft["store_no"], draft["store_name"] or "", rows)
     except HTTPException:
         raise   # fallback 耗尽等业务 400 直通，不被 _fail 改写为协议错误
@@ -778,7 +796,7 @@ def order_create(account_id: int, body: OrderCreateRequest, request: Request,
             _log_coupon_usage(db, account, user, coupon_code,
                               (coupon_entry or {}).get("templateName") or "", "failed",
                               fail_reason=f"{type(e).__name__}: {e}"[:250])
-            log_op(level="WARN", action="coupon.failed", actor=user.username,
+            log_op(level="WARN", action="coupon.failed", actor=actor,
                    target=f"{account.label}#{account.id}", result="failed",
                    params={"coupon_code": coupon_code}, error=e)
         _fail(account, db, request, user, "feature.order_create", e)
@@ -807,7 +825,7 @@ def order_create(account_id: int, body: OrderCreateRequest, request: Request,
         log_audit(db, request, user, "feature.order_create", f"{account.label}#{account.id}",
                   {"result": "zero", "order_no": outcome.order_no,
                    "pay_amount": outcome.pay_amount, "coupon": coupon_code or None})
-        log_op(action="feature.order_create", actor=user.username,
+        log_op(action="feature.order_create", actor=actor,
                target=f"{account.label}#{account.id}",
                params={"result_kind": "zero", "order_no": outcome.order_no,
                        "pay_amount": outcome.pay_amount, "coupon": coupon_code or None,
@@ -851,7 +869,7 @@ def order_create(account_id: int, body: OrderCreateRequest, request: Request,
     log_audit(db, request, user, "feature.order_create", f"{account.label}#{account.id}",
               {"result": "partial", "order_no": link.order_no,
                "pay_amount": settle.buyer_real_price, "coupon": coupon_code or None})
-    log_op(action="feature.order_create", actor=user.username,
+    log_op(action="feature.order_create", actor=actor,
            target=f"{account.label}#{account.id}",
            params={"result_kind": "partial", "order_no": link.order_no,
                    "pay_amount": settle.buyer_real_price, "coupon": coupon_code or None,
@@ -860,6 +878,14 @@ def order_create(account_id: int, body: OrderCreateRequest, request: Request,
     return _pay_link_payload(link, db=db, account_id=account_id,
                              pay_mode="partial" if coupon_code else "full",
                              coupon_code=coupon_code)
+
+
+@router.post("/create")
+def order_create(account_id: int, body: OrderCreateRequest, request: Request,
+                 db: Session = Depends(get_db),
+                 user: SystemUser = Depends(require_perm("feature:order"))):
+    account = _get_account(db, account_id)
+    return create_core(db, account, body, request=request, user=user)
 
 
 # ---------------- F5：支付模式 / 续付 / 取消 ----------------
@@ -1100,6 +1126,43 @@ def order_pay_params(account_id: int, order_no: str, request: Request,
             **fields,
             "note": "pay_param_str 为官方收银台全量支付参数（JSON v1，紧凑原文与库内存储一致）；"
                     "alipay_cashier_url 为空表示尚未捕获/铸造，可续付触发重铸"}
+
+
+@global_router.get("/pay/pending")
+def pay_pending(request: Request, db: Session = Depends(get_db),
+                user: SystemUser = Depends(require_perm("feature:order"))):
+    """全账号待支付订单 × 官方收银台链接聚合轮询端点（支付助手 exe 的唯一数据源）。
+
+    纯本地库视图（pay_sessions issued × pay_param_records × 账号标签），零上游协议
+    调用——可被 5 秒级轮询安全反复调用。server_time + pay_deadline_ts 为绝对时间锚点
+    （时间戳同步契约），客户端据此做倒计时与时钟校正。
+    """
+    now = datetime.now()
+    rows = (db.query(PaySession, ChageeAccount.label)
+            .outerjoin(ChageeAccount, ChageeAccount.id == PaySession.account_id)
+            .filter(PaySession.status == "issued")
+            .order_by(PaySession.pay_deadline.asc().nullslast()).all())
+    items = []
+    for sess, label in rows:
+        if sess.pay_deadline and sess.pay_deadline <= now:
+            continue   # 已过窗（后台校准线程收口中），不进入待付列表
+        fields = pay_params.payload_fields(db, sess.order_no)
+        doc = fields["pay_params"] or {}
+        items.append({
+            "order_no": sess.order_no,
+            "account_id": sess.account_id,
+            "account_label": label or "",
+            "pay_amount": sess.pay_amount or "",
+            "total_amount": sess.total_amount or "",
+            "pay_deadline": sess.pay_deadline.strftime("%Y-%m-%d %H:%M:%S") if sess.pay_deadline else "",
+            "pay_deadline_ts": pay_deadline_ts(sess),
+            "cashier_url": sess.alipay_cashier_url or "",
+            "generated": doc is not None,
+            "source": doc.get("source", "") if doc else "",
+            "pay_param_str": fields["pay_param_str"],
+            "h5_url": build_h5_url(sess.pay_token),
+        })
+    return {"server_time": server_now_ms(), "count": len(items), "items": items}
 
 
 # ---------------- F6：订单查询（不审计；SessionExpired 仍置 expired+审计） ----------------

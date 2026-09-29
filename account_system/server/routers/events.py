@@ -25,6 +25,7 @@ router = APIRouter(prefix="/api", tags=["events"])
 _TOPIC_PERMS = {
     "dashboard": "account:read",        # 仪表盘统计实时推送
     "pickup_scan": "feature:pickup",    # 全量取餐码扫描进度推流
+    "intake": "feature:order",          # 异步订单中枢：登记单状态迁移实时推送
 }
 
 _HEARTBEAT_SECONDS = 15.0

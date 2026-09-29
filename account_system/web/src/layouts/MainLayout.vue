@@ -40,6 +40,7 @@
             <el-menu-item v-if="auth.can('feature:order')" index="/ops/order">下单 · F5</el-menu-item>
             <el-menu-item v-if="auth.can('feature:order')" index="/ops/coupon-logs">券使用记录</el-menu-item>
             <el-menu-item v-if="auth.can('feature:pickup')" index="/ops/pickup">取餐查询 · F6</el-menu-item>
+            <el-menu-item v-if="auth.can('feature:order')" index="/ops/intake">订单中枢</el-menu-item>
           </el-sub-menu>
 
           <el-sub-menu index="grp-decision" v-if="auth.can('decision:manage')">

@@ -10,7 +10,8 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
-from routers import accounts, audit, auth, decision, events, logs, ops, orders, payportal, roles, users
+from routers import (accounts, audit, auth, decision, events, intake, logs, ops, orders,
+                     payportal, roles, users)
 from log_setup import setup_logging
 from oplog import init_oplog, install_request_middleware, log_op
 from log_monitor import start_log_monitor_thread
@@ -45,6 +46,8 @@ app.include_router(orders.router)   # F5 下单 + F6 取餐查询（/api/ops/acc
 app.include_router(orders.global_router)   # 券使用记录 / 券档案 / 支付事件流（/api/ops/...）
 app.include_router(decision.router)   # 下单决策：套餐/券成本/配置/扫描库存/报表/流水（/api/ops/decision/...）
 app.include_router(decision.global_router)   # decide 决策评估（POST /api/ops/orders/decide，权限 feature:order）
+app.include_router(intake.router)   # 异步订单中枢：内部登记/队列/死信/密钥管理（/api/intake/...）
+app.include_router(intake.v1_router)   # 外部 KFC 系适配（/api/intake/v1/...，X-Api-Key 鉴权）
 app.include_router(audit.router)
 app.include_router(events.router)   # SSE 实时事件流（/api/events：仪表盘统计推送 + 全量取餐码扫描进度）
 app.include_router(logs.router)   # 全局日志/告警查询与处置（/api/ops/logs、/api/ops/alerts）
@@ -75,6 +78,10 @@ def startup():
     start_log_monitor_thread()   # 日志监控告警线程：CHAGEE_LOG_MONITOR_INTERVAL_SECONDS，默认 30s
     from services.dashboard_push import start_dashboard_push_thread
     start_dashboard_push_thread()   # 仪表盘统计 SSE 推送（CHAGEE_DASHBOARD_PUSH_INTERVAL_SECONDS，默认 5s，指纹变化才推）
+    from services.order_worker import start_order_workers
+    start_order_workers()   # 异步订单中枢 worker 池（CHAGEE_ORDER_WORKERS，默认 2；<=0 不启动）
+    from services.backup import start_backup_thread
+    start_backup_thread()   # SQLite 一致性快照备份（CHAGEE_BACKUP_INTERVAL_SECONDS，默认每日；<=0 不启动）
     from services.cloud_tunnel import start_tunnel
     start_tunnel()   # 云手机 WebView 隧道托管子进程（与主服务同寿命；CHAGEE_TUNNEL_ENABLED=0 停用）
 

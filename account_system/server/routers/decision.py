@@ -1100,10 +1100,12 @@ def _settle_probe_total(account: ChageeAccount, target: dict,
         return None
 
 
-@global_router.post("/orders/decide")
-def orders_decide(body: DecideRequest, request: Request,
-                  db: Session = Depends(get_db),
-                  user: SystemUser = Depends(require_perm("feature:order"))):
+def decide_core(db: Session, body: DecideRequest, request: Request | None = None,
+                user: SystemUser | None = None) -> dict:
+    """decide 决策评估核心（可编程调用）：HTTP 路由与异步订单中枢 worker
+    （services/order_worker）共用同一实现；user/request 为 None 时走 worker 语境
+    （actor=order-worker），商品解析/套餐匹配/候选排序/阈值判定逻辑完全一致。"""
+    actor = user.username if user else "order-worker"
     started = time.time()   # oplog 耗时统计
     # ① 商品解析：本地菜单规格库 skuId 命中（未命中 422 带原因）；文案规格非空时再解析
     try:
@@ -1221,7 +1223,7 @@ def orders_decide(body: DecideRequest, request: Request,
         # 必须在任何 settle 探针/deep 逻辑之前拦截（本区即 plan 校验区）
         thr = decision_svc.parse_pay_threshold(plan.max_pay_amount)
         if thr["status"] != "valid":
-            log_op(level="ERROR", action="decision.plan_pay_threshold", actor=user.username,
+            log_op(level="ERROR", action="decision.plan_pay_threshold", actor=actor,
                    target=f"方案#{plan.id}",
                    params={"plan_id": plan.id, "plan_name": plan.name, "stage": "decide",
                            "threshold_raw": plan.max_pay_amount or "",
@@ -1272,7 +1274,7 @@ def orders_decide(body: DecideRequest, request: Request,
             "attributeList": attribute_list, "imageUrl": "",
             "spuType": "stand", "nutritionInfo": None,
         }
-        server_total = (_settle_probe_total(probe_account, target, user.username)
+        server_total = (_settle_probe_total(probe_account, target, actor)
                         if probe_account else None)
         if server_total is not None:
             total = server_total
@@ -1312,7 +1314,7 @@ def orders_decide(body: DecideRequest, request: Request,
                     f"当前支付金额超过方案限制：原价单需支付 {_money(total)} 元，"
                     f"超过方案「{plan.name}」阈值 {_money(thr['value'])} 元")
                 log_op(level="WARN", action="decision.plan_pay_threshold",
-                       actor=user.username, target=f"方案#{plan.id}",
+                       actor=actor, target=f"方案#{plan.id}",
                        params={"plan_id": plan.id, "plan_name": plan.name,
                                "pay_amount": _money(total),
                                "threshold": _money(thr["value"]),
@@ -1344,7 +1346,7 @@ def orders_decide(body: DecideRequest, request: Request,
                               f"{_money(pre_filter_best_pay)} 元，"
                               f"超过方案「{plan.name}」阈值 {_money(thr['value'])} 元")
             log_op(level="WARN", action="decision.plan_pay_threshold",
-                   actor=user.username, target=f"方案#{plan.id}",
+                   actor=actor, target=f"方案#{plan.id}",
                    params={"plan_id": plan.id, "plan_name": plan.name,
                            "pay_amount": _money(pre_filter_best_pay),
                            "threshold": _money(thr["value"]),
@@ -1467,7 +1469,7 @@ def orders_decide(body: DecideRequest, request: Request,
                "account_id": account_id, "coupon": coupon["coupon_code"] if coupon else None,
                "profit": breakdown.get("profit"), "margin": breakdown.get("margin"),
                "price_source": price_source})
-    log_op(action="feature.order_decide", actor=user.username,
+    log_op(action="feature.order_decide", actor=actor,
            target=f"{body.store_no}/{body.sku_id}",
            params={"verdict": verdict, "revenue": _money(revenue),
                    "total": _money(total), "price_source": price_source,
@@ -1475,3 +1477,10 @@ def orders_decide(body: DecideRequest, request: Request,
                    "decision_log_id": log_row.id, "deep": body.deep},
            duration_ms=int((time.time() - started) * 1000))
     return response
+
+
+@global_router.post("/orders/decide")
+def orders_decide(body: DecideRequest, request: Request,
+                  db: Session = Depends(get_db),
+                  user: SystemUser = Depends(require_perm("feature:order"))):
+    return decide_core(db, body, request=request, user=user)

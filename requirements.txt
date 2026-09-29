@@ -1,0 +1,18 @@
+# account_system 服务端运行依赖（由 .venv_verify 实测版本生成，2026-09-29）
+# 安装：python -m pip install -r requirements.txt
+
+fastapi==0.141.1
+uvicorn==0.54.0
+SQLAlchemy==2.1.1
+pydantic==2.13.5
+PyJWT==2.15.0
+bcrypt==5.0.0
+requests==2.34.2
+websocket-client==1.9.2
+websockets==13.1
+cryptography==50.0.1
+pycryptodome==3.23.0
+frida==16.7.19
+pytest==9.1.1
+
+# 前端（web/）：Node + pnpm（package.json 为准，pnpm install）

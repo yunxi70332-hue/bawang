@@ -38,12 +38,16 @@ engine = create_engine(
 )
 # 每个新连接同步 PRAGMA（WAL 是库级持久属性，但连接级同步可覆盖被外部工具改掉的场景；
 # busy_timeout 给短事务加 5 秒等待窗口，配合 WAL 把 locked 错误压到最低）
+# synchronous=NORMAL 是 WAL 的推荐档（与 oplog 库同款，2026-09-29 随异步订单中枢压测
+# 调优）：commit 不再逐次 fsync（仅 checkpoint 时落盘），进程崩溃不丢事务，仅操作系统
+# 级断电可能回滚最后几笔——订单域每日有 backup 快照兜底，吞吐收益（实测数倍）值得。
 @event.listens_for(engine, "connect")
 def _sqlite_pragmas(dbapi_conn, _record):
     try:
         cursor = dbapi_conn.cursor()
         cursor.execute("PRAGMA journal_mode=WAL")
         cursor.execute("PRAGMA busy_timeout=5000")
+        cursor.execute("PRAGMA synchronous=NORMAL")
         cursor.close()
     except Exception:
         logger.warning("连接级 PRAGMA 设置失败", exc_info=True)

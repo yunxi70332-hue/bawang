@@ -333,3 +333,79 @@ class DecideRequest(BaseModel):
     allow_full_price: bool = False                             # 无券时是否允许原价单
     deep: bool = False                                         # true=对 top1 候选账号真实 settle 探针
     plan_id: int = Field(default=0, ge=0)                      # 下单方案（§11）：0=自动（系统推荐）
+
+
+# ---------- 异步订单中枢（2026-09-29，契约 docs/intake_system.md） ----------
+
+_AMOUNT_RE = r"^\d+(\.\d{1,2})?$"   # 非负金额：允许 "15"/"15.7"/"15.70"
+
+
+class IntakeOrderRequest(BaseModel):
+    """内部标准登记（POST /api/intake/orders，JWT feature:order）。单饮品口径——与
+    F5 工作台/decide 引擎一致（一次一 SKU），多商品购物车为未来扩展。
+    spec_texts 文案规格在接收时即经菜单规格库解析预检（歧义拒猜 422），坏报文
+    不进队列；customer_price 为决策 revenue（利润阈值判定依据），必填。"""
+    customer_order_no: str = Field(min_length=1, max_length=64)   # 幂等键（重复提交返回现状）
+    store_no: str = Field(min_length=1, max_length=32)
+    store_name: str = Field(default="", max_length=128)
+    sku_id: str = Field(min_length=1, max_length=64)              # 茶姬 skuId（客户平台 linkId）
+    quantity: int = Field(default=1, ge=1, le=99)
+    spec_texts: list[str] = Field(default_factory=list)           # 文案规格（"半糖"…），空=默认组合
+    customer_price: str = Field(min_length=1, max_length=16)      # 客户支付价（String 金额）
+    allow_full_price: bool = False                                # 无券时是否允许原价单
+    plan_id: int = Field(default=0, ge=0)                         # 下单方案（0=自动）
+    packet_id: int = Field(default=0, ge=0)                       # 套餐（0=自动匹配）
+    drink_info: str = Field(default="", max_length=200)           # 饮品信息（带入订单快照）
+    phone: str = Field(default="", max_length=16)
+    remark: str = Field(default="", max_length=255)
+    callback_url: str = Field(default="", max_length=512)         # 按单回调地址（空=不回调）
+
+    @field_validator("customer_price")
+    @classmethod
+    def _price(cls, v: str) -> str:
+        if not re.fullmatch(_AMOUNT_RE, v):
+            raise ValueError("customer_price 须为非负金额（如 15.70）")
+        return v
+
+    @field_validator("callback_url")
+    @classmethod
+    def _cb_url(cls, v: str) -> str:
+        if v and not v.startswith(("http://", "https://")):
+            raise ValueError("callback_url 须为 http(s) 地址")
+        return v
+
+
+class IntakeExternalOrderRequest(BaseModel):
+    """外部 KFC 系平台报文（POST /api/intake/v1/orders，X-Api-Key 鉴权）。
+    字段映射（2026-09-27 客户平台抓包分析）：linkId=茶姬 skuId 实锤；payAmount=客户
+    支付价；specs 文案规格经菜单规格库兜底命中链解析（未命中/歧义 422 明确报字段，
+    绝不静默下错规格）；storeNo 缺省回落 data/intake_config.json 的 default_store_no。"""
+    orderNo: str = Field(min_length=1, max_length=64)
+    linkId: str = Field(min_length=1, max_length=64)
+    count: int = Field(default=1, ge=1, le=99)
+    specs: list[str] = Field(default_factory=list)
+    storeNo: str = Field(default="", max_length=32)
+    payAmount: str = Field(min_length=1, max_length=16)
+    phone: str = Field(default="", max_length=16)
+    remark: str = Field(default="", max_length=255)
+    callbackUrl: str = Field(default="", max_length=512)
+
+    @field_validator("payAmount")
+    @classmethod
+    def _pay_amount(cls, v: str) -> str:
+        if not re.fullmatch(_AMOUNT_RE, v):
+            raise ValueError("payAmount 须为非负金额（如 15.70）")
+        return v
+
+    @field_validator("callbackUrl")
+    @classmethod
+    def _cb_url(cls, v: str) -> str:
+        if v and not v.startswith(("http://", "https://")):
+            raise ValueError("callbackUrl 须为 http(s) 地址")
+        return v
+
+
+class IntakeKeyRequest(BaseModel):
+    """接入密钥创建（POST /api/intake/keys）：明文 key 仅创建响应返回一次。"""
+    label: str = Field(min_length=1, max_length=64)
+    source: str = Field(default="external", max_length=32)   # 登记单 source 前缀（external:<source>）

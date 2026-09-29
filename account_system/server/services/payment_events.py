@@ -122,6 +122,14 @@ def _handle_paid(db: Session, sess: PaySession, account, api, st: int) -> str:
     dispatch_payment_callback(db, sess, "paid")
     if sess.pickup_no:
         dispatch_payment_callback(db, sess, "pickup")
+    # 异步订单中枢联动（2026-09-29）：茶姬单收口 → 登记单推进 completed + 取餐码缓存
+    # + 按单回调（惰性导入防环；联动失败绝不影响支付收口主流程）
+    try:
+        from services import intake_notify
+        intake_notify.on_chagee_order_paid(db, sess.order_no, sess.pickup_no or "")
+    except Exception:
+        logger.warning("intake 登记单支付联动失败（不影响收口）order_no=%s",
+                       sess.order_no, exc_info=True)
     log_op("pay.watcher_paid", actor=WATCHER_OPERATOR, target=sess.order_no,
            params={"order_status": st, "pickup_no": sess.pickup_no or "",
                    "pay_amount": sess.pay_amount or ""})
@@ -154,6 +162,13 @@ def _handle_cancelled(db: Session, sess: PaySession) -> str:
                    params={"coupon_code": sess.coupon_code})
     log_op("pay.watcher_cancelled", actor=WATCHER_OPERATOR, target=sess.order_no,
            params={"coupon_rolled_back": bool(sess.coupon_code)})
+    # 异步订单中枢联动：茶姬单取消/超时 → 登记单 failed + 按单回调（惰性导入防环）
+    try:
+        from services import intake_notify
+        intake_notify.on_chagee_order_cancelled(db, sess.order_no)
+    except Exception:
+        logger.warning("intake 登记单取消联动失败（不影响收口）order_no=%s",
+                       sess.order_no, exc_info=True)
     return "cancelled"
 
 

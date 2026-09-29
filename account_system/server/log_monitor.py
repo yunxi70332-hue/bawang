@@ -1,12 +1,15 @@
-"""日志监控告警：周期扫描 oplog + 线程存活 + 心跳新鲜度，异常即落告警表并外发通知。
+"""日志监控告警：周期扫描 oplog + 线程存活 + 心跳新鲜度 + 订单队列健康，异常即落告警表并外发通知。
 
-四条规则（触发即创建 op_alert 告警，去重靠「同规则未确认且在冷却期内则跳过」）：
+六条规则（触发即创建 op_alert 告警，去重靠「同规则未确认且在冷却期内则跳过」）：
   1. error_burst   最近窗口内 ERROR 级操作日志 ≥ 阈值（默认 5 分钟 3 条）——业务异常洪峰
-  2. thread_dead   预期应存活的后台线程（order-reconcile / menu-refresh / pay-watcher，
-                   以各自 INTERVAL 环境变量 >0 判定「预期启动」）不在本进程线程列表——关键流程中断
+  2. thread_dead   预期应存活的后台线程（order-reconcile / menu-refresh / pay-watcher /
+                   order-worker-0，以各自 INTERVAL/COUNT 环境变量 >0 判定「预期启动」）
+                   不在本进程线程列表——关键流程中断
   3. heartbeat_stale 组件心跳超时（线程活着但循环停滞，如卡死在无超时的外呼上）——
                    距最近一条 system.heartbeat 超过 staleness 阈值
   4. oplog_failure oplog 自身写入失败计数 >0——日志存储不可靠（监控自身的基础设施告警）
+  5. queue_dead_backlog 订单队列死信 >0——重试耗尽需人工处置（2026-09-29 异步订单中枢）
+  6. queue_backlog_high 最老 pending 消息等待超阈值——worker 停滞或执行过慢
 
 通知渠道（data/alert_config.json，全部可选、零新增依赖；未配置时告警仅落库+控制台
 ERROR 输出，仍可在 /api/ops/alerts 查询处理）：
@@ -58,7 +61,12 @@ WATCHED_THREADS = {
     "order-reconcile": "CHAGEE_RECONCILE_INTERVAL_SECONDS",
     "menu-refresh": "CHAGEE_MENU_REFRESH_INTERVAL_SECONDS",
     "pay-watcher": "CHAGEE_PAYWATCH_INTERVAL_SECONDS",
+    # 异步订单中枢 worker 池代表线程（0 号）：env>0 即预期启动（2026-09-29）
+    "order-worker-0": "CHAGEE_ORDER_WORKERS",
 }
+
+# 队列规则参数（2026-09-29 异步订单中枢；数据源 services/order_queue.queue_stats）
+QUEUE_BACKLOG_STALE_SECONDS = 300   # 最老 pending 超过该时长 → 积压告警
 
 _thread_started = False
 
@@ -280,6 +288,32 @@ def run_monitor_scan() -> dict:
         _create_alert("oplog_failure", "ERROR",
                       f"操作日志库写入失败 {fails} 次（日志存储不可靠，检查磁盘/权限: {OPLOG_DB_PATH}）",
                       {"failures": fails, "db": OPLOG_DB_PATH})
+
+    # 规则5/6：订单队列健康（死信积压 / 消费积压；表未建/查询异常时降级跳过不误报）
+    try:
+        from services.order_queue import queue_stats
+        qs = queue_stats()
+        if not qs.get("error"):
+            scanned["queue"] = qs
+            if qs.get("dead", 0) > 0:
+                _create_alert("queue_dead_backlog", "ERROR",
+                              f"订单队列存在 {qs['dead']} 条死信（重试耗尽，需人工处置："
+                              f"/api/intake/queue/messages?status=dead）",
+                              {"dead": qs["dead"]})
+            oldest = str(qs.get("oldest_pending_created_at") or "")
+            if qs.get("pending", 0) > 0 and oldest:
+                try:
+                    age = datetime.now() - datetime.fromisoformat(oldest)
+                    if age.total_seconds() > QUEUE_BACKLOG_STALE_SECONDS:
+                        _create_alert("queue_backlog_high", "WARN",
+                                      f"订单队列积压：{qs['pending']} 条待消费，最老已等 "
+                                      f"{int(age.total_seconds())} 秒（worker 停滞或执行过慢）",
+                                      {"pending": qs["pending"],
+                                       "oldest_age_seconds": int(age.total_seconds())})
+                except ValueError:
+                    pass
+    except Exception:
+        logger.warning("队列健康检查失败（本轮跳过）", exc_info=True)
 
     pruned = _prune_retention()
     return {"created_alerts": created, "pruned": pruned, "scanned": scanned}
