@@ -1197,6 +1197,9 @@ def orders_decide(body: DecideRequest, request: Request,
         plan = db.get(OrderPlan, body.plan_id)
         if plan is None:
             raise HTTPException(422, f"下单方案不存在：{body.plan_id}")
+        if not bool(plan.enabled):
+            raise HTTPException(422, f"方案「{plan.name}」已停用：请启用后再使用，"
+                                     f"或改用自动模式（不选方案）")
         # 方案饮品白名单（§11 饮品管理 Tab）：关联了饮品时仅可下单这些饮品（空=不限）
         drink_skus = {str(d.sku_id) for d in (plan.drinks or [])}
         if drink_skus and str(body.sku_id) not in drink_skus:

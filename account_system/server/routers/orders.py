@@ -544,7 +544,11 @@ def _fallback_rank_codes(db: Session, draft: dict, primary_code: str, body) -> l
         max_cost = str(cfg.get("max_order_cost") or "")
     for pid in (log_plan_id, int(getattr(body, "plan_id", 0) or 0)):
         if pid and plan is None:
-            plan = db.get(OrderPlan, pid)
+            loaded = db.get(OrderPlan, pid)
+            # 已停用的方案不再生效：执行期回落系统自动排序（decide 侧对显式引用直接 422，
+            # 此处是评估后停用的时序场景，不应阻断已成流程的下单）
+            if loaded is not None and bool(loaded.enabled):
+                plan = loaded
             break
     strategy = plan.strategy if plan is not None else "cost_first"
     candidates = []

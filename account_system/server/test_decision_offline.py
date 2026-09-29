@@ -1364,6 +1364,25 @@ def test_25_order_plan_crud_and_decide():
     assert CLIENT.post("/api/ops/decision/order-plans", headers=h, json={
         "name": "缺饮品信息", "strategy": "cost_first",
         "priorities": []}).status_code == 422
+    # 停用方案 → 显式引用 422（停用即不生效）
+    upd_off = CLIENT.put(f"/api/ops/decision/order-plans/{plan['id']}", headers=h, json={
+        "name": "LT优先方案", "strategy": "cost_first", "drink_info": "默认少冰半糖",
+        "note": "测试", "enabled": False,
+        "priorities": [
+            {"level": 1, "name": "第一优先LT", "match_type": "template_contains",
+             "match_value": "LT", "face_value": ""},
+        ]}).json()
+    assert upd_off["enabled"] is False
+    r = CLIENT.post("/api/ops/orders/decide", json={**body, "plan_id": plan["id"]}, headers=h)
+    assert r.status_code == 422 and "已停用" in r.json()["detail"], r.text
+    # 恢复启用（后续「暂无库存」段落仍需该方案可用）
+    CLIENT.put(f"/api/ops/decision/order-plans/{plan['id']}", headers=h, json={
+        "name": "LT优先方案", "strategy": "cost_first", "drink_info": "默认少冰半糖",
+        "note": "测试", "enabled": True,
+        "priorities": [
+            {"level": 1, "name": "第一优先LT", "match_type": "template_contains",
+             "match_value": "LT", "face_value": ""},
+        ]})
     # 不存在的 plan_id → 422
     r = CLIENT.post("/api/ops/orders/decide", json={**body, "plan_id": 99999}, headers=h)
     assert r.status_code == 422
