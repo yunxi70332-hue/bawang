@@ -10,8 +10,8 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
-from routers import (accounts, audit, auth, decision, events, intake, logs, ops, orders,
-                     payportal, roles, users)
+from routers import (accounts, audit, auth, decision, events, intake, keepalive, logs, ops,
+                     orders, payportal, roles, settings, users)
 from log_setup import setup_logging
 from oplog import init_oplog, install_request_middleware, log_op
 from log_monitor import start_log_monitor_thread
@@ -19,6 +19,7 @@ from seed import init_db
 from services.order_reconcile import start_reconcile_thread
 from services.menu_spec import start_menu_refresh_thread
 from services.payment_events import start_pay_watcher
+from services.keepalive import start_keepalive_thread
 
 app = FastAPI(
     title="霸王茶姬多账号管理系统 API",
@@ -51,6 +52,8 @@ app.include_router(intake.v1_router)   # 外部 KFC 系适配（/api/intake/v1/.
 app.include_router(audit.router)
 app.include_router(events.router)   # SSE 实时事件流（/api/events：仪表盘统计推送 + 全量取餐码扫描进度）
 app.include_router(logs.router)   # 全局日志/告警查询与处置（/api/ops/logs、/api/ops/alerts）
+app.include_router(keepalive.router)   # 账号保活跃任务：状态/配置/运行记录/手动触发（/api/ops/keepalive/*）
+app.include_router(settings.router)   # 系统设置：代理出口配置/状态/诊断/切换日志（/api/ops/settings/proxy*）
 # H5 收银台公开路由（/pay/*，token 即凭证无 JWT）：主 API 本机也可访问，
 # 局域网由独立进程 pay_portal:app 绑 0.0.0.0:8010 暴露同一组路由（管理 API 不进局域网）
 app.include_router(payportal.pay_router)
@@ -74,6 +77,7 @@ def startup():
     init_db()
     start_reconcile_thread()   # 后台订单校准（间隔 CHAGEE_RECONCILE_INTERVAL_SECONDS，默认 60s）
     start_menu_refresh_thread()   # 菜单规格库每日刷新（CHAGEE_MENU_REFRESH_INTERVAL_SECONDS，默认 86400）
+    start_keepalive_thread()   # 账号保活跃：每天 10:30 间歇访问广东省门店菜单（CHAGEE_KEEPALIVE_THREAD=0 停用）
     start_pay_watcher()   # 支付会话 watcher：自动发现已支付/已取消并收口 + 外部回调（CHAGEE_PAYWATCH_INTERVAL_SECONDS，默认 2s）
     start_log_monitor_thread()   # 日志监控告警线程：CHAGEE_LOG_MONITOR_INTERVAL_SECONDS，默认 30s
     from services.dashboard_push import start_dashboard_push_thread
@@ -84,6 +88,8 @@ def startup():
     start_backup_thread()   # SQLite 一致性快照备份（CHAGEE_BACKUP_INTERVAL_SECONDS，默认每日；<=0 不启动）
     from services.cloud_tunnel import start_tunnel
     start_tunnel()   # 云手机 WebView 隧道托管子进程（与主服务同寿命；CHAGEE_TUNNEL_ENABLED=0 停用）
+    from services.net_proxy import start_net_proxy
+    start_net_proxy()  # 网络出口管理：urlopen 代理补丁 + 健康监控线程（CHAGEE_PROXY_CHECK_INTERVAL_SECONDS=0 停用）
 
 
 # 生产模式：托管前端构建产物（存在 web/dist 时生效；开发模式由 Vite 代理 /api）

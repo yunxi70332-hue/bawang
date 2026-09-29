@@ -33,7 +33,7 @@
             <el-menu-item index="/accounts">茶姬账号</el-menu-item>
           </el-sub-menu>
 
-          <el-sub-menu index="grp-ops" v-if="auth.can('feature:menu') || auth.can('feature:coupon') || auth.can('feature:order') || auth.can('feature:pickup')">
+          <el-sub-menu index="grp-ops" v-if="auth.can('feature:menu') || auth.can('feature:coupon') || auth.can('feature:order') || auth.can('feature:pickup') || auth.can('account:read')">
             <template #title><el-icon><Coffee /></el-icon><span>协议功能</span></template>
             <el-menu-item v-if="auth.can('feature:menu')" index="/ops/menu">游客菜单 · F3</el-menu-item>
             <el-menu-item v-if="auth.can('feature:coupon')" index="/ops/coupons">优惠券查询 · F4</el-menu-item>
@@ -41,6 +41,7 @@
             <el-menu-item v-if="auth.can('feature:order')" index="/ops/coupon-logs">券使用记录</el-menu-item>
             <el-menu-item v-if="auth.can('feature:pickup')" index="/ops/pickup">取餐查询 · F6</el-menu-item>
             <el-menu-item v-if="auth.can('feature:order')" index="/ops/intake">订单中枢</el-menu-item>
+            <el-menu-item v-if="auth.can('account:read')" index="/ops/keepalive">账号保活跃</el-menu-item>
           </el-sub-menu>
 
           <el-sub-menu index="grp-decision" v-if="auth.can('decision:manage')">
@@ -49,11 +50,12 @@
             <el-menu-item index="/decision/costs">券成本与阈值</el-menu-item>
           </el-sub-menu>
 
-          <el-sub-menu index="grp-sys" v-if="auth.can('user:manage') || auth.can('role:manage') || auth.can('audit:read')">
+          <el-sub-menu index="grp-sys" v-if="auth.can('user:manage') || auth.can('role:manage') || auth.can('audit:read') || auth.can('settings:manage')">
             <template #title><el-icon><Setting /></el-icon><span>系统管理</span></template>
             <el-menu-item v-if="auth.can('user:manage')" index="/system/users">用户管理</el-menu-item>
             <el-menu-item v-if="auth.can('role:manage')" index="/system/roles">角色权限</el-menu-item>
             <el-menu-item v-if="auth.can('audit:read')" index="/system/audit">审计日志</el-menu-item>
+            <el-menu-item v-if="auth.can('settings:manage')" index="/system/settings">系统设置</el-menu-item>
           </el-sub-menu>
         </el-menu>
       </el-scrollbar>

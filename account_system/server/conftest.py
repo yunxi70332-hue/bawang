@@ -12,3 +12,5 @@ import os
 
 os.environ.setdefault("CHAGEE_ORDER_WORKERS", "0")
 os.environ.setdefault("CHAGEE_BACKUP_INTERVAL_SECONDS", "0")
+os.environ.setdefault("CHAGEE_PROXY_CHECK_INTERVAL_SECONDS", "0")
+os.environ.setdefault("CHAGEE_KEEPALIVE_THREAD", "0")

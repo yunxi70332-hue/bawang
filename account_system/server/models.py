@@ -663,3 +663,50 @@ class IntakeApiKey(Base):
     active: Mapped[bool] = mapped_column(Boolean, default=True, index=True)
     last_used_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.now)
+
+
+class KeepaliveRun(Base):
+    """账号保活跃任务运行头（2026-09-29）：每天定时（默认 10:30）用在线账号 token
+    间歇访问广东省内门店菜单接口的一轮执行快照。status：running/success/partial/
+    failed；trigger：schedule 定时 / manual 手动。逐请求明细见 KeepaliveRecord。"""
+
+    __tablename__ = "keepalive_runs"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    trigger: Mapped[str] = mapped_column(String(16), default="schedule")     # schedule | manual
+    status: Mapped[str] = mapped_column(String(16), default="running", index=True)
+    province: Mapped[str] = mapped_column(String(32), default="广东")
+    city_total: Mapped[int] = mapped_column(Integer, default=0)              # 枚举到的省份城市数
+    store_total: Mapped[int] = mapped_column(Integer, default=0)             # 省份门店总数（截断前）
+    stores_planned: Mapped[int] = mapped_column(Integer, default=0)          # 本轮实际访问门店数
+    accounts_total: Mapped[int] = mapped_column(Integer, default=0)
+    accounts_expired: Mapped[int] = mapped_column(Integer, default=0)        # whoami 判失效并标记的账号数
+    requests_total: Mapped[int] = mapped_column(Integer, default=0)          # 菜单+whoami 请求总数（终态计）
+    requests_ok: Mapped[int] = mapped_column(Integer, default=0)
+    requests_failed: Mapped[int] = mapped_column(Integer, default=0)
+    avg_ms: Mapped[str] = mapped_column(String(16), default="")              # 成功请求平均耗时（ms，两位小数字符串）
+    note: Mapped[str] = mapped_column(String(512), default="")               # 失败/告警摘要（城市枚举失败等）
+    started_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.now)
+    finished_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+
+
+class KeepaliveRecord(Base):
+    """保活跃逐请求明细：action=whoami（token 鉴权校验）| menu（门店菜单访问）；
+    status 记录终态（ok / expired / errcode=N / HTTP错误 / 异常名）；attempt 为最终
+    成功/放弃时的尝试序号（1 起）。run_id 级联删除。"""
+
+    __tablename__ = "keepalive_records"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    run_id: Mapped[int] = mapped_column(ForeignKey("keepalive_runs.id", ondelete="CASCADE"), index=True)
+    account_id: Mapped[int] = mapped_column(Integer, default=0, index=True)
+    account_label: Mapped[str] = mapped_column(String(64), default="")
+    store_no: Mapped[str] = mapped_column(String(32), default="")
+    store_name: Mapped[str] = mapped_column(String(128), default="")
+    action: Mapped[str] = mapped_column(String(16), default="menu")
+    attempt: Mapped[int] = mapped_column(Integer, default=1)
+    ok: Mapped[bool] = mapped_column(Boolean, default=False)
+    status: Mapped[str] = mapped_column(String(64), default="")
+    ms: Mapped[int] = mapped_column(Integer, default=0)                      # 最终一次尝试耗时
+    error: Mapped[str] = mapped_column(String(255), default="")
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.now, index=True)

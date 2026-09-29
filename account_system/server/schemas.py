@@ -409,3 +409,43 @@ class IntakeKeyRequest(BaseModel):
     """接入密钥创建（POST /api/intake/keys）：明文 key 仅创建响应返回一次。"""
     label: str = Field(min_length=1, max_length=64)
     source: str = Field(default="external", max_length=32)   # 登记单 source 前缀（external:<source>）
+
+
+class KeepaliveConfigRequest(BaseModel):
+    """保活跃任务配置（data/keepalive_config.json，services/keepalive 载入/落盘）。"""
+
+    model_config = {"extra": "allow"}
+
+    enabled: str = Field(default="true", max_length=8)               # 定时触发开关（手动触发不受限）
+    run_at: str = Field(default="10:30", max_length=5)               # 每天运行时刻 HH:MM
+    province_city_prefix: str = Field(default="44", max_length=4)    # 省份 cityCode 前缀（44=广东）
+    min_interval_seconds: str = Field(default="5", max_length=8)     # 请求间最小间歇
+    max_interval_seconds: str = Field(default="12", max_length=8)
+    max_stores_per_run: str = Field(default="0", max_length=8)       # 0=省内全部门店
+    min_stores_per_account: str = Field(default="2", max_length=8)
+    request_timeout: str = Field(default="20", max_length=8)
+    max_retries: str = Field(default="2", max_length=8)
+    whoami_check: str = Field(default="true", max_length=8)
+    alert_failure_rate: str = Field(default="0.5", max_length=8)
+    alert_min_failures: str = Field(default="3", max_length=8)
+
+    @field_validator("run_at")
+    @classmethod
+    def _run_at(cls, v: str) -> str:
+        try:
+            hh, mm = v.strip().split(":")
+            assert 0 <= int(hh) <= 23 and 0 <= int(mm) <= 59
+        except Exception:
+            raise ValueError("run_at 须为 HH:MM（如 10:30）")
+        return v.strip()
+
+    @field_validator("min_interval_seconds", "max_interval_seconds", "max_stores_per_run",
+                     "min_stores_per_account", "request_timeout", "max_retries",
+                     "alert_failure_rate", "alert_min_failures")
+    @classmethod
+    def _non_negative(cls, v: str, info) -> str:
+        try:
+            assert float(v.strip()) >= 0
+        except Exception:
+            raise ValueError(f"{info.field_name} 须为非负数字")
+        return v.strip()

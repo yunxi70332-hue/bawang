@@ -184,6 +184,12 @@ def _dispatch_notification(rule: str, level: str, summary: str, detail) -> tuple
     return "failed", last_err
 
 
+def create_alert(rule: str, level: str, summary: str, detail) -> bool:
+    """外部模块直建告警的公共入口（2026-09-29 保活跃任务接入）：语义与六条监控规则
+    触发的告警完全一致（op_alert 落库 + 冷却去重 + 通知渠道分发）。返回是否新建。"""
+    return _create_alert(rule, level, summary, detail)
+
+
 def ack_alert(alert_id: int, username: str) -> bool:
     """确认告警（管理端 API 调用）。"""
     try:

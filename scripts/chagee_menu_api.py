@@ -72,15 +72,22 @@ BASE_HEADERS = {
 
 
 class ChageeMenuApi:
-    """菜单浏览链客户端（无 token）。所有方法返回 errcode=="0" 时的 data 字段。"""
+    """菜单浏览链客户端（无 token）。所有方法返回 errcode=="0" 时的 data 字段。
+
+    token 可选参数（2026-09-29 账号保活任务用）：传入则随请求携带 authorization 头
+    ——本链路网关不校验该头（游客接口），仅用于「以账号身份发起菜单浏览」的保活
+    语义（设备 uuid/userId 同账号对齐）；token 有效性判定不依赖本链路（走 whoami）。"""
 
     def __init__(self, base_url: str = DEFAULT_BASE, uuid: str = DEFAULT_UUID,
-                 timeout: int = 20, user_id: Optional[str] = None):
+                 timeout: int = 20, user_id: Optional[str] = None,
+                 token: Optional[str] = None):
         self.base = base_url.rstrip("/")
         self.timeout = timeout
         self.user_id = user_id  # 未登录=None(不传)；登录态可传 customerId（未验证差异）
         self.headers = dict(BASE_HEADERS)
         self.headers["uuid"] = self.headers["cid"] = uuid
+        if token:
+            self.headers["authorization"] = token
 
     # ---------- 底层 ----------
 

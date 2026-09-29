@@ -67,6 +67,15 @@ export const apiRoles = {
   remove: (id) => http.delete(`/api/roles/${id}`),
 }
 
+export const apiSettings = {
+  // 系统设置：代理出口配置/状态/诊断/切换日志（settings:manage）
+  getConfig: () => http.get('/api/ops/settings/proxy'),
+  save: (d) => http.put('/api/ops/settings/proxy', d, { timeout: 60000 }),
+  test: (d) => http.post('/api/ops/settings/proxy/test', d, { timeout: 60000 }),
+  refresh: () => http.post('/api/ops/settings/proxy/refresh', {}, { timeout: 60000 }),
+  logs: (params) => http.get('/api/ops/settings/proxy/logs', { params }),
+}
+
 export const apiAccounts = {
   list: (params) => http.get('/api/accounts', { params }),
   create: (d) => http.post('/api/accounts', d),
@@ -155,6 +164,9 @@ export const apiDecision = {
   // 扫描与库存
   scan: (data) => http.post('/api/ops/decision/scan', data),
   couponInventory: (params) => http.get('/api/ops/decision/coupon-inventory', { params }),
+  // 券类型聚合下拉（方案优先级层级「优惠券绑定」：coupon_records 按模板名分组
+  // 实时聚合，keyword 模糊 + page/page_size 分页，与全量查询落库记录同步）
+  couponTypes: (params) => http.get('/api/ops/decision/coupon-types', { params }),
   // 报表 / 流水
   profitReport: (params) => http.get('/api/ops/decision/profit-report', { params }),
   decisionLogs: (params) => http.get('/api/ops/decision/logs', { params }),
@@ -184,4 +196,13 @@ export const apiIntake = {
   keys: () => http.get('/api/intake/keys'),
   keyCreate: (payload) => http.post('/api/intake/keys', payload),
   keyDisable: (id) => http.post(`/api/intake/keys/${id}/disable`),
+}
+
+export const apiKeepalive = {
+  status: () => http.get('/api/ops/keepalive/status'),
+  config: () => http.get('/api/ops/keepalive/config'),
+  configSave: (payload) => http.put('/api/ops/keepalive/config', payload),
+  runs: (params) => http.get('/api/ops/keepalive/runs', { params }),
+  runDetail: (id, params) => http.get(`/api/ops/keepalive/runs/${id}`, { params }),
+  trigger: () => http.post('/api/ops/keepalive/trigger'),
 }
