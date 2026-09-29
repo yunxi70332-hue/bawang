@@ -494,7 +494,11 @@ PLAN_STRATEGY_LABELS = {"cost_first": "成本最优", "zero_pay": "零元优先"
 
 class OrderPlan(Base):
     """下单方案：名称 + 策略 + 券优先级层级链。priorities 按 level 升序逐层选券，
-    层内按策略排序；不匹配任何层的券排在全部层之后（不浪费可用券）。"""
+    层内按策略排序；不匹配任何层的券排在全部层之后（不浪费可用券）。
+    注：方案与套餐不做绑定（2026-09-29 §13 曾实现 packet_id 绑定后按用户决策移除——
+    套餐商品白名单与方案饮品白名单为 AND 关系，空交集会使方案永久接不了单）；
+    套餐始终由 decide 自动匹配或 body.packet_id 指定，管理入口在方案页「套餐库」Tab。
+    旧库 order_plans.packet_id 列残留无害（DEFAULT 0，模型不再引用）。"""
 
     __tablename__ = "order_plans"
 

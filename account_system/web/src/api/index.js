@@ -143,8 +143,10 @@ export const apiDecision = {
   orderPlanCreate: (data) => http.post('/api/ops/decision/order-plans', data),
   orderPlanUpdate: (id, data) => http.put(`/api/ops/decision/order-plans/${id}`, data),
   orderPlanDelete: (id) => http.delete(`/api/ops/decision/order-plans/${id}`),
-  // 饮品管理 Tab：本地菜单库模糊搜索（keyword 必填，limit 默认 20）
-  planDrinkSearch: (params) => http.get('/api/ops/decision/plan-drinks/search', { params }),
+  // 方案启用开关（仅翻转 enabled，层级/饮品关联原样保留；与套餐 toggle-open 同构）
+  orderPlanToggleEnabled: (id) => http.post(`/api/ops/decision/order-plans/${id}/toggle-enabled`),
+  // SKU 模糊搜索（套餐商品/方案饮品共用：本地菜单库 menu_goods_cache；keyword 必填）
+  skuSearch: (params) => http.get('/api/ops/decision/sku-search', { params }),
   // 全局决策配置（data/decision_config.json）
   configGet: () => http.get('/api/ops/decision/config'),
   configPut: (data) => http.put('/api/ops/decision/config', data),

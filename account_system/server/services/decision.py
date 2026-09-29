@@ -167,25 +167,53 @@ def _match_hit(match_type, match_value, template_name, benefit_text, coupon_code
         return False
 
 
+def rule_satisfied(rule, record_fields, face=None) -> bool:
+    """单条券规则对单张券的命中判定（模块间共用唯一实现，2026-09-29 合并优化）：
+    成本规则链 resolve_cost / 子类链 classify_category / 方案优先级层
+    apply_priority_tiers / 套餐 item 券规则（decide ⑥ 过滤）全部收敛到本函数。
+
+    语义：rule 为 None → True（不限）；match_value 空 → True（无匹配约束=放行，
+    链式调用方须自行先跳过空匹配值规则以保持「空=不命中继续走链」的链语义）；
+    否则四类 match_type 判定同 _match_hit，face_value 非空时须等于券面额
+    （record_fields["amount"]，或调用方经 face 参数传入的等价面额——优先级层
+    对 amount 缺失的券回退 classify_coupon 解析面额）。
+    任何异常（regex 非法等）安全吞掉视为不命中。
+    rule / record_fields 均可为 ORM 对象或 dict。"""
+    if rule is None:
+        return True
+    try:
+        match_value = str(_field(rule, "match_value") or "")
+        if not match_value:
+            return True
+        if not _match_hit(_field(rule, "match_type"), match_value,
+                          str(_field(record_fields, "template_name") or ""),
+                          str(_field(record_fields, "benefit_text") or ""),
+                          str(_field(record_fields, "coupon_code") or "")):
+            return False
+        face_check = str(_field(rule, "face_value") or "").strip()
+        if face_check:
+            actual = (_dec_or_none(_field(record_fields, "amount"))
+                      if face is None else _dec_or_none(face))
+            if actual is None or _dec(face_check) != actual:
+                return False
+        return True
+    except Exception:
+        return False
+
+
 def resolve_cost(rules, record_fields, config=None) -> dict:
     """券 → 采购成本：{"cost": Decimal, "source": "rule:<id>"|"fallback", "rule": 规则对象|None}。
 
     匹配链（契约 §4）：enabled 规则按 priority 升序逐条尝试——
-    template_exact（=template_name）/ template_contains（∈template_name）/
-    benefit_regex（re.search 于 template_name+" "+benefit_text 拼接串）/
-    coupon_prefix（coupon_code startswith），四类命中判定见 _match_hit；
-    face_value 非空时须等于券面额（record_fields["amount"]）才命中；
-    全部未命中 → cost = 面额 × cost_fallback_ratio，source="fallback"。
-    任何异常（regex 非法等）安全吞掉视为该条不命中。
+    四类命中判定与面额校验统一走 rule_satisfied（空匹配值规则跳过，
+    保持「空=不命中继续走链」语义）；全部未命中 → cost = 面额 × cost_fallback_ratio，
+    source="fallback"。任何异常（regex 非法等）安全吞掉视为该条不命中。
 
     record_fields: {template_name, benefit_text, coupon_code, amount(面额), ...}，
     券记录 ORM 对象或 dict 均可。
     """
     cfg = config or {}
     record_fields = record_fields or {}
-    template_name = str(_field(record_fields, "template_name") or "")
-    benefit_text = str(_field(record_fields, "benefit_text") or "")
-    coupon_code = str(_field(record_fields, "coupon_code") or "")
     face = _dec_or_none(_field(record_fields, "amount"))
     fallback_ratio = _dec_or_none(cfg.get("cost_fallback_ratio")) if isinstance(cfg, dict) else None
     if fallback_ratio is None or fallback_ratio < 0:
@@ -196,42 +224,33 @@ def resolve_cost(rules, record_fields, config=None) -> dict:
         key=lambda r: _dec(_field(r, "priority", 100)),
     )
     for rule in ordered:
-        try:
-            if not _match_hit(_field(rule, "match_type"), _field(rule, "match_value"),
-                              template_name, benefit_text, coupon_code):
-                continue   # 未命中 → 继续走链
-            face_check = str(_field(rule, "face_value") or "").strip()
-            if face_check and (face is None or _dec(face_check) != face):
-                continue   # 面额校验不通过 → 视为不命中，继续走链
-            return {"cost": _dec(_field(rule, "cost_price")),
-                    "source": f"rule:{_field(rule, 'id', 0)}", "rule": rule}
-        except Exception:
-            continue   # regex 非法等安全吞掉，视为不命中
+        if not str(_field(rule, "match_value") or "").strip():
+            continue   # 空匹配值不参与链（API min_length=1 前置拦截，双保险）
+        if not rule_satisfied(rule, record_fields):
+            continue   # 未命中 / 面额校验不通过 → 继续走链
+        return {"cost": _dec(_field(rule, "cost_price")),
+                "source": f"rule:{_field(rule, 'id', 0)}", "rule": rule}
     return {"cost": (face or Decimal("0")) * fallback_ratio, "source": "fallback", "rule": None}
 
 
 def classify_category(categories, record_fields) -> dict:
     """券 → 成本子类归类：{"category_id": int, "category_name": str, "biz_type": str}。
 
-    子类只做分类，不做成本——成本金额仍由 resolve_cost（voucher_cost_rules）唯一决定。
+    子类只做分类，不做成本——成本金额仍由 resolve_cost 唯一决定。
     enabled 子类按 priority 升序逐条尝试，四类匹配语义与 resolve_cost 完全一致
-    （共用 _match_hit：template_exact / template_contains / benefit_regex（于
-    template_name+" "+benefit_text 拼接串）/ coupon_prefix）；
-    全不命中 → {"category_id": 0, "category_name": "", "biz_type": ""}（0=未分类）。
+    （统一走 rule_satisfied；子类无 face_value 列，面额校验自然跳过）；
+    全未命中 → {"category_id": 0, "category_name": "", "biz_type": ""}（0=未分类）。
     异常（regex 非法等）安全吞掉视为不命中；categories 子类与 record_fields
     券记录均可为 ORM 对象或 dict（_field 双态取字段）。
     """
-    record_fields = record_fields or {}
-    template_name = str(_field(record_fields, "template_name") or "")
-    benefit_text = str(_field(record_fields, "benefit_text") or "")
-    coupon_code = str(_field(record_fields, "coupon_code") or "")
     ordered = sorted(
         (c for c in (categories or []) if bool(_field(c, "enabled", True))),
         key=lambda c: _dec(_field(c, "priority", 100)),
     )
     for cat in ordered:
-        if not _match_hit(_field(cat, "match_type"), _field(cat, "match_value"),
-                          template_name, benefit_text, coupon_code):
+        if not str(_field(cat, "match_value") or "").strip():
+            continue   # 空匹配值不参与链
+        if not rule_satisfied(cat, record_fields):
             continue   # 未命中 → 继续走链
         return {"category_id": int(_field(cat, "id", 0) or 0),
                 "category_name": str(_field(cat, "name") or ""),
@@ -420,9 +439,10 @@ def rank_candidates(candidates, revenue, total, overhead, min_profit, min_margin
 def apply_priority_tiers(ranked, tiers) -> tuple[list[dict], dict]:
     """券优先级层级重排（§11）：tiers 为 [{level, name, match_type, match_value, face_value}]
     （ORM/dict 双态），按 level 升序逐层匹配 ranked 候选（record 的 coupon_code/
-    template_name/benefit_text/amount；匹配语义与 resolve_cost 的 _match_hit 一致，
-    face_value 非空须等于面额）——命中第 k 层的候选排到第 k 组，组间按层序、组内保持
-    传入排序（即层内仍按 strategy 排）；不匹配任何层的候选排在全部层之后（不浪费）。
+    template_name/benefit_text/amount；匹配与面额校验统一走 rule_satisfied——amount
+    缺失时回退候选的 classify_coupon 解析面额）——命中第 k 层的候选排到第 k 组，
+    组间按层序、组内保持传入排序（即层内仍按 strategy 排）；不匹配任何层的候选排在
+    全部层之后（不浪费）。
 
     返回 (重排后的 ranked, tier_map)：tier_map = {coupon_code: {"level": n, "name": 层名}}。"""
     ordered_tiers = sorted(
@@ -432,27 +452,17 @@ def apply_priority_tiers(ranked, tiers) -> tuple[list[dict], dict]:
 
     def _tier_index(cand) -> int:
         record = (cand or {}).get("record") or {}
-        template_name = str(_field(record, "template_name") or "")
-        benefit_text = str(_field(record, "benefit_text") or "")
         coupon_code = str(_field(record, "coupon_code") or "")
         face = _dec_or_none(_field(record, "amount"))
         if face is None:
-            face = cand.get("face")
+            face = cand.get("face")   # amount 缺失时回退 classify_coupon 解析面额
         for idx, tier in enumerate(ordered_tiers):
-            try:
-                if not _match_hit(str(_field(tier, "match_type") or ""),
-                                  str(_field(tier, "match_value") or ""),
-                                  template_name, benefit_text, coupon_code):
-                    continue
-                face_check = str(_field(tier, "face_value") or "").strip()
-                if face_check and (face is None or _dec(face_check) != _dec(face)):
-                    continue
-                if coupon_code:
-                    tier_map[coupon_code] = {"level": int(_field(tier, "level", idx + 1)),
-                                             "name": str(_field(tier, "name") or "")}
-                return idx
-            except Exception:
-                continue   # 非法 regex 等：该层视为不命中，继续下一层
+            if not rule_satisfied(tier, record, face=face):
+                continue   # 未命中 / 面额校验不通过 / 非法 regex → 下一层
+            if coupon_code:
+                tier_map[coupon_code] = {"level": int(_field(tier, "level", idx + 1)),
+                                         "name": str(_field(tier, "name") or "")}
+            return idx
         return len(ordered_tiers)   # 不匹配任何层 → 排最后
 
     ranked = list(ranked or [])

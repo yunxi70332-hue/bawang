@@ -444,16 +444,15 @@
         </el-table-column>
       </el-table>
 
-      <!-- 饮品信息：强制填写项（去结算/提交订单前校验，空则阻断并提示） -->
-      <div class="drink-info-item" :class="{ 'is-error': drinkInfoError }">
-        <label class="di-label"><span class="req-star">*</span>饮品信息（必填）</label>
+      <!-- 饮品信息（选填，2026-09-29 应用户要求放开必填）：仅记入本系统订单快照供查询对账；
+           茶姬 createOrder 协议无备注字段，此内容不外传门店 -->
+      <div class="drink-info-item">
+        <label class="di-label">饮品信息（选填）</label>
         <el-input
           v-model="drinkInfo" type="textarea" :rows="2" maxlength="200" show-word-limit
           clearable resize="none"
-          placeholder="必填：饮品相关信息（如客户要求、口味备注、杯型说明等），提交订单前必须填写"
-          @input="drinkInfoError = false"
+          placeholder="选填：饮品相关信息（如客户要求、口味备注、杯型说明等），仅记入本系统订单快照"
         />
-        <div v-if="drinkInfoError" class="di-error">饮品信息为必填项，请填写后再提交订单</div>
       </div>
 
       <!-- 决策评估（可选）：去结算前测算成本利润与阈值判定；不评估/评估失败均不影响手动下单流程 -->

@@ -293,7 +293,9 @@ class OrderPlanDrinkBody(BaseModel):
 class OrderPlanRequest(BaseModel):
     """下单方案（§11）：策略 + 券优先级层级链。PUT 同构（priorities/drinks 全量替换）。
     drink_info 为方案级必填编辑框（饮品信息）：保存方案时强制非空，下单选此方案时自动带入订单。
-    drinks 非空时 decide 指定该方案仅可下单关联饮品（白名单，空=不限）。"""
+    drinks 非空时 decide 指定该方案仅可下单关联饮品（白名单，空=不限）。
+    注：不做套餐绑定（§13 绑定功能已按用户决策移除），套餐由 decide 自动匹配或
+    DecideRequest.packet_id 指定，与方案正交。"""
     name: str = Field(min_length=1, max_length=64)
     strategy: str = Field(pattern="^(cost_first|zero_pay|expiry_first)$")   # 成本最优|零元优先|临期优先
     drink_info: str = Field(min_length=1, max_length=200)                   # 饮品信息（必填：空/缺失 → 422）

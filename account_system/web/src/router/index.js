@@ -15,7 +15,6 @@ const routes = [
       { path: 'ops/order', name: 'order-create', component: () => import('../views/OrderWorkbenchView.vue'), meta: { title: '下单工作台', perm: 'feature:order' } },
       { path: 'ops/coupon-logs', name: 'coupon-logs', component: () => import('../views/CouponUsageLogView.vue'), meta: { title: '券使用记录', perm: 'feature:order' } },
       { path: 'ops/pickup', name: 'pickup', component: () => import('../views/PickupView.vue'), meta: { title: '取餐查询', perm: 'feature:pickup' } },
-      { path: 'decision/packets', name: 'decision-packets', component: () => import('../views/PacketConfigView.vue'), meta: { title: '套餐配置', perm: 'decision:manage' } },
       { path: 'decision/plans', name: 'decision-plans', component: () => import('../views/OrderPlanView.vue'), meta: { title: '下单方案', perm: 'decision:manage' } },
       { path: 'decision/costs', name: 'decision-costs', component: () => import('../views/VoucherCostView.vue'), meta: { title: '券成本与阈值', perm: 'decision:manage' } },
       { path: 'system/users', name: 'users', component: () => import('../views/UsersView.vue'), meta: { title: '用户管理', perm: 'user:manage' } },

@@ -264,3 +264,20 @@ api/index.js 新增 `apiDecision`（全部端点封装）：`packets(params)` `p
 - `GET /decision/plan-drinks/search?keyword=&limit=`：菜单库 menu_goods_cache 按 SPU 名 LIKE → 展开 sku_index 为行（含 spec_desc/price/store_no），按 sku_id 去重；keyword 必填（空 422）；decision:manage
 - **白名单语义**：方案 drinks 非空时，decide 指定该方案且 sku 不在关联内 → 422「方案「X」未关联此饮品…」；空 = 不限
 - `_plan_detail` 含 drinks；前端编辑弹窗三 Tab（基础信息/优先级层级/饮品管理），饮品 Tab = 防抖 300ms 实时搜索 + 行多选 + 批量加入 + 已关联列表（已关联行复选禁用+状态标签）
+
+### §12 套餐配置 × 下单方案 同类功能合并（2026-09-29）
+
+两模块核心业务语义不变（套餐=接单范围+阈值覆盖；方案=执行策略+选券层级），合并的是同类型的重复功能组件：
+
+- **券规则判定唯一实现**：`services/decision.rule_satisfied(rule, record, face=None)` ——四类 match_type 判定 + face_value 面额校验的单条规则语义，`resolve_cost` / `classify_category` / `apply_priority_tiers` / decide ⑥ 的套餐 item 券规则过滤四调用点统一收敛（原 routers/decision._item_rule_hit 重复实现删除）。链式调用方（成本规则链/子类链）自行跳过空 match_value 规则以保持「空=不命中继续走链」；rule_satisfied 本体语义为「该规则对这张券放行」（rule=None / match_value 空 → True）
+- **套餐 item 券规则结构对齐方案层级**：normal/premium_coupon_rule JSON 统一为 `{match_type, match_value, face_value?}`（face_value 面额校验非空时须等于券面额；旧两键数据兼容，缺 face_value=不限）；前端编辑字段组三态共用组件
+- **SKU 搜索共享端点**：`GET /decision/sku-search?keyword=&limit=`（原 plan-drinks/search 逻辑原样，路径通用化；旧路径保留双路由兼容）；套餐商品清单与方案饮品管理统一走「本地菜单库模糊搜索 + 多选 + 批量加入」交互（套餐原城市→门店→SPU→SKU 三级在线菜单级联选品废弃，在线浏览仍在菜单库页面）
+- **方案 CRUD 规范对齐套餐**：`POST /decision/order-plans/{id}/toggle-enabled`（仅翻转 enabled，层级/饮品原样保留——替代原前端全量 PUT 翻转，其 payload 缺 drink_info 必填字段必 422 且漏 drinks 会清空关联）；create/update/delete 补 audit+oplog 打标；列表 `GET /decision/order-plans?keyword=&enabled=&page=&page_size=`（响应加 total，缺省 page_size=100 保证工作台全量）
+- **前端共享资产**：`constants/decision.js`（MATCH_TYPES 四枚举 + PLAN_STRATEGIES，三页唯一出处）、`components/MenuSkuPicker.vue`（选品器）、`components/CouponRuleFields.vue`（规则字段组）；套餐与方案编辑弹窗均 Tab 化同构（基础信息 / 明细管理），校验失败自动切回基础 Tab
+
+## 13. 套餐并入下单方案体系（2026-09-29；绑定子功能当日按用户决策移除）
+
+套餐配置功能的管理入口整体整合至下单方案系统，独立页面下线；**方案与套餐保持正交**（套餐管接单范围、方案管选券策略，decide 各自独立生效）：
+
+- **入口收编**：前端菜单/路由移除「套餐配置」（/decision/packets 下线，直达 URL 由通配符重定向仪表盘）；PacketConfigView.vue 删除，套餐 CRUD（列表/搜索/开放开关/新增/编辑/删除 + 商品与券规则弹窗）整体迁入下单方案页「套餐库」页签。套餐 REST 端点（/packets CRUD + toggle-open）原样保留——仅前端入口合并，API 兼容不变
+- ~~方案绑定套餐（order_plans.packet_id，decide 绑定优先/冲突 422/删除防悬挂）~~ **已移除（2026-09-29 用户决策）**：绑定后套餐商品白名单与方案饮品白名单为 AND 关系，空交集会使方案永久接不了单（两道 422 各说各话、保存时无交集校验的配置陷阱），且绑定提示语「以套餐为准」与饮品白名单独立生效的真实语义有偏差。移除后：OrderPlan 无 packet_id 字段（旧库列残留无害）、decide 恢复「body.packet_id 指定 / 自动匹配」二元逻辑、套餐恢复自由删除、方案编辑弹窗与列表无绑定相关 UI。如未来重引入，须先解决两白名单的交集校验与语义主从问题

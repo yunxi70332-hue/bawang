@@ -14,6 +14,8 @@
           profit-report（成单/未成单/blocked 口径 + date-only 与 datetime 双格式）、
           orders create 的 decision_log_id 成单回填、viewer 403
   - dashboard_stats profit 域聚合与零值 fail-soft
+  - 同类功能合并（契约 §12）：rule_satisfied 统一判定矩阵、sku-search 共享端点双路由、
+          套餐 item 券规则 face_value、方案 toggle-enabled 保数据 + 审计打标、列表过滤
 
 要点（与 test_orders_offline.py / test_menu_spec_offline.py 同模式）：
   - 先把 database.DB_PATH 指向 data/test_decision.db 并重建 engine，再 import app
@@ -68,9 +70,9 @@ import seed  # noqa: E402
 from fastapi.testclient import TestClient  # noqa: E402
 
 import app as app_module  # noqa: E402
-from models import (ChageeAccount, CouponRecord, CouponUsageLog, DecisionLog,  # noqa: E402
-                    OrderPlan, OrderPlanCouponPriority, OrderPlanDrink, OrderRecord,
-                    PacketConfig,
+from models import (AuditLog, ChageeAccount, CouponRecord, CouponUsageLog,  # noqa: E402
+                    DecisionLog, OrderPlan, OrderPlanCouponPriority,
+                    OrderPlanDrink, OrderRecord, PacketConfig,
                     Role, SystemUser, VoucherCostCategory, VoucherCostRule)
 from security import hash_password  # noqa: E402
 from services import chagee_bridge as bridge  # noqa: E402
@@ -1429,6 +1431,143 @@ def test_26_plan_drink_management():
     with _db() as db:
         assert db.query(OrderPlanDrink).count() == 0   # 级联删除
     _clear_decision_domain()
+
+
+def test_27_module_merge_unification():
+    """同类功能合并（§12）：rule_satisfied 统一判定 / sku-search 共享端点 /
+    套餐 item 券规则 face_value（结构对齐方案层级）/ toggle-enabled 保数据 /
+    方案 CRUD 审计打标 / 列表过滤。"""
+    _clear_decision_domain()
+    with _db() as db:
+        db.query(CouponRecord).delete()
+        db.commit()
+    h = _auth()
+
+    # ---- ① rule_satisfied 纯函数矩阵（四调用点共用的单条规则判定） ----
+    rec = {"template_name": "霸王茶姬20元代金券-DT", "benefit_text": "20元",
+           "coupon_code": "D-FACE-20", "amount": "20"}
+    assert dsvc.rule_satisfied(None, rec) is True                       # 无规则=不限
+    assert dsvc.rule_satisfied({}, rec) is True                         # 空规则=不限
+    assert dsvc.rule_satisfied({"match_type": "template_contains",
+                                "match_value": ""}, rec) is True        # 空匹配值=放行
+    assert dsvc.rule_satisfied({"match_type": "template_contains",
+                                "match_value": "代金券"}, rec) is True
+    assert dsvc.rule_satisfied({"match_type": "template_exact",
+                                "match_value": "霸王茶姬20元代金券-DT"}, rec) is True
+    assert dsvc.rule_satisfied({"match_type": "benefit_regex",
+                                "match_value": r"(\d+)元代金券"}, rec) is True
+    assert dsvc.rule_satisfied({"match_type": "coupon_prefix",
+                                "match_value": "D-FACE"}, rec) is True
+    assert dsvc.rule_satisfied({"match_type": "template_contains",
+                                "match_value": "不存在"}, rec) is False
+    # 面额校验：非空须等于券面额；face 参数覆盖（优先级层 amount 缺失回退解析面额场景）
+    assert dsvc.rule_satisfied({"match_type": "template_contains", "match_value": "代金券",
+                                "face_value": "20"}, rec) is True
+    assert dsvc.rule_satisfied({"match_type": "template_contains", "match_value": "代金券",
+                                "face_value": "10"}, rec) is False
+    assert dsvc.rule_satisfied({"match_type": "template_contains", "match_value": "代金券",
+                                "face_value": "10"}, rec, face=Decimal("10")) is True
+    no_amount = {"template_name": "生日券", "coupon_code": "X-1"}
+    assert dsvc.rule_satisfied({"match_type": "template_contains", "match_value": "生日",
+                                "face_value": "5"}, no_amount) is False   # 面额不可知→不命中
+    assert dsvc.rule_satisfied({"match_type": "benefit_regex", "match_value": "(["},  # 非法 regex
+                               rec) is False
+
+    # ---- ② sku-search 共享端点：与旧 plan-drinks/search 同构，空 keyword 422 ----
+    # 先发一次 decide 让本地菜单库 menu_goods_cache 回源填充（冷启动兜底，已热则幂等）
+    CLIENT.post("/api/ops/orders/decide", headers=h, json={
+        "sku_id": BYJX_SKU_BIG, "quantity": 1, "spec_list": [], "store_no": STORE_NO,
+        "customer_price": "12.00"})
+    new = CLIENT.get("/api/ops/decision/sku-search", params={"keyword": "伯牙"}, headers=h)
+    old = CLIENT.get("/api/ops/decision/plan-drinks/search", params={"keyword": "伯牙"}, headers=h)
+    assert new.status_code == old.status_code == 200, (new.text, old.text)
+    assert new.json()["items"] == old.json()["items"]          # 双路由同一 handler
+    assert CLIENT.get("/api/ops/decision/sku-search", headers=h).status_code == 422
+
+    # ---- ③ 套餐 item 券规则 face_value（结构与方案优先级层统一 {match_type,match_value,face_value?}） ----
+    CLIENT.post("/api/ops/decision/cost-rules", headers=h, json={
+        "name": "代金券成本", "match_type": "template_contains", "match_value": "代金券",
+        "face_value": "", "cost_price": "8.00", "priority": 10, "enabled": True, "note": ""})
+    _add_coupon("D-FACE-20", "霸王茶姬20元代金券-DT", "20元", "20")
+    _add_coupon("D-FACE-10", "霸王茶姬10元代金券-DT", "10元", "10")
+    body = {"sku_id": BYJX_SKU_BIG, "quantity": 1, "spec_list": [], "store_no": STORE_NO,
+            "customer_price": "25.00"}
+    # 无规则：cost_first → 20 元券（成本 8）优于 10 元券（成本 8+补差 5=13）
+    d = CLIENT.post("/api/ops/orders/decide", json=body, headers=h).json()
+    assert d["coupon"]["coupon_code"] == "D-FACE-20", d
+    # 规则带 face_value=10：20 元券被面额校验滤除，改选 10 元券（rule_satisfied 统一判定）
+    pr = CLIENT.post("/api/ops/decision/packets", headers=h, json={
+        "name": "面额校验套餐", "min_order_amount": "5", "max_order_amount": "30",
+        "note": "",
+        "items": [{"spu_id": BYJX_SPU, "sku_id": BYJX_SKU_BIG, "product_name": "伯牙绝弦",
+                   "face_price": "20.00", "is_premium": False,
+                   "normal_coupon_rule": {"match_type": "template_contains",
+                                          "match_value": "代金券", "face_value": "10"}}]})
+    assert pr.status_code == 200, pr.text
+    d = CLIENT.post("/api/ops/orders/decide", json={**body, "packet_id": pr.json()["id"]},
+                    headers=h).json()
+    assert d["coupon"]["coupon_code"] == "D-FACE-10", d
+    # 旧格式规则（仅两键，无 face_value）兼容：不限面额 → 回到 20 元券
+    CLIENT.put(f"/api/ops/decision/packets/{pr.json()['id']}", headers=h, json={
+        "name": "面额校验套餐", "min_order_amount": "5", "max_order_amount": "30",
+        "note": "",
+        "items": [{"spu_id": BYJX_SPU, "sku_id": BYJX_SKU_BIG, "product_name": "伯牙绝弦",
+                   "face_price": "20.00", "is_premium": False,
+                   "normal_coupon_rule": {"match_type": "template_contains",
+                                          "match_value": "代金券"}}]})
+    d = CLIENT.post("/api/ops/orders/decide", json={**body, "packet_id": pr.json()["id"]},
+                    headers=h).json()
+    assert d["coupon"]["coupon_code"] == "D-FACE-20", d
+
+    # ---- ④ toggle-enabled：仅翻转 enabled，层级/饮品关联原样保留；404 ----
+    with _db() as db:   # 审计基线（test_25 也会写 plan 域审计，断言增量）
+        base_create = db.query(AuditLog).filter(
+            AuditLog.action == "decision.order_plan_create").count()
+        base_toggle = db.query(AuditLog).filter(
+            AuditLog.action == "decision.order_plan_toggle_enabled").count()
+    plan = CLIENT.post("/api/ops/decision/order-plans", headers=h, json={
+        "name": "合并验证方案", "strategy": "cost_first", "drink_info": "合并用例",
+        "priorities": [{"level": 1, "name": "DN", "match_type": "template_contains",
+                        "match_value": "代金券-DT", "face_value": ""}],
+        "drinks": [{"spu_id": BYJX_SPU, "sku_id": BYJX_SKU_BIG,
+                    "drink_name": "伯牙绝弦（大杯）", "face_price": "20"}]}).json()
+    t = CLIENT.post(f"/api/ops/decision/order-plans/{plan['id']}/toggle-enabled",
+                    headers=h)
+    assert t.status_code == 200, t.text
+    t = t.json()
+    assert t["enabled"] is False and t["priority_count"] == 1   # 层级/饮品未被清空
+    assert len(t["priorities"]) == 1 and len(t["drinks"]) == 1
+    t2 = CLIENT.post(f"/api/ops/decision/order-plans/{plan['id']}/toggle-enabled",
+                     headers=h).json()
+    assert t2["enabled"] is True and len(t2["drinks"]) == 1 and len(t2["priorities"]) == 1
+    assert CLIENT.post("/api/ops/decision/order-plans/99999/toggle-enabled",
+                       headers=h).status_code == 404
+    with _db() as db:   # create / toggle 审计留痕（与套餐 CRUD 同规范）
+        assert db.query(AuditLog).filter(
+            AuditLog.action == "decision.order_plan_create").count() == base_create + 1
+        assert db.query(AuditLog).filter(
+            AuditLog.action == "decision.order_plan_toggle_enabled").count() == base_toggle + 2
+
+    # ---- ⑤ 方案列表过滤（keyword/enabled + total，与套餐列表同构） ----
+    CLIENT.post("/api/ops/decision/order-plans", headers=h, json={
+        "name": "零元专用方案", "strategy": "zero_pay", "drink_info": "列表过滤用",
+        "priorities": [], "drinks": []})
+    allp = CLIENT.get("/api/ops/decision/order-plans", headers=h).json()
+    assert allp["total"] == 2 and len(allp["items"]) == 2
+    kw = CLIENT.get("/api/ops/decision/order-plans",
+                    params={"keyword": "零元"}, headers=h).json()
+    assert kw["total"] == 1 and kw["items"][0]["name"] == "零元专用方案"
+    off = CLIENT.post(f"/api/ops/decision/order-plans/{kw['items'][0]['id']}/toggle-enabled",
+                      headers=h).json()
+    assert off["enabled"] is False
+    en = CLIENT.get("/api/ops/decision/order-plans",
+                    params={"enabled": "false"}, headers=h).json()
+    assert en["total"] == 1 and en["items"][0]["name"] == "零元专用方案"
+    assert CLIENT.delete(f"/api/ops/decision/order-plans/{plan['id']}",
+                         headers=h).status_code == 200
+    _clear_decision_domain()
+
+
 
 
 def main() -> int:

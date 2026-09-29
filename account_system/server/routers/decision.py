@@ -739,6 +739,9 @@ def config_put(body: DecisionConfigRequest, request: Request,
 
 
 # ---------------- 下单方案：策略 + 券优先级层级（2026-09-29 §11） ----------------
+# 2026-09-29 合并优化：方案 CRUD 与套餐 CRUD 规范对齐——审计打标（log_audit/log_op）、
+# 独立 toggle-enabled 端点（修原「行内开关走全量 PUT」缺 drink_info 必填字段致 422
+# 静默失败、且 payload 漏 drinks 会清空饮品关联的缺陷）、列表 keyword/enabled 过滤。
 
 def _plan_priority_row(p: OrderPlanCouponPriority) -> dict:
     return {"id": p.id, "plan_id": p.plan_id, "level": p.level, "name": p.name,
@@ -761,6 +764,16 @@ def _plan_detail(plan: OrderPlan) -> dict:
     }
 
 
+def _check_plan_body(db: Session, body: OrderPlanRequest, exclude_id: int = 0):
+    """方案请求体校验：重名 400。"""
+    name = body.name.strip()
+    q = db.query(OrderPlan).filter(OrderPlan.name == name)
+    if exclude_id:
+        q = q.filter(OrderPlan.id != exclude_id)
+    if q.first():
+        raise HTTPException(400, f"方案名已存在：{name}")
+
+
 def _build_plan_drinks(plan: OrderPlan, drinks: list) -> None:
     seen: set[str] = set()
     for d in (drinks or []):
@@ -772,14 +785,15 @@ def _build_plan_drinks(plan: OrderPlan, drinks: list) -> None:
             drink_name=d.drink_name or "", face_price=d.face_price or ""))
 
 
-@router.get("/plan-drinks/search")
-def plan_drinks_search(keyword: str = Query(..., min_length=1, max_length=64),
-                       limit: int = Query(20, ge=1, le=50),
-                       db: Session = Depends(get_db),
-                       _: SystemUser = Depends(require_perm("decision:manage"))):
-    """饮品模糊搜索（饮品管理 Tab）：本地菜单库 menu_goods_cache 按 SPU 名 LIKE，
-    展开每个 SPU 的 sku_index 为可选行，按 sku_id 去重（跨门店同 sku 只出一行，
-    附首个命中门店）。实时反馈：前端输入防抖后调本端点。"""
+@router.get("/sku-search")
+@router.get("/plan-drinks/search")   # 旧路径保留兼容（契约 §11；方案饮品 Tab 原专用名）
+def sku_search(keyword: str = Query(..., min_length=1, max_length=64),
+               limit: int = Query(20, ge=1, le=50),
+               db: Session = Depends(get_db),
+               _: SystemUser = Depends(require_perm("decision:manage"))):
+    """SKU 模糊搜索（套餐商品 / 方案饮品共用，2026-09-29 合并优化）：本地菜单库
+    menu_goods_cache 按 SPU 名 LIKE，展开每个 SPU 的 sku_index 为可选行，按 sku_id
+    去重（跨门店同 sku 只出一行，附首个命中门店）。实时反馈：前端输入防抖后调本端点。"""
     like = f"%{keyword.strip()}%"
     rows = (db.query(MenuGoodsCache)
               .filter(MenuGoodsCache.spu_name.like(like),
@@ -824,18 +838,30 @@ _CN_ORDINAL = {1: "一", 2: "二", 3: "三", 4: "四", 5: "五", 6: "六", 7: "�
 
 
 @router.get("/order-plans")
-def order_plans_list(db: Session = Depends(get_db),
+def order_plans_list(keyword: str = Query("", max_length=64),
+                     enabled: bool | None = Query(None, description="启用状态过滤（缺省=全部）"),
+                     page: int = Query(1, ge=1),
+                     page_size: int = Query(100, ge=1, le=100),
+                     db: Session = Depends(get_db),
                      _: SystemUser = Depends(require_perm("decision:manage"))):
-    """方案列表（含优先级层级明细；decide/create 的工作台下拉也用此端点）。"""
-    plans = db.query(OrderPlan).order_by(OrderPlan.id).all()
-    return {"items": [_plan_detail(p) for p in plans]}
+    """方案列表（含优先级层级明细；decide/create 的工作台下拉也用此端点——
+    缺省 page_size=100 保证全量下发）。过滤参数与套餐列表对齐（合并优化）。"""
+    q = db.query(OrderPlan)
+    if keyword:
+        q = q.filter(OrderPlan.name.like(f"%{keyword}%"))
+    if enabled is not None:
+        q = q.filter(OrderPlan.enabled == enabled)
+    total = q.count()
+    rows = (q.order_by(OrderPlan.id)
+              .offset((page - 1) * page_size).limit(page_size).all())
+    return {"total": total, "items": [_plan_detail(p) for p in rows]}
 
 
 @router.post("/order-plans")
-def order_plan_create(body: OrderPlanRequest, db: Session = Depends(get_db),
-                      _: SystemUser = Depends(require_perm("decision:manage"))):
-    if db.query(OrderPlan).filter(OrderPlan.name == body.name.strip()).first():
-        raise HTTPException(400, f"方案名已存在：{body.name.strip()}")
+def order_plan_create(body: OrderPlanRequest, request: Request,
+                      db: Session = Depends(get_db),
+                      user: SystemUser = Depends(require_perm("decision:manage"))):
+    _check_plan_body(db, body)
     plan = OrderPlan(name=body.name.strip(), strategy=body.strategy,
                      drink_info=body.drink_info.strip(),
                      note=body.note or "", enabled=body.enabled)
@@ -843,20 +869,26 @@ def order_plan_create(body: OrderPlanRequest, db: Session = Depends(get_db),
     _build_plan_priorities(plan, body.priorities)
     db.add(plan)
     db.commit()
+    db.refresh(plan)
+    log_audit(db, request, user, "decision.order_plan_create", f"方案#{plan.id}",
+              {"name": plan.name, "strategy": plan.strategy,
+               "priorities": len(plan.priorities or []),
+               "drinks": len(plan.drinks or [])})
+    log_op(action="decision.order_plan_create", actor=user.username, target=f"方案#{plan.id}",
+           params={"name": plan.name, "strategy": plan.strategy,
+                   "priorities": len(plan.priorities or []),
+                   "drinks": len(plan.drinks or [])})
     return _plan_detail(plan)
 
 
 @router.put("/order-plans/{plan_id}")
-def order_plan_update(plan_id: int, body: OrderPlanRequest,
+def order_plan_update(plan_id: int, body: OrderPlanRequest, request: Request,
                       db: Session = Depends(get_db),
-                      _: SystemUser = Depends(require_perm("decision:manage"))):
+                      user: SystemUser = Depends(require_perm("decision:manage"))):
     plan = db.get(OrderPlan, plan_id)
     if plan is None:
         raise HTTPException(404, "方案不存在")
-    dup = db.query(OrderPlan).filter(OrderPlan.name == body.name.strip(),
-                                     OrderPlan.id != plan_id).first()
-    if dup:
-        raise HTTPException(400, f"方案名已存在：{body.name.strip()}")
+    _check_plan_body(db, body, exclude_id=plan_id)
     plan.name = body.name.strip()
     plan.strategy = body.strategy
     plan.drink_info = body.drink_info.strip()
@@ -869,17 +901,51 @@ def order_plan_update(plan_id: int, body: OrderPlanRequest,
     _build_plan_drinks(plan, body.drinks)
     _build_plan_priorities(plan, body.priorities)
     db.commit()
+    db.refresh(plan)
+    log_audit(db, request, user, "decision.order_plan_update", f"方案#{plan.id}",
+              {"name": plan.name, "strategy": plan.strategy,
+               "priorities": len(plan.priorities or []),
+               "drinks": len(plan.drinks or [])})
+    log_op(action="decision.order_plan_update", actor=user.username, target=f"方案#{plan.id}",
+           params={"name": plan.name, "strategy": plan.strategy,
+                   "priorities": len(plan.priorities or []),
+                   "drinks": len(plan.drinks or [])})
+    return _plan_detail(plan)
+
+
+@router.post("/order-plans/{plan_id}/toggle-enabled")
+def order_plan_toggle_enabled(plan_id: int, request: Request,
+                              db: Session = Depends(get_db),
+                              user: SystemUser = Depends(require_perm("decision:manage"))):
+    """方案启用开关（与套餐 toggle-open 同构）：仅翻转 enabled，priorities/drinks
+    原样保留——替代前端原「全量 PUT」翻转（payload 缺 drink_info 必填必 422，
+    且漏 drinks 会清空饮品关联）。"""
+    plan = db.get(OrderPlan, plan_id)
+    if plan is None:
+        raise HTTPException(404, "方案不存在")
+    plan.enabled = not bool(plan.enabled)
+    db.commit()
+    db.refresh(plan)
+    log_audit(db, request, user, "decision.order_plan_toggle_enabled", f"方案#{plan.id}",
+              {"enabled": plan.enabled})
+    log_op(action="decision.order_plan_toggle_enabled", actor=user.username,
+           target=f"方案#{plan.id}", params={"enabled": plan.enabled})
     return _plan_detail(plan)
 
 
 @router.delete("/order-plans/{plan_id}")
-def order_plan_delete(plan_id: int, db: Session = Depends(get_db),
-                      _: SystemUser = Depends(require_perm("decision:manage"))):
+def order_plan_delete(plan_id: int, request: Request, db: Session = Depends(get_db),
+                      user: SystemUser = Depends(require_perm("decision:manage"))):
     plan = db.get(OrderPlan, plan_id)
     if plan is None:
         raise HTTPException(404, "方案不存在")
-    db.delete(plan)   # priorities 随 cascade 删除
+    name = plan.name
+    db.delete(plan)   # priorities / drinks 随 cascade 删除
     db.commit()
+    log_audit(db, request, user, "decision.order_plan_delete", f"方案#{plan_id}",
+              {"name": name})
+    log_op(action="decision.order_plan_delete", actor=user.username,
+           target=f"方案#{plan_id}", params={"name": name})
     return {"ok": True}
 
 
@@ -1006,40 +1072,8 @@ def decision_logs(
 
 
 # ---------------- decide 决策评估（POST /api/ops/orders/decide） ----------------
-
-def _item_rule_hit(rule: dict | None, record: CouponRecord) -> bool:
-    """套餐 item 券规则过滤（匹配语义与 resolve_cost 一致）：rule 为 null=不限；
-    match_type 四类（template_exact/template_contains/benefit_regex/coupon_prefix），
-    face_value 非空须等于券面额；任何异常（regex 非法等）视为不命中。"""
-    if not rule:
-        return True
-    try:
-        match_type = str(rule.get("match_type") or "")
-        match_value = str(rule.get("match_value") or "")
-        if not match_value:
-            return True
-        template_name = str(record.template_name or "")
-        if match_type == "template_exact":
-            hit = template_name == match_value
-        elif match_type == "template_contains":
-            hit = match_value in template_name
-        elif match_type == "benefit_regex":
-            hit = bool(re.search(match_value, f"{template_name} {record.benefit_text or ''}"))
-        elif match_type == "coupon_prefix":
-            hit = str(record.coupon_code or "").startswith(match_value)
-        else:
-            hit = False
-        if not hit:
-            return False
-        face_check = str(rule.get("face_value") or "").strip()
-        if face_check:
-            face = _to_dec_or_none(record.amount)
-            if face is None or _to_dec(face_check) != face:
-                return False
-        return True
-    except Exception:
-        return False
-
+# 套餐 item 券规则过滤统一走 services.decision.rule_satisfied（2026-09-29 合并优化：
+# 原本文件内 _item_rule_hit 与 resolve_cost/_match_hit 重复实现四类匹配+面额校验）
 
 def _settle_probe_total(account: ChageeAccount, target: dict,
                         username: str) -> Decimal | None:
@@ -1082,7 +1116,8 @@ def orders_decide(body: DecideRequest, request: Request,
                  or [dict(s) for s in (hit.get("specs") or [])])
     attribute_list = (spec_res or {}).get("attribute_list") or []
 
-    # ③ 套餐命中：价格区间 + 时段 + 商品圈定；packet_id 指定时校验其在命中集内
+    # ③ 套餐命中：价格区间 + 时段 + 商品圈定；packet_id 指定时校验其在命中集内。
+    #    方案与套餐不做绑定（§13 绑定功能已移除），两者正交：套餐管接单范围，方案管选券策略
     packets = db.query(PacketConfig).order_by(PacketConfig.id).all()
     matched = decision_svc.match_packets(packets, body.sku_id, revenue, datetime.now())
     packet = None
@@ -1130,10 +1165,12 @@ def orders_decide(body: DecideRequest, request: Request,
                            "use_end_time": r.use_end_time})   # 临期排序因子（§10 第③级）
 
     # ⑥ 套餐 item 券规则过滤：is_premium 商品只留 premium 规则命中者，规则 null=不限
+    #    （判定统一走 decision_svc.rule_satisfied，与成本规则/子类/优先级层同一实现）
     if item is not None:
         rule = item.premium_coupon_rule if item.is_premium else item.normal_coupon_rule
         if rule:
-            candidates = [c for c in candidates if _item_rule_hit(rule, c["record"])]
+            candidates = [c for c in candidates
+                          if decision_svc.rule_satisfied(rule, c["record"])]
 
     # 阈值来源：套餐级 min_profit / max_order_cost 任一非空即视为套餐覆盖（source=packet）；
     # min_margin 恒取全局

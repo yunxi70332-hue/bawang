@@ -288,17 +288,10 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import { Plus, Refresh, Upload } from '@element-plus/icons-vue'
 import { apiDecision } from '../api'
 import { fmtTime } from '../utils/format'
+/* 匹配方式（契约 §1 match_type 四枚举）：决策域共享常量（三页统一出处） */
+import { MATCH_TYPES, matchLabel } from '../constants/decision'
 
 const router = useRouter()
-
-/* 匹配方式（契约 §1 match_type 四枚举） */
-const MATCH_TYPES = [
-  { value: 'template_exact', label: '券名精确', placeholder: '完整券名，如：伯牙绝弦兑换券', hint: 'template_name 完全相等才命中' },
-  { value: 'template_contains', label: '券名包含', placeholder: '券名子串，如：代金券', hint: 'template_name 包含该子串即命中' },
-  { value: 'benefit_regex', label: '权益正则', placeholder: '正则表达式，如：满\\d+减(\\d+)', hint: '对 券名+权益文本 做 re.search' },
-  { value: 'coupon_prefix', label: '券码前缀', placeholder: '券码前缀，如：CKKQ', hint: '券码以该前缀开头即命中' },
-]
-const matchLabel = (t) => MATCH_TYPES.find((m) => m.value === t)?.label || t
 
 /* 业务类型（biz_type 四枚举）：paid=采购付费 / free=活动免费 / bank=银行渠道 / other=其他 */
 const BIZ_TYPES = [
