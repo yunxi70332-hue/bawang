@@ -49,3 +49,6 @@ account_system/data/proxy_config.json
 # 测试重定向配置与手工 DB 备份产物
 account_system/data/test_*.json
 account_system/data/*.bak_*
+
+# MCP 直连辅助与响应缓存（含 api_token，绝不入库）
+output/mcp/
