@@ -69,12 +69,9 @@ _KEY_PATH_RULES = (
 DEFAULT_CONFIG = {
     "enabled": False,
     "mode": "api",                      # api | manual
-    # 默认预置海量IP提取 API（dataType=0 JSON；白名单已含本机，业务域名授权联系客服——见 docs/proxy_settings.md）
-    "api_url": ("https://api.hailiangip.com:8522/api/getIpEncrypt?dataType=0&encryptParam="
-                "7BYsDsYKbGv0BaoQFxmvol9Us1orfZv0v4JkZlFO3zxHXuvLm%2B3L9xWaasGPtq4T9RzMa0E8"
-                "COqpZOssrnsaGzSxFCADtJpgp7jkhyl1nWq5R4usjVDHfjH8v%2FIRwInaHpvqjqmzSAQDEK2m"
-                "XZB7xLobLujQ776yCQMXaDvLF8ZYDcvC%2FeTFVDIQgCd6Bl9z0AOtabf92lu9Nd5cdhcIj9TX"
-                "dJz%2BFe7XNmfGghK3pfs%3D"),
+    # 海量IP 提取 API 地址**不再硬编码**（凭证不入代码/仓库/发布包）：
+    # 配置写入 data/proxy_config.json（已 .gitignore），经系统设置页或手工落盘
+    "api_url": "",
     "api_format": "json",               # txt | json（txt 每行/逗号分隔 ip:port[:user:pass]）
     "protocol": "http",                 # http(HTTP/HTTPS代理) | socks5
     "username": "",
