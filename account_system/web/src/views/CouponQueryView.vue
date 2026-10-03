@@ -108,7 +108,9 @@
                 </template>
               </el-table-column>
               <el-table-column v-if="mode === 'all'" label="账号" min-width="120">
-                <template #default="{ row }">{{ row.account_label || '—' }}</template>
+                <template #default="{ row }">
+                  <span :class="accountPhoneMap.get(row.account_id) ? 'mono' : ''">{{ accountPhoneMap.get(row.account_id) || row.account_label || '—' }}</span>
+                </template>
               </el-table-column>
               <el-table-column prop="templateName" label="名称" min-width="190">
                 <template #default="{ row }">
@@ -151,8 +153,9 @@
               </el-table-column>
             </el-table>
             <div class="pager-row">
-              <el-pagination v-model:current-page="livePage" :page-size="livePageSize" :total="filteredCoupons.length"
-                layout="total, prev, pager, next" background small />
+              <el-pagination v-model:current-page="livePage" v-model:page-size="livePageSize"
+                :page-sizes="PAGE_SIZES" :total="filteredCoupons.length"
+                layout="total, sizes, prev, pager, next" background small @size-change="onLiveSizeChange" />
             </div>
           </el-tab-pane>
 
@@ -248,8 +251,10 @@
               </el-table-column>
             </el-table>
             <div class="pager-row">
-              <el-pagination v-model:current-page="archivePage" :page-size="archivePageSize" :total="archiveTotal || 0"
-                layout="total, prev, pager, next" background small @current-change="searchArchive" />
+              <el-pagination v-model:current-page="archivePage" v-model:page-size="archivePageSize"
+                :page-sizes="PAGE_SIZES" :total="archiveTotal || 0"
+                layout="total, sizes, prev, pager, next" background small
+                @current-change="searchArchive" @size-change="onArchiveSizeChange" />
             </div>
           </el-tab-pane>
         </el-tabs>
@@ -286,6 +291,8 @@ const router = useRouter()
 const bizTag = (t) => ({ paid: 'warning', free: 'success', bank: 'primary', other: 'info' }[t] || 'info')
 
 const accounts = ref([])
+// 账号 id → 手机号：明细表「账号」列显示具体手机号（后端券条目只带 account_id/label）
+const accountPhoneMap = computed(() => new Map(accounts.value.map((a) => [a.id, a.phone_masked])))
 const accountId = ref(null)
 const loadingAll = ref(false)
 const loadingOne = ref(false)
@@ -293,11 +300,26 @@ const result = ref(null)
 const mode = ref('all')            // all=全量遍历 / one=单账号
 const lastSyncError = ref('')
 
+/* 每页条数选项与本地记忆：选择后写入 localStorage，刷新/跳转后仍保持（需求：选择状态持久化） */
+const PAGE_SIZES = [20, 50]
+const LIVE_SIZE_KEY = 'chagee.couponQuery.livePageSize'
+const ARCHIVE_SIZE_KEY = 'chagee.couponQuery.archivePageSize'
+
+function loadPageSize(key) {
+  const v = Number(localStorage.getItem(key))
+  return PAGE_SIZES.includes(v) ? v : 20
+}
+
 // ---- 本次查询明细：本地多维度模糊过滤 ----
 const keyword = ref('')
 const searchField = ref('all')
 const livePage = ref(1)
-const livePageSize = 20
+const livePageSize = ref(loadPageSize(LIVE_SIZE_KEY))
+
+function onLiveSizeChange() {
+  livePage.value = 1   // 切换每页条数后回到第 1 页，避免停留在越界页码
+  localStorage.setItem(LIVE_SIZE_KEY, String(livePageSize.value))
+}
 
 function fieldText(row, field) {
   switch (field) {
@@ -318,7 +340,7 @@ const filteredCoupons = computed(() => {
 })
 
 const pagedLive = computed(() =>
-  filteredCoupons.value.slice((livePage.value - 1) * livePageSize, livePage.value * livePageSize))
+  filteredCoupons.value.slice((livePage.value - 1) * livePageSize.value, livePage.value * livePageSize.value))
 
 const byTypeRows = computed(() =>
   Object.entries(result.value?.summary?.by_type || {}).map(([type, c]) => ({
@@ -336,7 +358,13 @@ const archiveTotal = ref(null)
 const archiveStats = ref({ effective: 0, historical: 0, settle_available: 0, used: 0 })
 const archiveLoading = ref(false)
 const archivePage = ref(1)
-const archivePageSize = 20
+const archivePageSize = ref(loadPageSize(ARCHIVE_SIZE_KEY))
+
+function onArchiveSizeChange() {
+  archivePage.value = 1   // 切换每页条数后回到第 1 页并按新条数重新加载
+  localStorage.setItem(ARCHIVE_SIZE_KEY, String(archivePageSize.value))
+  searchArchive()
+}
 
 // ---- 成本子类筛选（fail-soft：接口不可用时静默隐藏该筛选，不弹错误） ----
 const costCategories = ref([])
@@ -353,26 +381,30 @@ async function loadCostCategories() {
   }
 }
 
+let archiveReqSeq = 0   // 请求序号：快速切换每页条数/翻页时丢弃过期响应，防止旧数据覆盖新状态
+
 async function searchArchive() {
   archiveLoading.value = true
+  const seq = ++archiveReqSeq
   try {
     const params = {
       keyword: archiveKeyword.value.trim(),
       bucket: archiveBucket.value,
       scene: archiveScene.value,
       page: archivePage.value,
-      page_size: archivePageSize,
+      page_size: archivePageSize.value,
     }
     // 子类筛选约定：'' 不传参 / -1=未分类 / 其他=子类 id（-1 由后端联调对齐）
     if (archiveCategory.value !== '' && archiveCategory.value !== null && archiveCategory.value !== undefined) {
       params.cost_category = archiveCategory.value
     }
     const data = await apiOps.couponsSearch(params)
+    if (seq !== archiveReqSeq) return   // 已发出更新的请求，本次响应作废
     archiveItems.value = data.items
     archiveTotal.value = data.total
     archiveStats.value = data.stats
   } finally {
-    archiveLoading.value = false
+    if (seq === archiveReqSeq) archiveLoading.value = false
   }
 }
 
